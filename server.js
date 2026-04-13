@@ -26,6 +26,8 @@ app.set('views', path.join(__dirname, 'views'));
 
 // ─── Static Files ────────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
+// Serve premium/addressable game assets (extracted ZIPs in uploads/games/premium)
+app.use('/games/premium', express.static(path.join(__dirname, 'uploads', 'games', 'premium')));
 
 // ─── Body Parsers ────────────────────────────────────────────────────────────
 app.use(express.urlencoded({ extended: true }));
