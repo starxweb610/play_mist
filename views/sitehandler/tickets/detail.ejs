@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Ticket #<%= ticket.id %></h2>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <span class="badge badge--<%= ticket.priority %>"><%= ticket.priority %></span>
+          <span class="badge badge--<%= ticket.status.replace('_','-') %>"><%= ticket.status.replace('_',' ') %></span>
+          <span class="text-dim text-sm">by <%= ticket.player || 'Unknown Player' %></span>
+        </div>
+      </div>
+      <a href="/sitehandler/tickets" class="btn-admin-ghost">← All Tickets</a>
+    </div>
+
+    <div class="detail-layout">
+      <div class="detail-main">
+
+        <!-- Original Message -->
+        <div class="form-card">
+          <div class="ticket-meta">
+            <strong><%= ticket.player || 'Player' %></strong>
+            <span class="text-dim text-sm"><%= new Date(ticket.created_at).toLocaleString() %></span>
+          </div>
+          <h3 class="ticket-subject"><%= ticket.subject %></h3>
+          <div class="ticket-message"><%= ticket.message %></div>
+        </div>
+
+        <!-- Replies -->
+        <% if (replies.length > 0) { %>
+          <div class="replies-thread">
+            <% replies.forEach(r => { %>
+              <div class="reply-card reply-card--admin">
+                <div class="reply-header">
+                  <div class="reply-avatar"><%= r.admin_name ? r.admin_name.charAt(0) : 'A' %></div>
+                  <div>
+                    <strong><%= r.admin_name || 'Admin' %></strong>
+                    <span class="text-dim text-sm"> · <%= new Date(r.created_at).toLocaleString() %></span>
+                  </div>
+                </div>
+                <div class="reply-body"><%= r.message %></div>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+
+        <!-- Reply Form -->
+        <% if (ticket.status !== 'closed') { %>
+          <div class="form-card">
+            <h3 class="form-card-title">Send Reply</h3>
+            <form action="/sitehandler/tickets/<%= ticket.id %>/reply" method="POST">
+              <div class="form-group">
+                <textarea name="message" class="form-input form-textarea" rows="4"
+                  placeholder="Type your reply..." required></textarea>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn-admin-primary">Send Reply</button>
+              </div>
+            </form>
+          </div>
+        <% } %>
+
+      </div><!-- /detail-main -->
+
+      <!-- Sidebar -->
+      <div class="detail-sidebar">
+
+        <!-- Update Status -->
+        <div class="form-card">
+          <h3 class="form-card-title">Update Status</h3>
+          <form action="/sitehandler/tickets/<%= ticket.id %>/status" method="POST">
+            <select name="status" class="form-input" style="margin-bottom:10px">
+              <option value="open"        <%= ticket.status === 'open'        ? 'selected' : '' %>>Open</option>
+              <option value="in_progress" <%= ticket.status === 'in_progress' ? 'selected' : '' %>>In Progress</option>
+              <option value="resolved"    <%= ticket.status === 'resolved'    ? 'selected' : '' %>>Resolved</option>
+              <option value="closed"      <%= ticket.status === 'closed'      ? 'selected' : '' %>>Closed</option>
+            </select>
+            <button type="submit" class="btn-admin-primary" style="width:100%">Update</button>
+          </form>
+        </div>
+
+        <!-- Assign -->
+        <div class="form-card">
+          <h3 class="form-card-title">Assign To</h3>
+          <form action="/sitehandler/tickets/<%= ticket.id %>/assign" method="POST">
+            <select name="assigned_to" class="form-input" style="margin-bottom:10px">
+              <option value="">Unassigned</option>
+              <% admins.forEach(a => { %>
+                <option value="<%= a.id %>" <%= ticket.assigned_to == a.id ? 'selected' : '' %>><%= a.name %></option>
+              <% }) %>
+            </select>
+            <button type="submit" class="btn-admin-primary" style="width:100%">Assign</button>
+          </form>
+        </div>
+
+        <!-- Player Info -->
+        <div class="form-card">
+          <h3 class="form-card-title">Player Info</h3>
+          <div class="info-rows">
+            <div class="info-row"><span>Username</span><span><%= ticket.player || '—' %></span></div>
+            <div class="info-row"><span>Email</span><span><%= ticket.player_email || '—' %></span></div>
+            <div class="info-row"><span>Submitted</span><span><%= new Date(ticket.created_at).toLocaleDateString() %></span></div>
+            <div class="info-row"><span>Last Updated</span><span><%= new Date(ticket.updated_at).toLocaleDateString() %></span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+</div>
+<script src="/sitehandler/js/admin.js"></script>
+</body>
+</html>

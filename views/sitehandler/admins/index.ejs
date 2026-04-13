@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Admin Accounts</h2>
+        <p class="page-subheading">Manage who has access to this panel and their permissions.</p>
+      </div>
+      <button class="btn-admin-primary" id="showCreateForm">+ Add Admin</button>
+    </div>
+
+    <!-- Create Admin Form (hidden by default) -->
+    <div class="form-card" id="createForm" style="display:none;max-width:700px;margin-bottom:24px">
+      <h3 class="form-card-title">Create New Admin</h3>
+      <form action="/sitehandler/admins/create" method="POST" novalidate>
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label">Username <span class="req">*</span></label>
+            <input type="text" name="username" class="form-input" required placeholder="johndoe" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Display Name <span class="req">*</span></label>
+            <input type="text" name="name" class="form-input" required placeholder="John Doe" />
+          </div>
+        </div>
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-input" placeholder="john@playmist.app" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Role <span class="req">*</span></label>
+            <select name="role" class="form-input" required>
+              <option value="support">Support</option>
+              <option value="manager">Manager</option>
+              <option value="superadmin">Superadmin</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password <span class="req">*</span></label>
+          <input type="password" name="password" class="form-input" required minlength="8" placeholder="Min 8 characters" />
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-admin-primary">Create Admin</button>
+          <button type="button" class="btn-admin-ghost" id="cancelCreate">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Admins Table -->
+    <% if (admins.length > 0) { %>
+      <div class="data-table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr><th>Admin</th><th>Role</th><th>Email</th><th>Status</th><th>Last Login</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            <% admins.forEach(a => { %>
+              <tr>
+                <td>
+                  <div class="game-title-cell">
+                    <div class="admin-avatar-sm"><%= a.name.charAt(0).toUpperCase() %></div>
+                    <div>
+                      <div class="fw-600"><%= a.name %></div>
+                      <div class="text-dim text-sm">@<%= a.username %></div>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="badge badge--role badge--<%= a.role %>"><%= a.role %></span></td>
+                <td class="text-sm"><%= a.email || '—' %></td>
+                <td>
+                  <% if (a.id == admin.id) { %>
+                    <span class="badge badge--active">You</span>
+                  <% } else { %>
+                    <span class="badge <%= a.is_active ? 'badge--active' : 'badge--inactive' %>"><%= a.is_active ? 'Active' : 'Inactive' %></span>
+                  <% } %>
+                </td>
+                <td class="text-sm text-dim"><%= a.last_login ? new Date(a.last_login).toLocaleDateString() : 'Never' %></td>
+                <td>
+                  <% if (a.id != admin.id) { %>
+                    <div class="action-btns">
+                      <form action="/sitehandler/admins/<%= a.id %>/toggle" method="POST" style="display:inline">
+                        <button type="submit" class="action-btn"><%= a.is_active ? 'Deactivate' : 'Activate' %></button>
+                      </form>
+                      <form action="/sitehandler/admins/<%= a.id %>/delete" method="POST" style="display:inline">
+                        <button type="submit" class="action-btn action-btn--danger"
+                          data-confirm="Delete admin '<%= a.name %>'? This cannot be undone.">Delete</button>
+                      </form>
+                    </div>
+                  <% } else { %>
+                    <span class="text-dim text-sm">Current user</span>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+
+  </main>
+</div>
+<script src="/sitehandler/js/admin.js"></script>
+<script>
+  const showBtn    = document.getElementById('showCreateForm');
+  const form       = document.getElementById('createForm');
+  const cancelBtn  = document.getElementById('cancelCreate');
+  showBtn.addEventListener('click', () => { form.style.display = 'block'; showBtn.style.display = 'none'; });
+  cancelBtn.addEventListener('click', () => { form.style.display = 'none'; showBtn.style.display = ''; });
+</script>
+</body>
+</html>

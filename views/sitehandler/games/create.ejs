@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Upload New Game</h2>
+        <p class="page-subheading">Fill in the basic info to get started. You can upload game files on the next step.</p>
+      </div>
+      <a href="/sitehandler/games" class="btn-admin-ghost">← Back to Games</a>
+    </div>
+
+    <div class="form-card" style="max-width:720px">
+      <form action="/sitehandler/games/create" method="POST" novalidate id="createGameForm">
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label">Game Title <span class="req">*</span></label>
+            <input type="text" name="title" class="form-input" required maxlength="200" placeholder="e.g. Temple Dash" id="titleInput" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Genre <span class="req">*</span></label>
+            <select name="genre" class="form-input" required>
+              <option value="">Select genre...</option>
+              <% GENRES.forEach(g => { %>
+                <option value="<%= g %>"><%= g %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label">Game Type <span class="req">*</span></label>
+            <div class="radio-cards">
+              <label class="radio-card">
+                <input type="radio" name="type" value="webgl" checked />
+                <span class="rc-body">
+                  <span class="rc-icon">⚡</span>
+                  <span class="rc-title">WebGL Game</span>
+                  <span class="rc-sub">Instant play in-app browser</span>
+                </span>
+              </label>
+              <label class="radio-card">
+                <input type="radio" name="type" value="premium" />
+                <span class="rc-body">
+                  <span class="rc-icon">👑</span>
+                  <span class="rc-title">Premium Game</span>
+                  <span class="rc-sub">Unity addressables, offline play</span>
+                </span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Orientation <span class="req">*</span></label>
+            <div class="radio-cards">
+              <label class="radio-card">
+                <input type="radio" name="orientation" value="landscape" checked />
+                <span class="rc-body">
+                  <span class="rc-icon">🖥️</span>
+                  <span class="rc-title">Landscape</span>
+                </span>
+              </label>
+              <label class="radio-card">
+                <input type="radio" name="orientation" value="portrait" />
+                <span class="rc-body">
+                  <span class="rc-icon">📱</span>
+                  <span class="rc-title">Portrait</span>
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            Short Description <span class="req">*</span>
+            <span class="char-counter" id="descCounter">0 / 200</span>
+          </label>
+          <textarea name="short_description" class="form-input form-textarea" required maxlength="200"
+            rows="3" placeholder="Describe the game in a sentence or two..." id="descTextarea"></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-admin-primary">Create Game & Continue →</button>
+          <a href="/sitehandler/games" class="btn-admin-ghost">Cancel</a>
+        </div>
+      </form>
+    </div>
+
+  </main>
+</div>
+<script src="/sitehandler/js/admin.js"></script>
+<script>
+  // Char counter
+  const ta = document.getElementById('descTextarea');
+  const counter = document.getElementById('descCounter');
+  ta.addEventListener('input', () => {
+    counter.textContent = `${ta.value.length} / 200`;
+    counter.style.color = ta.value.length > 180 ? '#f59e0b' : '';
+  });
+
+  // Radio card visual selection
+  document.querySelectorAll('.radio-card input[type="radio"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      document.querySelectorAll(`.radio-card input[name="${radio.name}"]`).forEach(r => {
+        r.closest('.radio-card').classList.toggle('selected', r.checked);
+      });
+    });
+    if (radio.checked) radio.closest('.radio-card').classList.add('selected');
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div>
+          <h2 class="page-heading"><%= game.title %></h2>
+          <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
+            <span class="badge badge--<%= game.type %>"><%= game.type.toUpperCase() %></span>
+            <span class="badge badge--orient"><%= game.orientation %></span>
+            <span class="badge <%= game.is_active ? 'badge--active' : 'badge--inactive' %>"><%= game.is_active ? 'Active' : 'Draft' %></span>
+            <span class="text-dim text-sm">/<%= game.slug %></span>
+          </div>
+        </div>
+      </div>
+      <div class="page-header-actions">
+        <% if (game.type === 'webgl' && game.play_url) { %>
+          <a href="<%= game.play_url %>" target="_blank" class="btn-admin-primary">▶ Test Game</a>
+        <% } %>
+        <a href="/sitehandler/games" class="btn-admin-ghost">← All Games</a>
+      </div>
+    </div>
+
+    <div class="detail-layout">
+
+      <!-- LEFT: Game Info Form -->
+      <div class="detail-main">
+        <div class="form-card">
+          <h3 class="form-card-title">Game Info</h3>
+          <form action="/sitehandler/games/<%= game.id %>/update" method="POST" novalidate>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label">Title <span class="req">*</span></label>
+                <input type="text" name="title" class="form-input" value="<%= game.title %>" required maxlength="200" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Slug (auto-generated)</label>
+                <input type="text" class="form-input form-input--readonly" value="<%= game.slug %>" readonly />
+              </div>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label">Genre</label>
+                <select name="genre" class="form-input">
+                  <% GENRES.forEach(g => { %><option value="<%= g %>" <%= game.genre === g ? 'selected' : '' %>><%= g %></option><% }) %>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Version</label>
+                <input type="text" name="version" class="form-input" value="<%= game.version || '1.0.0' %>" placeholder="1.0.0" />
+              </div>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label">Game Type</label>
+                <select name="type" class="form-input">
+                  <option value="webgl"    <%= game.type === 'webgl'    ? 'selected' : '' %>>⚡ WebGL (Instant)</option>
+                  <option value="premium"  <%= game.type === 'premium'  ? 'selected' : '' %>>👑 Premium (Offline)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Orientation</label>
+                <select name="orientation" class="form-input">
+                  <option value="landscape" <%= game.orientation === 'landscape' ? 'selected' : '' %>>🖥️ Landscape</option>
+                  <option value="portrait"  <%= game.orientation === 'portrait'  ? 'selected' : '' %>>📱 Portrait</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                Short Description
+                <span class="char-counter" id="descCounter"><%= (game.short_description || '').length %> / 200</span>
+              </label>
+              <textarea name="short_description" class="form-input form-textarea" maxlength="200" rows="3"
+                id="descTextarea"><%= game.short_description || '' %></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Long Description</label>
+              <textarea name="long_description" class="form-input form-textarea" rows="6"
+                placeholder="Full game description — gameplay mechanics, features, controls, etc."
+                ><%= game.long_description || '' %></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                Trailer Video URL
+                <span style="font-size:0.7rem;color:var(--a-text-dim);text-transform:none;letter-spacing:0;font-weight:400">.mp4 direct link</span>
+              </label>
+              <div class="trailer-input-row">
+                <input type="url" name="trailer_url" class="form-input" id="trailerUrlInput"
+                  value="<%= game.trailer_url || '' %>"
+                  placeholder="https://cdn.example.com/trailers/my-game.mp4" />
+                <% if (game.trailer_url) { %>
+                  <a href="<%= game.trailer_url %>" target="_blank" class="btn-admin-ghost trailer-preview-btn" title="Preview trailer">▶</a>
+                <% } %>
+              </div>
+              <% if (game.trailer_url) { %>
+                <video class="trailer-preview" src="<%= game.trailer_url %>" controls preload="none" muted></video>
+              <% } %>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label">Visibility</label>
+                <div class="checkbox-row">
+                  <label class="checkbox-label">
+                    <input type="checkbox" name="is_active" <%= game.is_active ? 'checked' : '' %>>
+                    <span>Active (visible to players)</span>
+                  </label>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Featured</label>
+                <div class="checkbox-row">
+                  <label class="checkbox-label">
+                    <input type="checkbox" name="is_featured" <%= game.is_featured ? 'checked' : '' %>>
+                    <span>Show in featured section</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn-admin-primary">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+
+      <!-- RIGHT: File Upload Sidebar -->
+      <div class="detail-sidebar">
+
+        <!-- File Status -->
+        <div class="form-card">
+          <h3 class="form-card-title">Game Files</h3>
+          <% if (game.file_path) { %>
+            <div class="file-status file-status--ok">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span>Files uploaded</span>
+            </div>
+            <% if (game.type === 'webgl' && game.play_url) { %>
+              <div class="play-url-box">
+                <span class="play-url-label">Play URL</span>
+                <a href="<%= game.play_url %>" target="_blank" class="play-url-link"><%= game.play_url %> ↗</a>
+              </div>
+            <% } %>
+            <p class="text-dim text-sm" style="margin-top:8px">Upload a new zip below to replace files.</p>
+          <% } else { %>
+            <div class="file-status file-status--pending">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span>No files uploaded yet</span>
+            </div>
+          <% } %>
+        </div>
+
+        <!-- Upload Zone -->
+        <div class="form-card">
+          <h3 class="form-card-title">
+            Upload <%= game.type === 'webgl' ? 'WebGL Build' : 'Addressables' %> (.zip)
+          </h3>
+          <% if (game.type === 'webgl') { %>
+            <div class="upload-hint">
+              <strong>WebGL Requirements:</strong>
+              <ul>
+                <li>Zip must contain <code>index.html</code> at root (or inside one subfolder)</li>
+                <li>Max file size: 600 MB</li>
+                <li>Original zip is deleted after extraction</li>
+              </ul>
+            </div>
+          <% } else { %>
+            <div class="upload-hint">
+              <strong>Premium Requirements:</strong>
+              <ul>
+                <li>Zip must contain at least one Unity catalog <code>.json</code> file</li>
+                <li>Max file size: 600 MB</li>
+                <li>Original zip is deleted after extraction</li>
+              </ul>
+            </div>
+          <% } %>
+
+          <form action="/sitehandler/games/<%= game.id %>/upload" method="POST"
+                enctype="multipart/form-data" id="uploadForm">
+            <div class="drop-zone" id="dropZone">
+              <input type="file" name="game_zip" id="zipInput" accept=".zip" required class="drop-input" />
+              <div class="drop-text" id="dropText">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span>Drop .zip here or click to browse</span>
+                <span class="drop-sub" id="dropFilename"></span>
+              </div>
+            </div>
+            <button type="submit" class="btn-admin-primary" style="width:100%;margin-top:12px" id="uploadBtn">
+              Upload & Extract
+            </button>
+          </form>
+        </div>
+
+        <!-- Thumbnail Image Upload -->
+        <div class="form-card">
+          <h3 class="form-card-title">🖼️ Game Thumbnail</h3>
+
+          <% if (game.thumbnail_url) { %>
+            <div class="thumb-preview-wrap">
+              <img src="<%= game.thumbnail_url %>" alt="<%= game.title %> thumbnail"
+                   class="thumb-preview" id="thumbPreviewImg" />
+              <div class="thumb-overlay">
+                <span>Current thumbnail</span>
+              </div>
+            </div>
+            <div class="play-url-box" style="margin-top:10px">
+              <span class="play-url-label">Image URL</span>
+              <span class="play-url-link" style="word-break:break-all"><%= game.thumbnail_url %></span>
+            </div>
+          <% } else { %>
+            <div class="thumb-placeholder" id="thumbPlaceholder">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span>No thumbnail yet</span>
+            </div>
+          <% } %>
+
+          <form action="/sitehandler/games/<%= game.id %>/upload-image" method="POST"
+                enctype="multipart/form-data" id="imgForm" style="margin-top:14px">
+            <div class="drop-zone drop-zone--img" id="imgDropZone">
+              <input type="file" name="game_image" id="imgInput"
+                     accept="image/jpeg,image/png,image/webp" required class="drop-input" />
+              <div class="drop-text">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <span>JPG · PNG · WebP — max 10 MB</span>
+                <span class="drop-sub" id="imgFilename"></span>
+              </div>
+            </div>
+            <button type="submit" class="btn-admin-primary" style="width:100%;margin-top:10px" id="imgUploadBtn">
+              Upload Thumbnail
+            </button>
+          </form>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="form-card form-card--danger">
+          <h3 class="form-card-title form-card-title--danger">Danger Zone</h3>
+          <p class="text-dim text-sm">This will permanently delete the game and all its files.</p>
+          <form action="/sitehandler/games/<%= game.id %>/delete" method="POST" style="margin-top:12px">
+            <button type="submit" class="btn-danger" data-confirm="Delete '<%= game.title %>'? This cannot be undone and will remove all uploaded files.">
+              Delete This Game
+            </button>
+          </form>
+        </div>
+
+      </div><!-- /detail-sidebar -->
+    </div><!-- /detail-layout -->
+
+  </main>
+</div>
+<script src="/sitehandler/js/admin.js"></script>
+<script>
+  // Char counter
+  const ta = document.getElementById('descTextarea');
+  const counter = document.getElementById('descCounter');
+  ta.addEventListener('input', () => {
+    counter.textContent = `${ta.value.length} / 200`;
+    counter.style.color = ta.value.length > 180 ? '#f59e0b' : '';
+  });
+
+  // Drop zone
+  const dropZone = document.getElementById('dropZone');
+  const zipInput = document.getElementById('zipInput');
+  const dropText = document.getElementById('dropFilename');
+  const uploadBtn = document.getElementById('uploadBtn');
+
+  zipInput.addEventListener('change', () => {
+    if (zipInput.files[0]) {
+      dropText.textContent = '📦 ' + zipInput.files[0].name;
+      uploadBtn.textContent = `Upload "${zipInput.files[0].name}"`;
+    }
+  });
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) {
+      zipInput.files = e.dataTransfer.files;
+      dropText.textContent = '📦 ' + e.dataTransfer.files[0].name;
+      uploadBtn.textContent = `Upload "${e.dataTransfer.files[0].name}"`;
+    }
+  });
+
+  // Upload progress feedback
+  document.getElementById('uploadForm').addEventListener('submit', () => {
+    uploadBtn.textContent = '⏳ Uploading & Extracting...';
+    uploadBtn.disabled = true;
+  });
+
+  // ── Image drop zone ────────────────────────────────────────────────────────
+  const imgDropZone  = document.getElementById('imgDropZone');
+  const imgInput     = document.getElementById('imgInput');
+  const imgFilename  = document.getElementById('imgFilename');
+  const imgUploadBtn = document.getElementById('imgUploadBtn');
+
+  function handleImageFile(file) {
+    if (!file) return;
+    imgFilename.textContent = '🖼️ ' + file.name;
+    imgUploadBtn.textContent = `Upload "${file.name}"`;
+
+    // Live preview: show selected image immediately
+    const reader = new FileReader();
+    reader.onload = e => {
+      const existing = document.getElementById('thumbPreviewImg');
+      const placeholder = document.getElementById('thumbPlaceholder');
+      if (existing) {
+        existing.src = e.target.result;
+      } else if (placeholder) {
+        placeholder.innerHTML = `<img src="${e.target.result}" class="thumb-preview" style="border-radius:8px;width:100%;object-fit:cover;max-height:160px" />`;
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  if (imgInput) {
+    imgInput.addEventListener('change', () => handleImageFile(imgInput.files[0]));
+
+    imgDropZone.addEventListener('dragover', e => { e.preventDefault(); imgDropZone.classList.add('drag-over'); });
+    imgDropZone.addEventListener('dragleave', () => imgDropZone.classList.remove('drag-over'));
+    imgDropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      imgDropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) { imgInput.files = e.dataTransfer.files; handleImageFile(file); }
+    });
+
+    document.getElementById('imgForm').addEventListener('submit', () => {
+      imgUploadBtn.textContent = '⏳ Uploading...';
+      imgUploadBtn.disabled = true;
+    });
+  }
+</script>
+</body>
+</html>

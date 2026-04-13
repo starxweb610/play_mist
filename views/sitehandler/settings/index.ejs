@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Settings</h2>
+        <p class="page-subheading">Manage your admin profile and account security.</p>
+      </div>
+    </div>
+
+    <div class="settings-grid">
+
+      <!-- Profile Settings -->
+      <div class="form-card">
+        <h3 class="form-card-title">👤 Profile</h3>
+        <form action="/sitehandler/settings/profile" method="POST" novalidate>
+          <div class="form-group">
+            <label class="form-label">Display Name <span class="req">*</span></label>
+            <input type="text" name="name" class="form-input" required
+              value="<%= adminData ? adminData.name : '' %>" placeholder="Your name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-input"
+              value="<%= adminData ? (adminData.email || '') : '' %>" placeholder="you@playmist.app" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Username (read-only)</label>
+            <input type="text" class="form-input form-input--readonly"
+              value="<%= adminData ? adminData.username : '' %>" readonly />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Role (read-only)</label>
+            <input type="text" class="form-input form-input--readonly"
+              value="<%= adminData ? adminData.role : '' %>" readonly />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-admin-primary">Save Profile</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Change Password -->
+      <div class="form-card">
+        <h3 class="form-card-title">🔒 Change Password</h3>
+        <form action="/sitehandler/settings/password" method="POST" novalidate id="pwForm">
+          <div class="form-group">
+            <label class="form-label">Current Password <span class="req">*</span></label>
+            <div class="form-input-wrapper">
+              <input type="password" name="current_password" class="form-input" required
+                placeholder="Your current password" id="currentPw" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">New Password <span class="req">*</span></label>
+            <input type="password" name="new_password" class="form-input" required
+              minlength="8" placeholder="Min. 8 characters" id="newPw" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">
+              Confirm New Password <span class="req">*</span>
+              <span class="pw-match-indicator" id="pwMatch"></span>
+            </label>
+            <input type="password" name="confirm_password" class="form-input" required
+              placeholder="Repeat new password" id="confirmPw" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-admin-primary">Change Password</button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+
+  </main>
+</div>
+<script src="/sitehandler/js/admin.js"></script>
+<script>
+  // Live password match indicator
+  const newPw = document.getElementById('newPw');
+  const confirmPw = document.getElementById('confirmPw');
+  const indicator = document.getElementById('pwMatch');
+  function checkMatch() {
+    if (!confirmPw.value) { indicator.textContent = ''; return; }
+    if (newPw.value === confirmPw.value) {
+      indicator.textContent = '✓ Match';
+      indicator.style.color = '#10b981';
+    } else {
+      indicator.textContent = '✗ No match';
+      indicator.style.color = '#ef4444';
+    }
+  }
+  newPw.addEventListener('input', checkMatch);
+  confirmPw.addEventListener('input', checkMatch);
+</script>
+</body>
+</html>

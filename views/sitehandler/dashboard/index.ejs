@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Overview</h2>
+        <p class="page-subheading">Welcome back, <strong><%= admin ? admin.name : 'Admin' %></strong>!</p>
+      </div>
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="stat-cards">
+      <div class="stat-card">
+        <div class="stat-card-icon" style="--ic:#7c3aed">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 12h4M8 10v4M15 12h.01M18 12h.01M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z"/></svg>
+        </div>
+        <div class="stat-card-body">
+          <span class="stat-card-label">Total Games</span>
+          <span class="stat-card-value"><%= overview.totalGames %></span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-icon" style="--ic:#06b6d4">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+        <div class="stat-card-body">
+          <span class="stat-card-label">Registered Players</span>
+          <span class="stat-card-value"><%= overview.totalUsers %></span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-icon" style="--ic:#f59e0b">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V7a2 2 0 00-2-2H6a2 2 0 00-2 2v10a2 2 0 002 2h4"/><circle cx="18" cy="18" r="3"/><path d="M21 21l-1.5-1.5"/></svg>
+        </div>
+        <div class="stat-card-body">
+          <span class="stat-card-label">Open Tickets</span>
+          <span class="stat-card-value"><%= overview.openTickets %></span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-icon" style="--ic:#10b981">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        </div>
+        <div class="stat-card-body">
+          <span class="stat-card-label">Feedbacks</span>
+          <span class="stat-card-value"><%= overview.totalFeedbacks %></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Row -->
+    <div class="dashboard-grid">
+
+      <!-- Recent Games -->
+      <div class="dashboard-widget">
+        <div class="widget-header">
+          <h3 class="widget-title">🎮 Recent Games</h3>
+          <a href="/sitehandler/games" class="widget-link">View all →</a>
+        </div>
+        <% if (recentGames.length > 0) { %>
+          <table class="mini-table">
+            <thead><tr><th>Title</th><th>Type</th><th>Status</th></tr></thead>
+            <tbody>
+              <% recentGames.forEach(g => { %>
+                <tr>
+                  <td><a href="/sitehandler/games/<%= g.id %>"><%= g.title %></a></td>
+                  <td><span class="badge badge--<%= g.type %>"><%= g.type.toUpperCase() %></span></td>
+                  <td><span class="badge <%= g.is_active ? 'badge--active' : 'badge--inactive' %>"><%= g.is_active ? 'Active' : 'Draft' %></span></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        <% } else { %>
+          <div class="widget-placeholder"><p>No games yet. <a href="/sitehandler/games/create">Create the first one →</a></p></div>
+        <% } %>
+      </div>
+
+      <!-- Recent Tickets -->
+      <div class="dashboard-widget">
+        <div class="widget-header">
+          <h3 class="widget-title">🎫 Recent Tickets</h3>
+          <a href="/sitehandler/tickets" class="widget-link">View all →</a>
+        </div>
+        <% if (recentTickets.length > 0) { %>
+          <table class="mini-table">
+            <thead><tr><th>Subject</th><th>Priority</th><th>Status</th></tr></thead>
+            <tbody>
+              <% recentTickets.forEach(t => { %>
+                <tr>
+                  <td><a href="/sitehandler/tickets/<%= t.id %>">#<%= t.id %> <%= t.subject.substring(0,30) %><%= t.subject.length > 30 ? '...' : '' %></a></td>
+                  <td><span class="badge badge--<%= t.priority %>"><%= t.priority %></span></td>
+                  <td><span class="badge badge--<%= t.status.replace('_','-') %>"><%= t.status.replace('_',' ') %></span></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        <% } else { %>
+          <div class="widget-placeholder"><p>No tickets yet. 🎉 All clear!</p></div>
+        <% } %>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="dashboard-widget">
+        <div class="widget-header"><h3 class="widget-title">🛠️ Quick Actions</h3></div>
+        <div class="quick-actions">
+          <a href="/sitehandler/games/create" class="quick-action-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Upload Game
+          </a>
+          <a href="/sitehandler/tickets" class="quick-action-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V7a2 2 0 00-2-2H6a2 2 0 00-2 2v10a2 2 0 002 2h4"/><circle cx="18" cy="18" r="3"/></svg>Open Tickets
+          </a>
+          <a href="/sitehandler/analytics" class="quick-action-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Analytics
+          </a>
+          <a href="/sitehandler/admins" class="quick-action-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8z"/></svg>Manage Admins
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+<script src="/sitehandler/js/admin.js"></script>
+</body>
+</html>

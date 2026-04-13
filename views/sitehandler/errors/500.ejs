@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>500 Server Error — Admin</title>
+  <link rel="stylesheet" href="/sitehandler/css/admin.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800&display=swap" rel="stylesheet" />
+</head>
+<body class="admin-body login-body">
+  <div class="error-page">
+    <div class="error-code" style="color:#ef4444">500</div>
+    <h2>Server Error</h2>
+    <p>Something went wrong on our end. Please try again.</p>
+    <% if (typeof error !== 'undefined' && error) { %>
+      <pre class="error-detail"><%= error %></pre>
+    <% } %>
+    <a href="/sitehandler/dashboard" class="btn-login" style="display:inline-flex;width:auto;max-width:220px;margin-top:24px;">← Back to Dashboard</a>
+  </div>
+</body>
+</html>

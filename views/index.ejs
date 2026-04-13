@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- SEO -->
+  <title><%= appName %> – All-in-One Mobile Gaming Platform</title>
+  <meta name="description" content="Playmist is an all-in-one mobile gaming platform. Play 50+ WebGL instant games and premium offline games from a single app. No more downloading separate apps!" />
+  <meta name="keywords" content="playmist, mobile gaming, instant games, webgl games, offline games, gaming platform" />
+  <meta name="author" content="Playmist" />
+  <link rel="canonical" href="<%= appUrl %>" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="<%= appName %> – All-in-One Mobile Gaming Platform" />
+  <meta property="og:description" content="Play 50+ games from one app. WebGL instant games + premium offline games. Download Playmist now!" />
+  <meta property="og:url" content="<%= appUrl %>" />
+  <meta property="og:type" content="website" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Playmist – All-in-One Mobile Gaming Platform" />
+  <meta name="twitter:description" content="Play 50+ games from one app. WebGL instant games + premium offline games." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/css/style.css" />
+
+  <!-- Favicon placeholder -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>" />
+</head>
+<body>
+
+  <!-- ─── PARTICLE CANVAS ──────────────────────────────────────────────── -->
+  <canvas id="particleCanvas"></canvas>
+
+  <!-- ─── NAVBAR ───────────────────────────────────────────────────────── -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <a href="/" class="nav-logo" aria-label="Playmist Home">
+        <span class="logo-icon">🎮</span>
+        <span class="logo-text"><%= appName %></span>
+      </a>
+      <div class="nav-links" id="navLinks">
+        <a href="#features" class="nav-link">Features</a>
+        <a href="#games" class="nav-link">Games</a>
+        <a href="#download" class="nav-link">Download</a>
+      </div>
+      <a href="#download" class="nav-cta" id="navCta">Get the App</a>
+      <button class="hamburger" id="hamburger" aria-label="Toggle menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ─── HERO ─────────────────────────────────────────────────────────── -->
+  <section class="hero" id="hero">
+    <div class="hero-bg-orbs">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="orb orb-3"></div>
+    </div>
+    <div class="container hero-container">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="badge-dot"></span>
+          <span>Now Available on Android & iOS</span>
+        </div>
+        <h1 class="hero-title">
+          One App.<br />
+          <span class="gradient-text">Infinite Games.</span>
+        </h1>
+        <p class="hero-subtitle">
+          Playmist is your all‑in‑one mobile gaming universe. Play 50+ WebGL instant games right now or dive into premium offline experiences — all from a single app. No extra downloads, ever.
+        </p>
+        <div class="hero-actions">
+          <a href="#download" class="btn btn-primary" id="heroDownloadBtn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L12 16M12 16L8 12M12 16L16 12"/><path d="M2 20h20"/></svg>
+            Download Free
+          </a>
+          <a href="#features" class="btn btn-ghost" id="heroLearnBtn">
+            Learn More
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+        <div class="hero-stats">
+          <div class="stat">
+            <span class="stat-value"><%= stats.totalGames %>+</span>
+            <span class="stat-label">Games</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-value"><%= stats.totalUsers %></span>
+            <span class="stat-label">Players</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-value">⭐ <%= stats.rating %></span>
+            <span class="stat-label">Rating</span>
+          </div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="phone-mockup" aria-hidden="true">
+          <div class="phone-frame">
+            <div class="phone-notch"></div>
+            <div class="phone-screen">
+              <div class="screen-header">
+                <div class="screen-logo">🎮 <%= appName %></div>
+                <div class="screen-avatar"></div>
+              </div>
+              <div class="screen-banner">
+                <div class="banner-text">
+                  <span class="banner-tag">Featured</span>
+                  <p>Cyber Racer 3D</p>
+                </div>
+                <div class="banner-gfx">🏎️</div>
+              </div>
+              <div class="screen-section-title">Instant Games</div>
+              <div class="screen-games">
+                <div class="screen-game-card" style="--c:#7c3aed">🏃</div>
+                <div class="screen-game-card" style="--c:#0ea5e9">⚔️</div>
+                <div class="screen-game-card" style="--c:#f59e0b">🎯</div>
+                <div class="screen-game-card" style="--c:#10b981">🧩</div>
+              </div>
+              <div class="screen-section-title">Premium Games</div>
+              <div class="screen-games">
+                <div class="screen-game-card" style="--c:#ef4444">🐉</div>
+                <div class="screen-game-card" style="--c:#8b5cf6">🚀</div>
+                <div class="screen-game-card" style="--c:#06b6d4">🌊</div>
+                <div class="screen-game-card" style="--c:#f97316">⚡</div>
+              </div>
+            </div>
+            <div class="phone-home-bar"></div>
+          </div>
+          <div class="phone-glow"></div>
+          <div class="floating-badge badge-f1" aria-hidden="true">
+            <span>⚡</span> Instant Play
+          </div>
+          <div class="floating-badge badge-f2" aria-hidden="true">
+            <span>🛜</span> Offline Ready
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="hero-scroll-hint" aria-hidden="true">
+      <div class="scroll-arrow"></div>
+    </div>
+  </section>
+
+  <!-- ─── FEATURES ─────────────────────────────────────────────────────── -->
+  <section class="section features" id="features">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Why Playmist?</span>
+        <h2 class="section-title">Everything you need, in <span class="gradient-text">one place</span></h2>
+        <p class="section-subtitle">We've reinvented how you experience mobile gaming. Fewer downloads, more fun.</p>
+      </div>
+      <div class="features-grid">
+
+        <div class="feature-card feature-card--large" data-aos="fade-up">
+          <div class="feature-icon-wrapper" style="--icon-color: #7c3aed">
+            <span class="feature-icon">⚡</span>
+          </div>
+          <h3 class="feature-title">Instant WebGL Games</h3>
+          <p class="feature-desc">Jump straight into action with our browser-powered WebGL games. No install, no wait — just tap and play. Perfect for quick gaming sessions on the go.</p>
+          <div class="feature-tags">
+            <span class="tag">Zero Download</span>
+            <span class="tag">Instant Launch</span>
+          </div>
+        </div>
+
+        <div class="feature-card" data-aos="fade-up" data-aos-delay="100">
+          <div class="feature-icon-wrapper" style="--icon-color: #0ea5e9">
+            <span class="feature-icon">📶</span>
+          </div>
+          <h3 class="feature-title">Premium Offline Games</h3>
+          <p class="feature-desc">Download once, play forever — even without internet. Our premium games deliver console-quality experiences offline.</p>
+        </div>
+
+        <div class="feature-card" data-aos="fade-up" data-aos-delay="150">
+          <div class="feature-icon-wrapper" style="--icon-color: #10b981">
+            <span class="feature-icon">🎮</span>
+          </div>
+          <h3 class="feature-title">One App, All Genres</h3>
+          <p class="feature-desc">Action, puzzle, racing, RPG, and more. Explore a growing library of games spanning every genre inside a single unified app.</p>
+        </div>
+
+        <div class="feature-card" data-aos="fade-up" data-aos-delay="200">
+          <div class="feature-icon-wrapper" style="--icon-color: #f59e0b">
+            <span class="feature-icon">🏆</span>
+          </div>
+          <h3 class="feature-title">Leaderboards & Achievements</h3>
+          <p class="feature-desc">Compete with friends and global players. Climb leaderboards and unlock achievements across all your games from one profile.</p>
+        </div>
+
+        <div class="feature-card" data-aos="fade-up" data-aos-delay="250">
+          <div class="feature-icon-wrapper" style="--icon-color: #ef4444">
+            <span class="feature-icon">🔒</span>
+          </div>
+          <h3 class="feature-title">Safe & Ad-Controlled</h3>
+          <p class="feature-desc">Family‑safe with optional reward ads. No intrusive pop‑ups or shady permissions — just clean, transparent gaming.</p>
+        </div>
+
+        <div class="feature-card feature-card--large feature-card--right" data-aos="fade-up" data-aos-delay="300">
+          <div class="feature-icon-wrapper" style="--icon-color: #8b5cf6">
+            <span class="feature-icon">🔄</span>
+          </div>
+          <h3 class="feature-title">Always Growing Library</h3>
+          <p class="feature-desc">New games drop regularly. Our curated team handpicks the best new titles so you always have something fresh to play — all within the same app you already have installed.</p>
+          <div class="feature-tags">
+            <span class="tag">Updated Weekly</span>
+            <span class="tag">Curated Quality</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── GAMES SHOWCASE ───────────────────────────────────────────────── -->
+  <section class="section games-section" id="games">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Game Library</span>
+        <h2 class="section-title">Thousands of hours of <span class="gradient-text">gameplay</span></h2>
+        <p class="section-subtitle">Two worlds of gaming under one roof — instant and immersive.</p>
+      </div>
+
+      <div class="games-tabs" role="tablist">
+        <button class="games-tab active" id="tab-instant" role="tab" aria-selected="true" aria-controls="panel-instant" data-tab="instant">
+          ⚡ Instant Games
+        </button>
+        <button class="games-tab" id="tab-premium" role="tab" aria-selected="false" aria-controls="panel-premium" data-tab="premium">
+          👑 Premium Games
+        </button>
+      </div>
+
+      <div id="panel-instant" class="games-panel active" role="tabpanel" aria-labelledby="tab-instant">
+        <div class="games-grid">
+          <div class="game-card" data-aos="zoom-in">
+            <div class="game-thumb" style="--gc1:#7c3aed;--gc2:#4f46e5">🏃‍♂️</div>
+            <div class="game-info">
+              <h4>Temple Dash</h4>
+              <span class="game-genre">Runner</span>
+            </div>
+            <div class="game-badge">FREE</div>
+          </div>
+          <div class="game-card" data-aos="zoom-in" data-aos-delay="60">
+            <div class="game-thumb" style="--gc1:#0ea5e9;--gc2:#0284c7">🎯</div>
+            <div class="game-info">
+              <h4>Sniper Zone</h4>
+              <span class="game-genre">Shooter</span>
+            </div>
+            <div class="game-badge">FREE</div>
+          </div>
+          <div class="game-card" data-aos="zoom-in" data-aos-delay="120">
+            <div class="game-thumb" style="--gc1:#f59e0b;--gc2:#d97706">🧩</div>
+            <div class="game-info">
+              <h4>Pixel Puzzle</h4>
+              <span class="game-genre">Puzzle</span>
+            </div>
+            <div class="game-badge">FREE</div>
+          </div>
+          <div class="game-card" data-aos="zoom-in" data-aos-delay="180">
+            <div class="game-thumb" style="--gc1:#10b981;--gc2:#059669">⚽</div>
+            <div class="game-info">
+              <h4>Kick King</h4>
+              <span class="game-genre">Sports</span>
+            </div>
+            <div class="game-badge">FREE</div>
+          </div>
+          <div class="game-card" data-aos="zoom-in" data-aos-delay="240">
+            <div class="game-thumb" style="--gc1:#f43f5e;--gc2:#e11d48">🃏</div>
+            <div class="game-info">
+              <h4>Card Wars</h4>
+              <span class="game-genre">Strategy</span>
+            </div>
+            <div class="game-badge">FREE</div>
+          </div>
+          <div class="game-card" data-aos="zoom-in" data-aos-delay="300">
+            <div class="game-thumb" style="--gc1:#8b5cf6;--gc2:#7c3aed">🏎️</div>
+            <div class="game-info">
+              <h4>Turbo Drift</h4>
+              <span class="game-genre">Racing</span>
+            </div>
+            <div class="game-badge">FREE</div>
+          </div>
+          <div class="game-card" data-aos="zoom-in" data-aos-delay="360">
+            <div class="game-thumb" style="--gc1:#06b6d4;--gc2:#0891b2">🌊</div>
+            <div class="game-info">
+              <h4>Wave Surfer</h4>
+              <span class="game-genre">Arcade</span>
+            </div>
+            <div class="game-badge">FREE</div>
+          </div>
+          <div class="game-card" data-aos="zoom-in" data-aos-delay="420">
+            <div class="game-thumb" style="--gc1:#f97316;--gc2:#ea580c">🧙</div>
+            <div class="game-info">
+              <h4>Mage Tower</h4>
+              <span class="game-genre">Tower Def.</span>
+            </div>
+            <div class="game-badge">FREE</div>
+          </div>
+        </div>
+        <p class="games-more">…and <strong>30+ more</strong> WebGL instant games available now!</p>
+      </div>
+
+      <div id="panel-premium" class="games-panel" role="tabpanel" aria-labelledby="tab-premium">
+        <div class="games-grid">
+          <div class="game-card" data-aos="zoom-in">
+            <div class="game-thumb" style="--gc1:#7c3aed;--gc2:#6d28d9">🐉</div>
+            <div class="game-info">
+              <h4>Dragon's Oath</h4>
+              <span class="game-genre">RPG</span>
+            </div>
+            <div class="game-badge game-badge--premium">OFFLINE</div>
+          </div>
+          <div class="game-card" data-aos="zoom-in" data-aos-delay="60">
+            <div class="game-thumb" style="--gc1:#0f172a;--gc2:#1e293b">🚀</div>
+            <div class="game-info">
+              <h4>Starfall</h4>
+              <span class="game-genre">Sci-Fi Action</span>
+            </div>
+            <div class="game-badge game-badge--premium">OFFLINE</div>
+          </div>
+          <div class="game-card" data-aos="zoom-in" data-aos-delay="120">
+            <div class="game-thumb" style="--gc1:#0e7490;--gc2:#155e75">🌊</div>
+            <div class="game-info">
+              <h4>Deep Blue</h4>
+              <span class="game-genre">Adventure</span>
+            </div>
+            <div class="game-badge game-badge--premium">OFFLINE</div>
+          </div>
+          <div class="game-card" data-aos="zoom-in" data-aos-delay="180">
+            <div class="game-thumb" style="--gc1:#92400e;--gc2:#78350f">⚔️</div>
+            <div class="game-info">
+              <h4>Iron Legion</h4>
+              <span class="game-genre">Strategy</span>
+            </div>
+            <div class="game-badge game-badge--premium">OFFLINE</div>
+          </div>
+          <div class="game-card" data-aos="zoom-in" data-aos-delay="240">
+            <div class="game-thumb" style="--gc1:#166534;--gc2:#14532d">🌿</div>
+            <div class="game-info">
+              <h4>Jungle King</h4>
+              <span class="game-genre">Survival</span>
+            </div>
+            <div class="game-badge game-badge--premium">OFFLINE</div>
+          </div>
+          <div class="game-card" data-aos="zoom-in" data-aos-delay="300">
+            <div class="game-thumb" style="--gc1:#1e1b4b;--gc2:#312e81">🌌</div>
+            <div class="game-info">
+              <h4>Nebula Wars</h4>
+              <span class="game-genre">Space Shooter</span>
+            </div>
+            <div class="game-badge game-badge--premium">OFFLINE</div>
+          </div>
+        </div>
+        <p class="games-more">…and <strong>more premium titles</strong> coming every month!</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── HOW IT WORKS ─────────────────────────────────────────────────── -->
+  <section class="section how-it-works">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Simple as 1-2-3</span>
+        <h2 class="section-title">Start playing in <span class="gradient-text">seconds</span></h2>
+      </div>
+      <div class="steps-container">
+        <div class="step" data-aos="fade-right">
+          <div class="step-number">01</div>
+          <div class="step-content">
+            <h3>Download Playmist</h3>
+            <p>Get the app from the Google Play Store or Apple App Store. It's free, lightweight, and installs in seconds.</p>
+          </div>
+        </div>
+        <div class="step-connector" aria-hidden="true"></div>
+        <div class="step" data-aos="fade-up">
+          <div class="step-number">02</div>
+          <div class="step-content">
+            <h3>Browse the Library</h3>
+            <p>Explore dozens of curated games across all genres. Filter by category, top charts, or new arrivals.</p>
+          </div>
+        </div>
+        <div class="step-connector" aria-hidden="true"></div>
+        <div class="step" data-aos="fade-left">
+          <div class="step-number">03</div>
+          <div class="step-content">
+            <h3>Play Instantly</h3>
+            <p>Tap any WebGL game and it launches immediately. Or download a premium game for unlimited offline play.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── DOWNLOAD CTA ─────────────────────────────────────────────────── -->
+  <section class="section download-section" id="download">
+    <div class="download-bg-glow" aria-hidden="true"></div>
+    <div class="container">
+      <div class="download-wrapper">
+        <div class="download-content">
+          <h2 class="download-title">
+            Ready to level up?<br />
+            <span class="gradient-text">Get <%= appName %> free today.</span>
+          </h2>
+          <p class="download-subtitle">
+            Available on Android and iOS. Free to download, free to play instant games. Premium games unlocked in-app.
+          </p>
+          <div class="store-buttons">
+            <a href="<%= androidUrl %>" class="store-btn" id="googlePlayBtn" target="_blank" rel="noopener noreferrer" aria-label="Download on Google Play">
+              <svg class="store-icon" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3.18 23.76c.398.23.854.288 1.296.157L16.1 12 12.448 8.35 3.18 23.76z"/>
+                <path d="M20.656 10.083l-2.93-1.7-3.813 3.617 3.813 3.617 2.96-1.718a1.976 1.976 0 000-3.416-.003-.002-.003-.003-.03.203z"/>
+                <path d="M2.108.408A1.99 1.99 0 002 1.188v21.624c0 .27.038.53.108.776l12.02-12.02L2.108.408z"/>
+                <path d="M16.1 12L4.476.157a2.002 2.002 0 00-1.296-.135L16.1 12z"/>
+              </svg>
+              <div class="store-text">
+                <span class="store-label">Get it on</span>
+                <span class="store-name">Google Play</span>
+              </div>
+            </a>
+            <a href="<%= iosUrl %>" class="store-btn" id="appStoreBtn" target="_blank" rel="noopener noreferrer" aria-label="Download on the App Store">
+              <svg class="store-icon" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98l-.09.06c-.22.14-2.18 1.32-2.16 3.93.02 3.12 2.73 4.16 2.76 4.17-.03.07-.43 1.49-1.45 3.02M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+              </svg>
+              <div class="store-text">
+                <span class="store-label">Download on the</span>
+                <span class="store-name">App Store</span>
+              </div>
+            </a>
+          </div>
+          <div class="download-note">
+            <span>✅ Free to download</span>
+            <span>✅ No account required to start</span>
+            <span>✅ iOS 13+ & Android 7+</span>
+          </div>
+        </div>
+        <div class="download-visual" aria-hidden="true">
+          <div class="qr-placeholder">
+            <div class="qr-inner">
+              <div class="qr-grid"></div>
+              <span>Scan to<br>download</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ───────────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <a href="/" class="nav-logo">
+            <span class="logo-icon">🎮</span>
+            <span class="logo-text"><%= appName %></span>
+          </a>
+          <p class="footer-tagline">The all-in-one mobile gaming platform. Play more, download less.</p>
+        </div>
+        <div class="footer-links-group">
+          <h4>Platform</h4>
+          <ul>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#games">Games</a></li>
+            <li><a href="#download">Download</a></li>
+          </ul>
+        </div>
+        <div class="footer-links-group">
+          <h4>Legal</h4>
+          <ul>
+            <li><a href="#">Privacy Policy</a></li>
+            <li><a href="#">Terms of Service</a></li>
+            <li><a href="#">Cookie Policy</a></li>
+          </ul>
+        </div>
+        <div class="footer-links-group">
+          <h4>Contact</h4>
+          <ul>
+            <li><a href="mailto:support@playmist.app">support@playmist.app</a></li>
+            <li><a href="#">Twitter / X</a></li>
+            <li><a href="#">Instagram</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; <%= new Date().getFullYear() %> <%= appName %>. All rights reserved.</p>
+        <p>Built with ❤️ for gamers everywhere.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/main.js"></script>
+</body>
+</html>

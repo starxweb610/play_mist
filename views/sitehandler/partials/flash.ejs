@@ -1,0 +1,14 @@
+<% if (success_msg && success_msg.length > 0) { %>
+  <div class="flash flash--success" role="alert">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    <%= success_msg %>
+    <button class="flash-close" aria-label="Dismiss">&times;</button>
+  </div>
+<% } %>
+<% if (error_msg && error_msg.length > 0) { %>
+  <div class="flash flash--error" role="alert">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <%= error_msg %>
+    <button class="flash-close" aria-label="Dismiss">&times;</button>
+  </div>
+<% } %>

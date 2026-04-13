@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Login — <%= appName %></title>
+  <meta name="robots" content="noindex, nofollow" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/sitehandler/css/admin.css" />
+</head>
+<body class="admin-body login-body">
+
+  <div class="login-bg" aria-hidden="true">
+    <div class="login-orb login-orb-1"></div>
+    <div class="login-orb login-orb-2"></div>
+  </div>
+
+  <div class="login-wrapper">
+    <div class="login-card">
+
+      <!-- Brand -->
+      <div class="login-brand">
+        <span class="login-brand-icon">🎮</span>
+        <div>
+          <div class="login-brand-name"><%= appName %></div>
+          <div class="login-brand-sub">Admin Panel</div>
+        </div>
+      </div>
+
+      <h2 class="login-title">Welcome back</h2>
+      <p class="login-subtitle">Sign in to access the dashboard</p>
+
+      <!-- Flash Messages -->
+      <% if (error_msg && error_msg.length > 0) { %>
+        <div class="flash flash--error" role="alert">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <%= error_msg %>
+        </div>
+      <% } %>
+      <% if (success_msg && success_msg.length > 0) { %>
+        <div class="flash flash--success" role="alert">
+          <%= success_msg %>
+        </div>
+      <% } %>
+
+      <!-- Login Form -->
+      <form action="/sitehandler/login" method="POST" class="login-form" novalidate>
+        <div class="form-group">
+          <label for="username" class="form-label">Username</label>
+          <div class="form-input-wrapper">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"/></svg>
+            <input
+              type="text"
+              id="username"
+              name="username"
+              class="form-input"
+              placeholder="Admin username"
+              autocomplete="username"
+              required
+              autofocus
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="password" class="form-label">Password</label>
+          <div class="form-input-wrapper">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              class="form-input"
+              placeholder="••••••••"
+              autocomplete="current-password"
+              required
+            />
+            <button type="button" class="password-toggle" id="pwToggle" aria-label="Toggle password visibility">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-login" id="loginSubmitBtn">
+          Sign in to Admin Panel
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </form>
+
+      <div class="login-footer-note">
+        <a href="/" class="login-back-link">← Back to public site</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Password show/hide toggle
+    const toggle = document.getElementById('pwToggle');
+    const pwInput = document.getElementById('password');
+    if (toggle && pwInput) {
+      toggle.addEventListener('click', () => {
+        pwInput.type = pwInput.type === 'password' ? 'text' : 'password';
+      });
+    }
+  </script>
+</body>
+</html>

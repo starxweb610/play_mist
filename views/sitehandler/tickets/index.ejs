@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Support Tickets</h2>
+        <p class="page-subheading">Manage player support requests received from the Playmist app.</p>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <form method="GET" action="/sitehandler/tickets" class="filter-bar">
+      <select name="status" class="filter-select">
+        <option value="">All Status</option>
+        <option value="open"        <%= filters.status === 'open'        ? 'selected' : '' %>>Open</option>
+        <option value="in_progress" <%= filters.status === 'in_progress' ? 'selected' : '' %>>In Progress</option>
+        <option value="resolved"    <%= filters.status === 'resolved'    ? 'selected' : '' %>>Resolved</option>
+        <option value="closed"      <%= filters.status === 'closed'      ? 'selected' : '' %>>Closed</option>
+      </select>
+      <select name="priority" class="filter-select">
+        <option value="">All Priority</option>
+        <option value="urgent" <%= filters.priority === 'urgent' ? 'selected' : '' %>>🔴 Urgent</option>
+        <option value="high"   <%= filters.priority === 'high'   ? 'selected' : '' %>>🟠 High</option>
+        <option value="medium" <%= filters.priority === 'medium' ? 'selected' : '' %>>🟡 Medium</option>
+        <option value="low"    <%= filters.priority === 'low'    ? 'selected' : '' %>>🟢 Low</option>
+      </select>
+      <button type="submit" class="btn-admin-primary">Filter</button>
+      <a href="/sitehandler/tickets" class="btn-admin-ghost">Clear</a>
+    </form>
+
+    <% if (tickets.length > 0) { %>
+      <div class="data-table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#ID</th>
+              <th>Subject</th>
+              <th>Player</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% tickets.forEach(t => { %>
+              <tr>
+                <td class="text-dim">#<%= t.id %></td>
+                <td class="fw-600"><%= t.subject.substring(0,50) %><%= t.subject.length > 50 ? '...' : '' %></td>
+                <td><%= t.player || '—' %></td>
+                <td><span class="badge badge--<%= t.priority %>"><%= t.priority %></span></td>
+                <td><span class="badge badge--<%= t.status.replace('_','-') %>"><%= t.status.replace('_',' ') %></span></td>
+                <td class="text-sm text-dim"><%= new Date(t.created_at).toLocaleDateString() %></td>
+                <td><a href="/sitehandler/tickets/<%= t.id %>" class="action-btn">View</a></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <div class="coming-soon-panel">
+        <div class="coming-soon-icon">🎫</div>
+        <h3>No tickets found</h3>
+        <p>No tickets match your filter criteria. Tickets are submitted from within the Playmist mobile app.</p>
+      </div>
+    <% } %>
+
+  </main>
+</div>
+<script src="/sitehandler/js/admin.js"></script>
+</body>
+</html>

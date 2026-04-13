@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head') %>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Analytics</h2>
+        <p class="page-subheading">App usage and game play insights from the Playmist mobile app.</p>
+      </div>
+    </div>
+
+    <!-- Top Stat Tiles -->
+    <div class="stat-cards">
+      <div class="stat-card">
+        <div class="stat-card-icon" style="--ic:#7c3aed">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </div>
+        <div class="stat-card-body">
+          <span class="stat-card-label">Total App Opens</span>
+          <span class="stat-card-value"><%= totals.appOpens.toLocaleString() %></span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-icon" style="--ic:#06b6d4">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="stat-card-body">
+          <span class="stat-card-label">Today's Opens</span>
+          <span class="stat-card-value"><%= totals.todayOpens.toLocaleString() %></span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-icon" style="--ic:#10b981">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 12h4M8 10v4M15 12h.01M18 12h.01M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z"/></svg>
+        </div>
+        <div class="stat-card-body">
+          <span class="stat-card-label">Total Game Plays</span>
+          <span class="stat-card-value"><%= totals.gamePlayEvents.toLocaleString() %></span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-icon" style="--ic:#f59e0b">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <div class="stat-card-body">
+          <span class="stat-card-label">Today's Game Plays</span>
+          <span class="stat-card-value"><%= totals.todayPlays.toLocaleString() %></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row 1 -->
+    <div class="analytics-grid">
+      <div class="chart-card chart-card--wide">
+        <div class="chart-header">
+          <h3>App Opens — Last 14 Days</h3>
+        </div>
+        <div class="chart-body"><canvas id="appOpensChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><h3>Device Split</h3></div>
+        <div class="chart-body chart-body--sm"><canvas id="deviceChart"></canvas></div>
+        <div class="device-legend">
+          <span class="dl-item"><span class="dl-dot" style="background:#7c3aed"></span>Android: <%= deviceData.android %></span>
+          <span class="dl-item"><span class="dl-dot" style="background:#06b6d4"></span>iOS: <%= deviceData.ios %></span>
+          <span class="dl-item"><span class="dl-dot" style="background:#4a5068"></span>Other: <%= deviceData.other %></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row 2 -->
+    <div class="analytics-grid">
+      <div class="chart-card chart-card--wide">
+        <div class="chart-header"><h3>Game Plays — Last 14 Days</h3></div>
+        <div class="chart-body"><canvas id="gamePlaysChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><h3>Top Games by Play Count</h3></div>
+        <% if (topGames.length > 0) { %>
+          <div class="chart-body"><canvas id="topGamesChart"></canvas></div>
+        <% } else { %>
+          <div class="widget-placeholder" style="min-height:180px"><p>No game play data yet.</p></div>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- API Reference -->
+    <div class="dashboard-widget" style="margin-top:20px">
+      <div class="widget-header"><h3 class="widget-title">📡 Mobile App API Endpoints</h3></div>
+      <div class="api-ref">
+        <div class="api-row">
+          <span class="api-method">POST</span>
+          <code class="api-path">/api/analytics/app-open</code>
+          <span class="api-desc">Log app open event — body: <code>{ device, session_id }</code></span>
+        </div>
+        <div class="api-row">
+          <span class="api-method">POST</span>
+          <code class="api-path">/api/analytics/game-play</code>
+          <span class="api-desc">Log game play event — body: <code>{ device, session_id, game_id }</code></span>
+        </div>
+        <div class="api-row">
+          <span class="api-method">POST</span>
+          <code class="api-path">/api/tickets</code>
+          <span class="api-desc">Create support ticket — body: <code>{ user_id, subject, message, priority? }</code></span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const chartData    = <%- chartData %>;
+const topGamesData = <%- topGamesData %>;
+
+const gridColor  = 'rgba(255,255,255,0.05)';
+const tickColor  = '#64748b';
+const baseFont   = { family: "'Space Grotesk', sans-serif", size: 12 };
+Chart.defaults.color = tickColor;
+Chart.defaults.font  = baseFont;
+
+// App Opens Line Chart
+new Chart(document.getElementById('appOpensChart'), {
+  type: 'line',
+  data: {
+    labels: chartData.labels,
+    datasets: [{
+      label: 'App Opens',
+      data:  chartData.openCounts,
+      borderColor: '#7c3aed',
+      backgroundColor: 'rgba(124,58,237,0.12)',
+      borderWidth: 2,
+      fill: true,
+      tension: 0.4,
+      pointBackgroundColor: '#7c3aed',
+      pointRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor, stepSize: 1, precision: 0 }, beginAtZero: true }
+    }
+  }
+});
+
+// Game Plays Line Chart
+new Chart(document.getElementById('gamePlaysChart'), {
+  type: 'line',
+  data: {
+    labels: chartData.labels,
+    datasets: [{
+      label: 'Game Plays',
+      data:  chartData.playCounts,
+      borderColor: '#06b6d4',
+      backgroundColor: 'rgba(6,182,212,0.1)',
+      borderWidth: 2,
+      fill: true,
+      tension: 0.4,
+      pointBackgroundColor: '#06b6d4',
+      pointRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor, stepSize: 1, precision: 0 }, beginAtZero: true }
+    }
+  }
+});
+
+// Device Doughnut
+new Chart(document.getElementById('deviceChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Android','iOS','Other'],
+    datasets: [{
+      data: [<%= deviceData.android %>, <%= deviceData.ios %>, <%= deviceData.other %>],
+      backgroundColor: ['#7c3aed','#06b6d4','#4a5068'],
+      borderWidth: 0,
+      hoverOffset: 6,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    cutout: '68%',
+  }
+});
+
+// Top Games Bar
+<% if (topGames.length > 0) { %>
+new Chart(document.getElementById('topGamesChart'), {
+  type: 'bar',
+  data: {
+    labels: topGamesData.labels,
+    datasets: [{
+      label: 'Plays',
+      data: topGamesData.data,
+      backgroundColor: 'rgba(124,58,237,0.7)',
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor }, beginAtZero: true },
+      y: { grid: { display: false }, ticks: { color: tickColor } }
+    }
+  }
+});
+<% } %>
+</script>
+<script src="/sitehandler/js/admin.js"></script>
+</body>
+</html>

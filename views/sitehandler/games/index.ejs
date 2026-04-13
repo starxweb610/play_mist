@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Games Library</h2>
+        <p class="page-subheading">Manage all WebGL and Premium games in the Playmist platform.</p>
+      </div>
+      <div class="page-header-actions">
+        <a href="/sitehandler/games/create" class="btn-admin-primary">+ New Game</a>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <form method="GET" action="/sitehandler/games" class="filter-bar">
+      <input type="text" name="q" placeholder="Search games..." value="<%= filters.q || '' %>" class="filter-input" />
+      <select name="type" class="filter-select">
+        <option value="">All Types</option>
+        <option value="webgl"    <%= filters.type === 'webgl'    ? 'selected' : '' %>>WebGL</option>
+        <option value="premium"  <%= filters.type === 'premium'  ? 'selected' : '' %>>Premium</option>
+      </select>
+      <select name="genre" class="filter-select">
+        <option value="">All Genres</option>
+        <% GENRES.forEach(g => { %><option value="<%= g %>" <%= filters.genre === g ? 'selected' : '' %>><%= g %></option><% }) %>
+      </select>
+      <select name="status" class="filter-select">
+        <option value="">All Status</option>
+        <option value="active"   <%= filters.status === 'active'   ? 'selected' : '' %>>Active</option>
+        <option value="inactive" <%= filters.status === 'inactive' ? 'selected' : '' %>>Draft</option>
+      </select>
+      <button type="submit" class="btn-admin-primary">Filter</button>
+      <a href="/sitehandler/games" class="btn-admin-ghost">Clear</a>
+    </form>
+
+    <!-- Games Table -->
+    <% if (games.length > 0) { %>
+      <div class="data-table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Game</th>
+              <th>Type</th>
+              <th>Genre</th>
+              <th>Orientation</th>
+              <th>Version</th>
+              <th>Files</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% games.forEach(game => { %>
+              <tr>
+                <td>
+                  <div class="game-title-cell">
+                    <div class="game-icon-sm game-icon-sm--<%= game.type %>">
+                      <%= game.type === 'webgl' ? '⚡' : '👑' %>
+                    </div>
+                    <div>
+                      <div class="fw-600"><%= game.title %></div>
+                      <div class="text-dim text-sm"><%= game.slug %></div>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="badge badge--<%= game.type %>"><%= game.type.toUpperCase() %></span></td>
+                <td><%= game.genre || '—' %></td>
+                <td><span class="badge badge--orient"><%= game.orientation || '—' %></span></td>
+                <td><%= game.version || '1.0.0' %></td>
+                <td>
+                  <% if (game.file_path) { %>
+                    <span class="badge badge--active">✓ Uploaded</span>
+                    <% if (game.type === 'webgl' && game.play_url) { %>
+                      <a href="<%= game.play_url %>" target="_blank" class="link-sm">Test ↗</a>
+                    <% } %>
+                  <% } else { %>
+                    <span class="badge badge--inactive">Pending</span>
+                  <% } %>
+                </td>
+                <td>
+                  <label class="toggle-switch" title="<%= game.is_active ? 'Active' : 'Draft' %>">
+                    <form action="/sitehandler/games/<%= game.id %>/toggle" method="POST" style="display:inline">
+                      <input type="checkbox" onchange="this.form.submit()" <%= game.is_active ? 'checked' : '' %>>
+                      <span class="toggle-slider"></span>
+                    </form>
+                  </label>
+                </td>
+                <td>
+                  <div class="action-btns">
+                    <a href="/sitehandler/games/<%= game.id %>" class="action-btn">Edit</a>
+                    <form action="/sitehandler/games/<%= game.id %>/delete" method="POST" style="display:inline">
+                      <button type="submit" class="action-btn action-btn--danger" data-confirm="Delete '<%= game.title %>'? This cannot be undone.">Del</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <div class="coming-soon-panel">
+        <div class="coming-soon-icon">🎮</div>
+        <h3>No games found</h3>
+        <p>No games match your filters. <a href="/sitehandler/games/create">Create the first game →</a></p>
+      </div>
+    <% } %>
+
+  </main>
+</div>
+<script src="/sitehandler/js/admin.js"></script>
+</body>
+</html>

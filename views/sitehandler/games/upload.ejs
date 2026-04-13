@@ -1,0 +1,18 @@
+<%
+  activePage = 'games';
+  body = `
+  <div class="page-header">
+    <div>
+      <h2 class="page-heading">Upload Game</h2>
+      <p class="page-subheading">Add a new WebGL instant game or premium offline game to the platform.</p>
+    </div>
+    <a href="/sitehandler/games" class="btn-admin-ghost">← Back to Games</a>
+  </div>
+  <div class="coming-soon-panel">
+    <div class="coming-soon-icon">⬆️</div>
+    <h3>Game Upload Coming Soon</h3>
+    <p>This will allow you to upload WebGL game bundles, set pricing, categories, screenshots, and offline packages.</p>
+  </div>
+  `;
+%>
+<%- include('../layouts/base', { activePage, body, title, admin, appName, success_msg, error_msg, error }) %>
