@@ -195,3 +195,31 @@
     }, 2000 + i * 400);
   });
 })();
+
+
+// ── TOC Active Link (Privacy Policy page) ────────────────────────────────
+(function initTocHighlight() {
+  const tocLinks = document.querySelectorAll('.toc-link');
+  if (!tocLinks.length) return;
+
+  const sections = Array.from(tocLinks).map(link => {
+    const id = link.getAttribute('href').slice(1);
+    return document.getElementById(id);
+  }).filter(Boolean);
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        tocLinks.forEach(link => {
+          link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
+        });
+      }
+    });
+  }, {
+    rootMargin: '-20% 0px -70% 0px',
+    threshold: 0,
+  });
+
+  sections.forEach(sec => observer.observe(sec));
+})();

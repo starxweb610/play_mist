@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- SEO -->
+  <title>Privacy Policy – <%= appName %></title>
+  <meta name="description" content="Read the Privacy Policy for <%= appName %>, the all-in-one mobile gaming platform. Learn how we collect, use, and protect your data." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="<%= appUrl %>/privacy-policy" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Privacy Policy – <%= appName %>" />
+  <meta property="og:description" content="Your privacy matters. Learn how <%= appName %> handles your data." />
+  <meta property="og:url" content="<%= appUrl %>/privacy-policy" />
+  <meta property="og:type" content="website" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/css/style.css" />
+
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>" />
+</head>
+<body>
+
+  <!-- ─── PARTICLE CANVAS ──────────────────────────────────────────────── -->
+  <canvas id="particleCanvas"></canvas>
+
+  <!-- ─── NAVBAR ───────────────────────────────────────────────────────── -->
+  <nav class="navbar scrolled" id="navbar">
+    <div class="nav-container">
+      <a href="/" class="nav-logo" aria-label="Playmist Home">
+        <span class="logo-icon">🎮</span>
+        <span class="logo-text"><%= appName %></span>
+      </a>
+      <div class="nav-links" id="navLinks">
+        <a href="/#features" class="nav-link">Features</a>
+        <a href="/#games" class="nav-link">Games</a>
+        <a href="/#download" class="nav-link">Download</a>
+      </div>
+      <a href="/#download" class="nav-cta" id="navCta">Get the App</a>
+      <button class="hamburger" id="hamburger" aria-label="Toggle menu" aria-expanded="false">
+        <span></span><span></span><span>
+        </span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ─── PAGE HERO ─────────────────────────────────────────────────────── -->
+  <section class="policy-hero">
+    <div class="hero-bg-orbs" aria-hidden="true">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+    </div>
+    <div class="container">
+      <div class="policy-hero-inner">
+        <span class="section-tag">Legal</span>
+        <h1 class="policy-hero-title">Privacy <span class="gradient-text">Policy</span></h1>
+        <p class="policy-hero-sub">
+          We believe in transparency. Here's exactly how <strong><%= appName %></strong> 
+          handles your data — simply and honestly.
+        </p>
+        <div class="policy-meta">
+          <span class="policy-meta-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            Last updated: <%= lastUpdated %>
+          </span>
+          <span class="policy-meta-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            GDPR &amp; COPPA Compliant
+          </span>
+          <span class="policy-meta-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+            ~8 min read
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── TABLE OF CONTENTS ─────────────────────────────────────────────── -->
+  <div class="container policy-layout">
+
+    <aside class="policy-toc" id="policyToc" aria-label="Table of contents">
+      <div class="toc-inner">
+        <p class="toc-label">On this page</p>
+        <nav>
+          <ol class="toc-list">
+            <li><a href="#overview" class="toc-link">Overview</a></li>
+            <li><a href="#information-collected" class="toc-link">Information We Collect</a></li>
+            <li><a href="#admob-ads" class="toc-link">Google AdMob &amp; Advertising</a></li>
+            <li><a href="#analytics" class="toc-link">Analytics &amp; Tracking</a></li>
+            <li><a href="#data-use" class="toc-link">How We Use Your Data</a></li>
+            <li><a href="#data-sharing" class="toc-link">Data Sharing</a></li>
+            <li><a href="#data-retention" class="toc-link">Data Retention</a></li>
+            <li><a href="#children" class="toc-link">Children's Privacy</a></li>
+            <li><a href="#your-rights" class="toc-link">Your Rights</a></li>
+            <li><a href="#security" class="toc-link">Security</a></li>
+            <li><a href="#third-party" class="toc-link">Third-Party Services</a></li>
+            <li><a href="#changes" class="toc-link">Policy Changes</a></li>
+            <li><a href="#contact" class="toc-link">Contact Us</a></li>
+          </ol>
+        </nav>
+        <a href="/#download" class="toc-cta">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L12 16M12 16L8 12M12 16L16 12"/><path d="M2 20h20"/></svg>
+          Download the App
+        </a>
+      </div>
+    </aside>
+
+    <!-- ─── POLICY CONTENT ─────────────────────────────────────────────── -->
+    <main class="policy-content" id="policyContent">
+
+      <!-- Overview -->
+      <section class="policy-section" id="overview">
+        <div class="policy-section-header">
+          <div class="policy-section-icon" style="--icon-color:#7c3aed">🛡️</div>
+          <div>
+            <h2 class="policy-section-title">Overview</h2>
+            <p class="policy-section-lead">The short version, in plain language.</p>
+          </div>
+        </div>
+        <div class="policy-body">
+          <p>
+            <strong><%= appName %></strong> ("we", "our", or "us") is a mobile gaming platform that lets you 
+            play instant WebGL games and download premium offline games — all from a single app. This Privacy 
+            Policy explains what information we collect when you use the <%= appName %> mobile application 
+            (the "App"), our website at <a href="<%= appUrl %>" class="policy-link"><%= appUrl %></a>, 
+            and any related services (collectively, the "Services").
+          </p>
+          <p>
+            By downloading or using <%= appName %>, you agree to the practices described in this policy. 
+            If you do not agree, please discontinue use of the Services.
+          </p>
+          <div class="policy-highlight-box">
+            <span class="highlight-icon">💡</span>
+            <div>
+              <strong>TL;DR</strong>
+              <p>We collect minimal data needed to run the app, show relevant ads via Google AdMob, and 
+              improve game recommendations. We do not sell your personal data. You can opt out of 
+              personalised ads at any time.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="policy-divider"></div>
+
+      <!-- Information Collected -->
+      <section class="policy-section" id="information-collected">
+        <div class="policy-section-header">
+          <div class="policy-section-icon" style="--icon-color:#06b6d4">📋</div>
+          <div>
+            <h2 class="policy-section-title">Information We Collect</h2>
+            <p class="policy-section-lead">What data enters our systems and how.</p>
+          </div>
+        </div>
+        <div class="policy-body">
+          <h3 class="policy-h3">a) Information You Provide</h3>
+          <p>
+            <%= appName %> does not require account registration to get started. If you choose to contact 
+            our support team, you may provide:
+          </p>
+          <ul class="policy-list">
+            <li>Your name and email address (for support correspondence)</li>
+            <li>Device or bug-report information you voluntarily share</li>
+          </ul>
+
+          <h3 class="policy-h3">b) Information Collected Automatically</h3>
+          <p>When you use the App, certain information is collected automatically, including:</p>
+
+          <div class="policy-data-grid">
+            <div class="data-card">
+              <span class="data-card-icon">📱</span>
+              <h4>Device Information</h4>
+              <p>Device model, OS version, unique device identifiers (e.g. Android Advertising ID / IDFA)</p>
+            </div>
+            <div class="data-card">
+              <span class="data-card-icon">🌐</span>
+              <h4>Usage &amp; Gameplay Data</h4>
+              <p>Games launched, session duration, tap interactions, levels completed, and app navigation patterns</p>
+            </div>
+            <div class="data-card">
+              <span class="data-card-icon">📡</span>
+              <h4>Network &amp; Log Data</h4>
+              <p>IP address, country/region, internet connection type, crash logs, and error reports</p>
+            </div>
+            <div class="data-card">
+              <span class="data-card-icon">🍪</span>
+              <h4>Advertising Identifiers</h4>
+              <p>Mobile ad IDs used by Google AdMob to serve and measure advertisements (resettable in device settings)</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="policy-divider"></div>
+
+      <!-- AdMob -->
+      <section class="policy-section" id="admob-ads">
+        <div class="policy-section-header">
+          <div class="policy-section-icon" style="--icon-color:#f59e0b">📢</div>
+          <div>
+            <h2 class="policy-section-title">Google AdMob &amp; Advertising</h2>
+            <p class="policy-section-lead">How ads work in <%= appName %>.</p>
+          </div>
+        </div>
+        <div class="policy-body">
+          <p>
+            <%= appName %> is free to play and is supported by advertising. We use 
+            <strong>Google AdMob</strong>, a mobile advertising platform operated by Google LLC, to display 
+            ads within the App. AdMob may collect and use data to show you relevant ads.
+          </p>
+
+          <div class="policy-highlight-box policy-highlight-box--warning">
+            <span class="highlight-icon">⚠️</span>
+            <div>
+              <strong>Personalised Ads</strong>
+              <p>By default, AdMob may serve <em>personalised advertisements</em> based on your interests 
+              and browsing behaviour. You can opt out of personalised ads at any time by resetting your 
+              Advertising ID in your device's privacy settings or by enabling "Opt out of Ads 
+              Personalisation" in your device settings.</p>
+            </div>
+          </div>
+
+          <h3 class="policy-h3">What AdMob Collects</h3>
+          <p>Google AdMob may independently collect the following data as described in 
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" class="policy-link">Google's Privacy Policy</a>:
+          </p>
+          <ul class="policy-list">
+            <li>Mobile advertising ID (GAID / IDFA)</li>
+            <li>Device type, OS version, and screen resolution</li>
+            <li>IP address and general location (country / region)</li>
+            <li>Ad interactions (impressions, clicks, rewarded ad completions)</li>
+            <li>App usage patterns relevant to ad targeting</li>
+          </ul>
+
+          <h3 class="policy-h3">Ad Formats We Use</h3>
+          <div class="policy-tag-row">
+            <span class="policy-tag">Banner Ads</span>
+            <span class="policy-tag">Interstitial Ads</span>
+            <span class="policy-tag">Rewarded Video Ads</span>
+          </div>
+          <p>
+            Rewarded video ads are always <em>optional</em> — you choose to watch them in exchange for 
+            in-game benefits. Interstitial ads appear between natural game transitions. We take care to 
+            limit ad frequency to keep the experience enjoyable.
+          </p>
+
+          <h3 class="policy-h3">Consent &amp; GDPR / CCPA</h3>
+          <p>
+            For users in the European Economic Area (EEA), UK, and California, we display a consent 
+            dialogue before serving personalised ads, as required by applicable privacy law. You may 
+            withdraw or update your consent at any time through the in-app Privacy Settings.
+          </p>
+        </div>
+      </section>
+
+      <div class="policy-divider"></div>
+
+      <!-- Analytics -->
+      <section class="policy-section" id="analytics">
+        <div class="policy-section-header">
+          <div class="policy-section-icon" style="--icon-color:#10b981">📊</div>
+          <div>
+            <h2 class="policy-section-title">Analytics &amp; Tracking</h2>
+            <p class="policy-section-lead">How we measure game popularity and interactions.</p>
+          </div>
+        </div>
+        <div class="policy-body">
+          <p>
+            We collect basic analytics to understand how players interact with the App. This helps us 
+            surface popular games, fix issues quickly, and decide which new games to add. Our analytics 
+            are focused on <strong>aggregate patterns</strong>, not individual surveillance.
+          </p>
+
+          <h3 class="policy-h3">What We Measure</h3>
+          <table class="policy-table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th>Purpose</th>
+                <th>Retention</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Game launch count</td>
+                <td>Popularity ranking &amp; featured games</td>
+                <td>90 days</td>
+              </tr>
+              <tr>
+                <td>Session duration per game</td>
+                <td>Engagement scoring</td>
+                <td>90 days</td>
+              </tr>
+              <tr>
+                <td>App open / close events</td>
+                <td>DAU / MAU reporting &amp; crash detection</td>
+                <td>30 days</td>
+              </tr>
+              <tr>
+                <td>Device &amp; OS info</td>
+                <td>Compatibility testing</td>
+                <td>180 days</td>
+              </tr>
+              <tr>
+                <td>Crash reports &amp; error logs</td>
+                <td>Bug fixing &amp; stability</td>
+                <td>60 days</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>
+            Analytics data is aggregated and anonymised before being used to make product decisions. 
+            We do not build individual user profiles for marketing purposes.
+          </p>
+        </div>
+      </section>
+
+      <div class="policy-divider"></div>
+
+      <!-- Data Use -->
+      <section class="policy-section" id="data-use">
+        <div class="policy-section-header">
+          <div class="policy-section-icon" style="--icon-color:#8b5cf6">⚙️</div>
+          <div>
+            <h2 class="policy-section-title">How We Use Your Data</h2>
+            <p class="policy-section-lead">The specific purposes behind each data point.</p>
+          </div>
+        </div>
+        <div class="policy-body">
+          <p>We use the information we collect to:</p>
+          <ul class="policy-list policy-list--check">
+            <li>Operate, maintain, and improve the <%= appName %> App and Services</li>
+            <li>Personalise your game feed and surface trending or recommended games</li>
+            <li>Deliver and optimise advertisements via Google AdMob</li>
+            <li>Monitor App performance, detect crashes, and fix bugs</li>
+            <li>Respond to support requests submitted by you</li>
+            <li>Comply with legal obligations and enforce our Terms of Service</li>
+            <li>Detect and prevent fraud, abuse, or security threats</li>
+          </ul>
+          <p>
+            We will <strong>never</strong> use your data to make automated decisions that significantly 
+            affect you, sell your personal data to data brokers, or share your data for purposes 
+            incompatible with those stated in this policy.
+          </p>
+        </div>
+      </section>
+
+      <div class="policy-divider"></div>
+
+      <!-- Data Sharing -->
+      <section class="policy-section" id="data-sharing">
+        <div class="policy-section-header">
+          <div class="policy-section-icon" style="--icon-color:#ef4444">🔗</div>
+          <div>
+            <h2 class="policy-section-title">Data Sharing</h2>
+            <p class="policy-section-lead">Who else may see your data, and why.</p>
+          </div>
+        </div>
+        <div class="policy-body">
+          <p>
+            We do <strong>not sell</strong> your personal data. We may share information only in the 
+            following limited circumstances:
+          </p>
+          <ul class="policy-list">
+            <li>
+              <strong>Google AdMob / Google LLC</strong> — to serve and measure advertisements. 
+              Governed by <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" class="policy-link">Google's Privacy Policy</a>.
+            </li>
+            <li>
+              <strong>Cloud Infrastructure Providers</strong> — our hosting and database providers 
+              (operating under strict data-processing agreements) store app backend data securely.
+            </li>
+            <li>
+              <strong>Legal Authorities</strong> — if compelled by law, court order, or to protect 
+              the safety of our users or the public.
+            </li>
+            <li>
+              <strong>Business Transfers</strong> — in the event of a merger, acquisition, or asset 
+              sale, your data may be transferred. You will be notified in advance.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="policy-divider"></div>
+
+      <!-- Data Retention -->
+      <section class="policy-section" id="data-retention">
+        <div class="policy-section-header">
+          <div class="policy-section-icon" style="--icon-color:#06b6d4">🗓️</div>
+          <div>
+            <h2 class="policy-section-title">Data Retention</h2>
+            <p class="policy-section-lead">How long we keep your information.</p>
+          </div>
+        </div>
+        <div class="policy-body">
+          <p>
+            We retain data only for as long as necessary to fulfil the purposes described in this policy:
+          </p>
+          <ul class="policy-list">
+            <li><strong>Analytics &amp; gameplay data</strong> — anonymised and aggregated after 90 days; raw logs deleted within 6 months.</li>
+            <li><strong>Support correspondence</strong> — kept for up to 2 years to assist with follow-up requests.</li>
+            <li><strong>Advertising identifiers</strong> — retained according to Google AdMob's own data retention policy.</li>
+            <li><strong>Crash &amp; error logs</strong> — deleted within 60 days of the associated app version being superseded.</li>
+          </ul>
+          <p>
+            You may request deletion of your data at any time by contacting us at 
+            <a href="mailto:privacy@playmist.app" class="policy-link">privacy@playmist.app</a>.
+          </p>
+        </div>
+      </section>
+
+      <div class="policy-divider"></div>
+
+      <!-- Children's Privacy -->
+      <section class="policy-section" id="children">
+        <div class="policy-section-header">
+          <div class="policy-section-icon" style="--icon-color:#10b981">👶</div>
+          <div>
+            <h2 class="policy-section-title">Children's Privacy</h2>
+            <p class="policy-section-lead">Our commitment to younger players.</p>
+          </div>
+        </div>
+        <div class="policy-body">
+          <div class="policy-highlight-box policy-highlight-box--success">
+            <span class="highlight-icon">✅</span>
+            <div>
+              <strong>Family-Safe App</strong>
+              <p><%= appName %> is designed to be family-friendly. However, the App is directed at 
+              a general audience and is not specifically directed at children under 13.</p>
+            </div>
+          </div>
+          <p>
+            We comply with the Children's Online Privacy Protection Act (COPPA) and the GDPR-K 
+            framework in the EU. We do <strong>not knowingly collect personal information from children 
+            under 13</strong> (or under 16 in the EEA). 
+          </p>
+          <p>
+            For users identified or suspected to be under 13, we configure Google AdMob to serve 
+            <strong>non-personalised, child-directed ads only</strong> in accordance with Google's 
+            <a href="https://support.google.com/admob/answer/6223431" target="_blank" rel="noopener noreferrer" class="policy-link">Families Policy</a>.
+          </p>
+          <p>
+            If you believe a child under 13 has provided us personal information without parental 
+            consent, please contact us immediately at 
+            <a href="mailto:privacy@playmist.app" class="policy-link">privacy@playmist.app</a> and 
+            we will promptly delete that information.
+          </p>
+        </div>
+      </section>
+
+      <div class="policy-divider"></div>
+
+      <!-- Your Rights -->
+      <section class="policy-section" id="your-rights">
+        <div class="policy-section-header">
+          <div class="policy-section-icon" style="--icon-color:#7c3aed">⚖️</div>
+          <div>
+            <h2 class="policy-section-title">Your Rights</h2>
+            <p class="policy-section-lead">You're in control of your data.</p>
+          </div>
+        </div>
+        <div class="policy-body">
+          <p>
+            Depending on where you live, you may have the following rights regarding your personal data:
+          </p>
+          <div class="policy-rights-grid">
+            <div class="rights-card">
+              <span class="rights-icon">👁️</span>
+              <h4>Right to Access</h4>
+              <p>Request a copy of the personal data we hold about you.</p>
+            </div>
+            <div class="rights-card">
+              <span class="rights-icon">✏️</span>
+              <h4>Right to Rectification</h4>
+              <p>Ask us to correct inaccurate or incomplete information.</p>
+            </div>
+            <div class="rights-card">
+              <span class="rights-icon">🗑️</span>
+              <h4>Right to Erasure</h4>
+              <p>Request deletion of your personal data ("right to be forgotten").</p>
+            </div>
+            <div class="rights-card">
+              <span class="rights-icon">⏸️</span>
+              <h4>Right to Restriction</h4>
+              <p>Ask us to limit how we process your data in certain circumstances.</p>
+            </div>
+            <div class="rights-card">
+              <span class="rights-icon">📦</span>
+              <h4>Right to Portability</h4>
+              <p>Receive your data in a structured, machine-readable format.</p>
+            </div>
+            <div class="rights-card">
+              <span class="rights-icon">🚫</span>
+              <h4>Right to Object</h4>
+              <p>Object to processing based on legitimate interests or for marketing purposes.</p>
+            </div>
+          </div>
+          <p>
+            To exercise any of these rights, email us at 
+            <a href="mailto:privacy@playmist.app" class="policy-link">privacy@playmist.app</a>. 
+            We will respond within 30 days. You also have the right to lodge a complaint with your 
+            local data protection authority.
+          </p>
+          <h3 class="policy-h3">Opt-Out of Personalised Ads</h3>
+          <p>You can reset or restrict your advertising ID at any time:</p>
+          <ul class="policy-list">
+            <li><strong>Android:</strong> Settings → Privacy → Ads → Reset advertising ID or Opt out of Ads Personalisation.</li>
+            <li><strong>iOS:</strong> Settings → Privacy & Security → Tracking → disable "Allow Apps to Request to Track".</li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="policy-divider"></div>
+
+      <!-- Security -->
+      <section class="policy-section" id="security">
+        <div class="policy-section-header">
+          <div class="policy-section-icon" style="--icon-color:#f59e0b">🔐</div>
+          <div>
+            <h2 class="policy-section-title">Security</h2>
+            <p class="policy-section-lead">How we protect your information.</p>
+          </div>
+        </div>
+        <div class="policy-body">
+          <p>
+            We implement industry-standard technical and organisational measures to protect your data 
+            against unauthorised access, loss, or disclosure, including:
+          </p>
+          <ul class="policy-list policy-list--check">
+            <li>HTTPS/TLS encryption for all data in transit</li>
+            <li>Encrypted database storage for backend data</li>
+            <li>Regular security audits and dependency patching</li>
+            <li>Access controls limiting data access to authorised personnel only</li>
+          </ul>
+          <p>
+            While we strive to protect your data, no method of transmission or storage is 100% 
+            secure. If you suspect a security breach, please contact us immediately at 
+            <a href="mailto:security@playmist.app" class="policy-link">security@playmist.app</a>.
+          </p>
+        </div>
+      </section>
+
+      <div class="policy-divider"></div>
+
+      <!-- Third-Party Services -->
+      <section class="policy-section" id="third-party">
+        <div class="policy-section-header">
+          <div class="policy-section-icon" style="--icon-color:#4f46e5">🔌</div>
+          <div>
+            <h2 class="policy-section-title">Third-Party Services</h2>
+            <p class="policy-section-lead">External services integrated into the App.</p>
+          </div>
+        </div>
+        <div class="policy-body">
+          <p>
+            The App integrates third-party services that operate under their own privacy policies. 
+            We are not responsible for the privacy practices of these services.
+          </p>
+          <div class="policy-third-party-list">
+            <div class="tp-item">
+              <div class="tp-logo">G</div>
+              <div class="tp-info">
+                <h4>Google AdMob (Google LLC)</h4>
+                <p>Mobile advertising network used to monetise the App.</p>
+                <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" class="policy-link">View Privacy Policy →</a>
+              </div>
+            </div>
+            <div class="tp-item">
+              <div class="tp-logo">G</div>
+              <div class="tp-info">
+                <h4>Google Play Services</h4>
+                <p>Core Android services used for app distribution and device feature access.</p>
+                <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" class="policy-link">View Privacy Policy →</a>
+              </div>
+            </div>
+            <div class="tp-item">
+              <div class="tp-logo">🍎</div>
+              <div class="tp-info">
+                <h4>Apple App Store / StoreKit</h4>
+                <p>Used for iOS app distribution and in-app purchase handling on iOS devices.</p>
+                <a href="https://www.apple.com/legal/privacy/" target="_blank" rel="noopener noreferrer" class="policy-link">View Privacy Policy →</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="policy-divider"></div>
+
+      <!-- Changes -->
+      <section class="policy-section" id="changes">
+        <div class="policy-section-header">
+          <div class="policy-section-icon" style="--icon-color:#06b6d4">🔄</div>
+          <div>
+            <h2 class="policy-section-title">Policy Changes</h2>
+            <p class="policy-section-lead">How we'll notify you of updates.</p>
+          </div>
+        </div>
+        <div class="policy-body">
+          <p>
+            We may update this Privacy Policy from time to time to reflect changes in our practices, 
+            technology, legal requirements, or other factors. When we make material changes, we will:
+          </p>
+          <ul class="policy-list policy-list--check">
+            <li>Update the "Last Updated" date at the top of this page</li>
+            <li>Display an in-app notification for significant changes</li>
+            <li>Where required by law, obtain your renewed consent</li>
+          </ul>
+          <p>
+            Continued use of the App after the effective date of an updated policy constitutes your 
+            acceptance of the revised terms. We encourage you to review this page periodically.
+          </p>
+        </div>
+      </section>
+
+      <div class="policy-divider"></div>
+
+      <!-- Contact -->
+      <section class="policy-section" id="contact">
+        <div class="policy-section-header">
+          <div class="policy-section-icon" style="--icon-color:#10b981">✉️</div>
+          <div>
+            <h2 class="policy-section-title">Contact Us</h2>
+            <p class="policy-section-lead">Questions about your privacy? We're here.</p>
+          </div>
+        </div>
+        <div class="policy-body">
+          <p>
+            If you have questions, concerns, or requests related to this Privacy Policy or your 
+            personal data, please reach out:
+          </p>
+          <div class="policy-contact-cards">
+            <a href="mailto:privacy@playmist.app" class="contact-card" id="privacyEmailBtn">
+              <span class="contact-card-icon">📧</span>
+              <div>
+                <span class="contact-card-label">Privacy Enquiries</span>
+                <span class="contact-card-value">privacy@playmist.app</span>
+              </div>
+            </a>
+            <a href="mailto:support@playmist.app" class="contact-card" id="supportEmailBtn">
+              <span class="contact-card-icon">🎮</span>
+              <div>
+                <span class="contact-card-label">General Support</span>
+                <span class="contact-card-value">support@playmist.app</span>
+              </div>
+            </a>
+          </div>
+          <p class="policy-response-note">
+            We aim to respond to all privacy-related requests within <strong>30 days</strong>.
+          </p>
+        </div>
+      </section>
+
+      <!-- Bottom CTA -->
+      <div class="policy-bottom-cta">
+        <div class="policy-bottom-cta-inner">
+          <span>🎮</span>
+          <div>
+            <h3>Ready to play?</h3>
+            <p>Download <%= appName %> free and start gaming instantly.</p>
+          </div>
+          <a href="/#download" class="btn btn-primary" id="policyDownloadBtn">
+            Get the App
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ─── FOOTER ───────────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <a href="/" class="nav-logo">
+            <span class="logo-icon">🎮</span>
+            <span class="logo-text"><%= appName %></span>
+          </a>
+          <p class="footer-tagline">The all-in-one mobile gaming platform. Play more, download less.</p>
+        </div>
+        <div class="footer-links-group">
+          <h4>Platform</h4>
+          <ul>
+            <li><a href="/#features">Features</a></li>
+            <li><a href="/#games">Games</a></li>
+            <li><a href="/#download">Download</a></li>
+          </ul>
+        </div>
+        <div class="footer-links-group">
+          <h4>Legal</h4>
+          <ul>
+            <li><a href="/privacy-policy" aria-current="page">Privacy Policy</a></li>
+            <li><a href="#">Terms of Service</a></li>
+            <li><a href="#">Cookie Policy</a></li>
+          </ul>
+        </div>
+        <div class="footer-links-group">
+          <h4>Contact</h4>
+          <ul>
+            <li><a href="mailto:support@playmist.app">support@playmist.app</a></li>
+            <li><a href="#">Twitter / X</a></li>
+            <li><a href="#">Instagram</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; <%= new Date().getFullYear() %> <%= appName %>. All rights reserved.</p>
+        <p>Built with ❤️ for gamers everywhere.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/main.js"></script>
+</body>
+</html>

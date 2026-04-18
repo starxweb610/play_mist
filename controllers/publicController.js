@@ -28,3 +28,20 @@ exports.getHome = async (req, res) => {
     stats,
   });
 };
+
+/**
+ * GET /privacy-policy
+ * Privacy Policy page
+ */
+exports.getPrivacyPolicy = (req, res) => {
+  const appUrl = process.env.APP_URL || 'https://playmist.app';
+  const updated = new Date('2025-04-18').toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  res.render('privacy-policy', {
+    title:       `Privacy Policy – ${res.locals.appName}`,
+    appUrl,
+    lastUpdated: updated,
+  });
+};
