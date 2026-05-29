@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Game Genres</h2>
+        <p class="page-subheading">Manage the dynamic list of game categories available on the platform.</p>
+      </div>
+      <button class="btn-admin-primary" id="showCreateForm">+ Add Genre</button>
+    </div>
+
+    <!-- Create Genre Form (hidden by default) -->
+    <div class="form-card" id="createForm" style="display:none;max-width:500px;margin-bottom:24px">
+      <h3 class="form-card-title">Create New Genre</h3>
+      <form action="/sitehandler/genres/create" method="POST" novalidate>
+        <div class="form-group">
+          <label class="form-label">Genre Name <span class="req">*</span></label>
+          <input type="text" name="name" class="form-input" required placeholder="e.g. MOBA" maxlength="80" />
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-admin-primary">Create Genre</button>
+          <button type="button" class="btn-admin-ghost" id="cancelCreate">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Genres Table -->
+    <% if (genres.length > 0) { %>
+      <div class="data-table-wrapper" style="max-width:800px">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Genre Name</th>
+              <th>Associated Games</th>
+              <th style="width:180px">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% genres.forEach(g => { %>
+              <tr>
+                <td>
+                  <div class="fw-600" style="font-size:1.05rem;color:var(--a-text-bright)"><%= g.name %></div>
+                </td>
+                <td>
+                  <span class="badge badge--role badge--support"><%= g.game_count %> Games</span>
+                </td>
+                <td>
+                  <div class="action-btns">
+                    <a href="/sitehandler/genres/<%= g.id %>/edit" class="action-btn">Rename</a>
+                    <% if (g.name !== 'Other') { %>
+                      <form action="/sitehandler/genres/<%= g.id %>/delete" method="POST" style="display:inline">
+                        <button type="submit" class="action-btn action-btn--danger"
+                          data-confirm="Delete genre '<%= g.name %>'? This will set all games using this genre to 'Other'.">Delete</button>
+                      </form>
+                    <% } else { %>
+                      <span class="text-dim text-sm" style="font-style:italic">System Default</span>
+                    <% } %>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <div class="coming-soon-panel">
+        <div class="coming-soon-icon">📂</div>
+        <h3>No genres found</h3>
+        <p>Dynamic genres list is empty.</p>
+      </div>
+    <% } %>
+
+  </main>
+</div>
+<script src="/sitehandler/js/admin.js"></script>
+<script>
+  const showBtn    = document.getElementById('showCreateForm');
+  const form       = document.getElementById('createForm');
+  const cancelBtn  = document.getElementById('cancelCreate');
+  
+  if (showBtn && form && cancelBtn) {
+    showBtn.addEventListener('click', () => { 
+      form.style.display = 'block'; 
+      showBtn.style.display = 'none'; 
+      form.querySelector('input').focus();
+    });
+    cancelBtn.addEventListener('click', () => { 
+      form.style.display = 'none'; 
+      showBtn.style.display = ''; 
+    });
+  }
+</script>
+</body>
+</html>

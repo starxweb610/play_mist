@@ -28,8 +28,8 @@
             <label class="form-label">Genre <span class="req">*</span></label>
             <select name="genre" class="form-input" required>
               <option value="">Select genre...</option>
-              <% GENRES.forEach(g => { %>
-                <option value="<%= g %>"><%= g %></option>
+              <% genres.forEach(g => { %>
+                <option value="<%= g.name %>"><%= g.name %></option>
               <% }) %>
             </select>
           </div>

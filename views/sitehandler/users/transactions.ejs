@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <div style="margin-bottom: 12px;">
+          <a href="/sitehandler/users" style="color: var(--accent-color); text-decoration: none; font-size: 0.9rem; font-weight: 500; display: inline-flex; align-items: center; gap: 6px;">
+            <span>&larr;</span> Back to Players
+          </a>
+        </div>
+        <h2 class="page-heading">Transactions for @<%= user.username %></h2>
+        <p class="page-subheading">Current Balance: <strong style="color: var(--accent-color);"><%= user.credits !== null ? user.credits : 1000 %> credits</strong> | Email: <%= user.email %></p>
+      </div>
+    </div>
+
+    <!-- Transactions Table -->
+    <% if (transactions.length > 0) { %>
+      <div class="data-table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr><th>Transaction ID</th><th>Game Launched</th><th>Credits Deducted</th><th>Date & Time</th></tr>
+          </thead>
+          <tbody>
+            <% transactions.forEach(t => { %>
+              <tr>
+                <td class="text-sm text-dim">#<%= t.id %></td>
+                <td>
+                  <div class="game-title-cell">
+                    <div class="fw-600"><%= t.gamename || 'Deleted Game' %></div>
+                  </div>
+                </td>
+                <td>
+                  <span class="badge" style="color: #FFA0C8; background: rgba(255,107,168,0.1); font-family: var(--font-mono); font-weight: 700; border: 1px solid rgba(255,107,168,0.2);">
+                    -<%= t.credits_used %> credits
+                  </span>
+                </td>
+                <td class="text-sm text-dim">
+                  <%= new Date(t.created_at).toLocaleDateString() %> <%= new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <div style="text-align:center;padding:48px;background:var(--card-bg);border-radius:12px;border:1px solid var(--border-color);color:var(--text-muted)">
+        <span style="font-size:36px;display:block;margin-bottom:12px">💸</span>
+        <h3>No Transactions Recorded</h3>
+        <p>This player has not launched any credit-based sessions yet.</p>
+      </div>
+    <% } %>
+
+  </main>
+</div>
+<script src="/sitehandler/js/admin.js"></script>
+</body>
+</html>

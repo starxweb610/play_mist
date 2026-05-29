@@ -1,0 +1,29 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    background-color: #0d0e15; /* Dark premium background */
+    overflow: hidden;
+    font-family: 'Outfit', sans-serif;
+    touch-action: none; /* Prevent default touch actions like pull-to-refresh */
+    margin: 0;
+    padding: 0;
+}
+
+#game-container {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+canvas {
+    display: block;
+    /* Optional: add a subtle shadow to the canvas if not full bleed */
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}

@@ -73,6 +73,39 @@ const createTables = [
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     )`,
   },
+  {
+    name: 'genres',
+    sql: `CREATE TABLE IF NOT EXISTS genres (
+      id   INT PRIMARY KEY AUTO_INCREMENT,
+      name VARCHAR(80) NOT NULL UNIQUE
+    )`,
+  },
+  {
+    name: 'tags',
+    sql: `CREATE TABLE IF NOT EXISTS tags (
+      id   INT PRIMARY KEY AUTO_INCREMENT,
+      name VARCHAR(80) NOT NULL UNIQUE
+    )`,
+  },
+  {
+    name: 'game_tags',
+    sql: `CREATE TABLE IF NOT EXISTS game_tags (
+      game_id INT NOT NULL,
+      tag_id  INT NOT NULL,
+      PRIMARY KEY (game_id, tag_id),
+      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+      FOREIGN KEY (tag_id)  REFERENCES tags(id) ON DELETE CASCADE
+    )`,
+  },
+  {
+    name: 'game_screenshots',
+    sql: `CREATE TABLE IF NOT EXISTS game_screenshots (
+      id        INT PRIMARY KEY AUTO_INCREMENT,
+      game_id   INT NOT NULL,
+      image_url VARCHAR(500) NOT NULL,
+      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+    )`,
+  },
 ];
 
 async function syncDb() {
@@ -86,10 +119,21 @@ async function syncDb() {
     await addColumn('games', 'version', "VARCHAR(20) DEFAULT '1.0.0' AFTER orientation");
     await addColumn('games', 'file_path', 'VARCHAR(500) AFTER version');
     await addColumn('games', 'play_url', 'VARCHAR(500) AFTER file_path');
+    await addColumn('games', 'zip_url', 'VARCHAR(500) AFTER play_url');
     await addColumn('games', 'long_description', 'TEXT AFTER play_url');
     await addColumn('games', 'trailer_url', 'VARCHAR(500) AFTER long_description');
     await addColumn('games', 'thumbnail_url', 'VARCHAR(500) AFTER trailer_url');
+    await addColumn('games', 'secondary_thumbnail', 'VARCHAR(500) DEFAULT NULL AFTER thumbnail_url');
+    await addColumn('games', 'promotional_thumbnail', 'VARCHAR(500) DEFAULT NULL AFTER secondary_thumbnail');
+    await addColumn('games', 'studio', "VARCHAR(200) DEFAULT 'Tiny Bear' AFTER thumbnail_url");
+    await addColumn('games', 'size', "VARCHAR(20) DEFAULT '24MB' AFTER studio");
+    await addColumn('games', 'plays', "VARCHAR(20) DEFAULT '1.2M' AFTER size");
+    await addColumn('games', 'rating', "VARCHAR(10) DEFAULT '4.8' AFTER plays");
+    await addColumn('games', 'credits_cost', "INT DEFAULT 10 AFTER rating");
+    await addColumn('games', 'flag', "VARCHAR(50) DEFAULT NULL AFTER credits_cost");
     await addColumn('games', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at');
+    await addColumn('games', 'is_featured', 'TINYINT(1) DEFAULT 0 AFTER is_active');
+    await addColumn('analytics_games', 'user_id', 'INT DEFAULT NULL AFTER game_id');
 
     // Modify default
     await db.query('ALTER TABLE games MODIFY COLUMN is_active TINYINT(1) DEFAULT 0');
@@ -106,6 +150,42 @@ async function syncDb() {
     } catch (err) {
       console.error(`  ❌ Table ${t.name}:`, err.message);
     }
+  }
+
+  // Seed default genres if table is empty
+  try {
+    const [rows] = await db.query('SELECT COUNT(*) AS c FROM genres');
+    if (rows[0].c === 0) {
+      const defaults = [
+        'Action','Adventure','Arcade','Casual','Puzzle',
+        'Racing','RPG','Shooter','Simulation','Sports','Strategy','Tower Defense','Other'
+      ];
+      const values = defaults.map(d => [d]);
+      await db.query('INSERT INTO genres (name) VALUES ?', [values]);
+      console.log('  ✅ Default genres pre-populated');
+    } else {
+      console.log('  ⏭  Genres table already populated — skipped');
+    }
+  } catch (err) {
+    console.error('  ❌ Genres population error:', err.message);
+  }
+
+  // Seed default tags if table is empty
+  try {
+    const [rows] = await db.query('SELECT COUNT(*) AS c FROM tags');
+    if (rows[0].c === 0) {
+      const defaults = [
+        'Open World', 'Story-Rich', 'Dark Fantasy', 'Hand-Painted',
+        'Single Player', 'Atmospheric', 'Choices Matter', 'Original Score'
+      ];
+      const values = defaults.map(d => [d]);
+      await db.query('INSERT INTO tags (name) VALUES ?', [values]);
+      console.log('  ✅ Default tags pre-populated');
+    } else {
+      console.log('  ⏭  Tags table already populated — skipped');
+    }
+  } catch (err) {
+    console.error('  ❌ Tags population error:', err.message);
   }
 
   console.log('\n✔ Sync complete!\n');

@@ -32,3 +32,29 @@ exports.hasRole = (roles) => (req, res, next) => {
   req.flash('error_msg', 'You do not have permission to access this page.');
   return res.redirect('/sitehandler/dashboard');
 };
+
+const jwt = require('jsonwebtoken');
+
+/**
+ * verifyJwt — ensures a valid JWT access token exists in headers.
+ */
+exports.verifyJwt = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) {
+    return res.status(401).json({ error: 'Authorization header missing' });
+  }
+
+  const token = authHeader.split(' ')[1]; // Bearer <token>
+  if (!token) {
+    return res.status(401).json({ error: 'Token missing' });
+  }
+
+  const accessSecret = process.env.JWT_SECRET || 'playmist_jwt_access_secret_123';
+  jwt.verify(token, accessSecret, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({ error: 'Token invalid or expired' });
+    }
+    req.user = decoded;
+    next();
+  });
+};

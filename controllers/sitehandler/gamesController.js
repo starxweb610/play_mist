@@ -26,8 +26,8 @@ async function uniqueSlug(base, excludeId = null) {
   }
 }
 
-const GENRES = ['Action','Adventure','Arcade','Casual','Puzzle',
-  'Racing','RPG','Shooter','Simulation','Sports','Strategy','Tower Defense','Other'];
+// Genres are loaded dynamically from the 'genres' table in the database
+
 
 // ── GET /sitehandler/games ───────────────────────────────────────────────────
 exports.getIndex = async (req, res) => {
@@ -43,18 +43,29 @@ exports.getIndex = async (req, res) => {
   sql += ' ORDER BY g.created_at DESC';
 
   let games = [];
-  try { [games] = await db.query(sql, params); } catch (_) {}
+  let genres = [];
+  try {
+    const [gamesRows] = await db.query(sql, params);
+    const [genresRows] = await db.query('SELECT * FROM genres ORDER BY name ASC');
+    games = gamesRows;
+    genres = genresRows;
+  } catch (_) {}
 
   res.render('sitehandler/games/index', {
     title: 'Manage Games', activePage: 'games',
-    games, filters: { type, genre, status, q }, GENRES,
+    games, filters: { type, genre, status, q }, genres,
   });
 };
 
 // ── GET /sitehandler/games/create ────────────────────────────────────────────
-exports.getCreate = (_req, res) => {
+exports.getCreate = async (_req, res) => {
+  let genres = [];
+  try {
+    const [rows] = await db.query('SELECT * FROM genres ORDER BY name ASC');
+    genres = rows;
+  } catch (_) {}
   res.render('sitehandler/games/create', {
-    title: 'Upload New Game', activePage: 'games', GENRES,
+    title: 'Upload New Game', activePage: 'games', genres,
   });
 };
 
@@ -87,9 +98,16 @@ exports.getDetail = async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM games WHERE id = ?', [req.params.id]);
     if (!rows.length) { req.flash('error_msg', 'Game not found.'); return res.redirect('/sitehandler/games'); }
+    
+    const [genres] = await db.query('SELECT * FROM genres ORDER BY name ASC');
+    const [tags] = await db.query('SELECT * FROM tags ORDER BY name ASC');
+    const [gameTags] = await db.query('SELECT tag_id FROM game_tags WHERE game_id = ?', [req.params.id]);
+    const selectedTagIds = gameTags.map(gt => gt.tag_id);
+    const [screenshots] = await db.query('SELECT * FROM game_screenshots WHERE game_id = ?', [req.params.id]);
+
     res.render('sitehandler/games/detail', {
       title: rows[0].title, activePage: 'games',
-      game: rows[0], GENRES,
+      game: rows[0], genres, tags, selectedTagIds, screenshots
     });
   } catch (err) {
     req.flash('error_msg', err.message);
@@ -104,6 +122,8 @@ exports.postUpdate = async (req, res) => {
     title, genre, orientation, type,
     short_description, long_description, trailer_url,
     version, is_active, is_featured,
+    studio, size, plays, rating, credits_cost, flag,
+    tags
   } = req.body;
   try {
     const base = slugify(title);
@@ -111,16 +131,35 @@ exports.postUpdate = async (req, res) => {
     await db.query(
       `UPDATE games SET title=?, slug=?, genre=?, orientation=?, type=?,
        short_description=?, long_description=?, trailer_url=?,
-       version=?, is_active=?, is_featured=? WHERE id=?`,
+       version=?, is_active=?, is_featured=?,
+       studio=?, size=?, plays=?, rating=?, credits_cost=?, flag=? WHERE id=?`,
       [
         title, slug, genre, orientation, type,
         short_description, long_description || null, trailer_url?.trim() || null,
         version || '1.0.0',
         is_active === 'on' ? 1 : 0,
         is_featured === 'on' ? 1 : 0,
+        studio || null,
+        size || null,
+        plays || null,
+        rating || null,
+        credits_cost ? parseInt(credits_cost) : null,
+        flag || null,
         id,
       ]
     );
+
+    // Update tags
+    await db.query('DELETE FROM game_tags WHERE game_id = ?', [id]);
+    let tagIds = [];
+    if (tags) {
+      tagIds = Array.isArray(tags) ? tags.map(t => parseInt(t)) : [parseInt(tags)];
+    }
+    if (tagIds.length > 0) {
+      const values = tagIds.map(tId => [id, tId]);
+      await db.query('INSERT INTO game_tags (game_id, tag_id) VALUES ?', [values]);
+    }
+
     req.flash('success_msg', 'Game details updated.');
     res.redirect(`/sitehandler/games/${id}`);
   } catch (err) {
@@ -147,12 +186,16 @@ exports.postUpload = async (req, res) => {
     const zip     = new AdmZip(zipFile.path);
     const entries = zip.getEntries().map(e => e.entryName.replace(/\\/g, '/'));
 
-    if (game.type === 'webgl') {
+    let destDir = '';
+    let playUrl = null;
+    let zipUrl = '';
+
+    if (game.type === 'webgl' || game.type === 'premium') {
       // Require index.html at root
       const hasRoot = entries.some(e => e === 'index.html' || e.match(/^[^/]+\/index\.html$/));
       if (!hasRoot) throw new Error('ZIP must contain index.html at root (or one folder deep).');
 
-      const destDir = path.join(PATHS.WEBGL_DIR, game.slug);
+      destDir = path.join(PATHS.WEBGL_DIR, game.slug);
       await fse.remove(destDir);
       await fse.ensureDir(destDir);
 
@@ -170,26 +213,16 @@ exports.postUpload = async (req, res) => {
         zip.extractAllTo(destDir, true);
       }
 
-      const playUrl = `/games/webgl/${game.slug}/index.html`;
-      await db.query('UPDATE games SET file_path=?, play_url=? WHERE id=?', [destDir, playUrl, id]);
-      req.flash('success_msg', `✅ WebGL game uploaded! Test it at: ${playUrl}`);
+      playUrl = `/games/webgl/${game.slug}/index.html`;
+      zipUrl = `/games/webgl/${game.slug}/game.zip`;
 
-    } else if (game.type === 'premium') {
-      // Require at least one .json catalog file
-      const hasCatalog = entries.some(e => e.endsWith('.json'));
-      if (!hasCatalog) throw new Error('ZIP must contain a Unity catalog .json file.');
+      // Move the zip file to the destination folder instead of deleting it
+      const zipDest = path.join(destDir, 'game.zip');
+      await fse.move(zipFile.path, zipDest, { overwrite: true });
 
-      const destDir = path.join(PATHS.PREMIUM_DIR, game.slug);
-      await fse.remove(destDir);
-      await fse.ensureDir(destDir);
-      zip.extractAllTo(destDir, true);
-
-      await db.query('UPDATE games SET file_path=? WHERE id=?', [destDir, id]);
-      req.flash('success_msg', '✅ Premium game assets uploaded and extracted.');
+      await db.query('UPDATE games SET file_path=?, play_url=?, zip_url=? WHERE id=?', [destDir, playUrl, zipUrl, id]);
+      req.flash('success_msg', `✅ ${game.type === 'premium' ? 'Premium' : 'WebGL'} game uploaded! Test it at: ${playUrl}`);
     }
-
-    // Delete the temp zip
-    await fse.remove(zipFile.path);
 
     res.redirect(`/sitehandler/games/${id}`);
   } catch (err) {
@@ -231,6 +264,66 @@ exports.postUploadImage = async (req, res) => {
   }
 };
 
+// ── POST /sitehandler/games/:id/upload-secondary-image ───────────────────────
+exports.postUploadSecondaryImage = async (req, res) => {
+  const { id } = req.params;
+  const imgFile = req.file;
+
+  if (!imgFile) {
+    req.flash('error_msg', 'No secondary image uploaded. Please select a JPG, PNG, or WebP file.');
+    return res.redirect(`/sitehandler/games/${id}`);
+  }
+
+  try {
+    const publicUrl = `/images/games/${imgFile.filename}`;
+
+    const [rows] = await db.query('SELECT secondary_thumbnail FROM games WHERE id = ?', [id]);
+    if (rows.length && rows[0].secondary_thumbnail) {
+      const fse  = require('fs-extra');
+      const path = require('path');
+      const oldPath = path.join(__dirname, '../../public', rows[0].secondary_thumbnail);
+      if (oldPath !== imgFile.path) await fse.remove(oldPath).catch(() => {});
+    }
+
+    await db.query('UPDATE games SET secondary_thumbnail = ? WHERE id = ?', [publicUrl, id]);
+    req.flash('success_msg', '✅ Secondary thumbnail updated.');
+    res.redirect(`/sitehandler/games/${id}`);
+  } catch (err) {
+    req.flash('error_msg', 'Secondary image upload failed: ' + err.message);
+    res.redirect(`/sitehandler/games/${id}`);
+  }
+};
+
+// ── POST /sitehandler/games/:id/upload-promotional-image ─────────────────────
+exports.postUploadPromotionalImage = async (req, res) => {
+  const { id } = req.params;
+  const imgFile = req.file;
+
+  if (!imgFile) {
+    req.flash('error_msg', 'No promotional image uploaded. Please select a JPG, PNG, or WebP file.');
+    return res.redirect(`/sitehandler/games/${id}`);
+  }
+
+  try {
+    const publicUrl = `/images/games/${imgFile.filename}`;
+
+    const [rows] = await db.query('SELECT promotional_thumbnail FROM games WHERE id = ?', [id]);
+    if (rows.length && rows[0].promotional_thumbnail) {
+      const fse  = require('fs-extra');
+      const path = require('path');
+      const oldPath = path.join(__dirname, '../../public', rows[0].promotional_thumbnail);
+      if (oldPath !== imgFile.path) await fse.remove(oldPath).catch(() => {});
+    }
+
+    await db.query('UPDATE games SET promotional_thumbnail = ? WHERE id = ?', [publicUrl, id]);
+    req.flash('success_msg', '✅ Promotional thumbnail updated.');
+    res.redirect(`/sitehandler/games/${id}`);
+  } catch (err) {
+    req.flash('error_msg', 'Promotional image upload failed: ' + err.message);
+    res.redirect(`/sitehandler/games/${id}`);
+  }
+};
+
 // ── POST /sitehandler/games/:id/toggle ──────────────────────────────────────
 exports.postToggle = async (req, res) => {
   try {
@@ -249,13 +342,13 @@ exports.postDelete = async (req, res) => {
     if (rows.length) {
       const game = rows[0];
       // Remove files from filesystem
-      if (game.type === 'webgl') {
-        const dir = path.join(PATHS.WEBGL_DIR, game.slug);
-        await fse.remove(dir).catch(() => {});
-      } else if (game.type === 'premium') {
-        const dir = path.join(PATHS.PREMIUM_DIR, game.slug);
-        await fse.remove(dir).catch(() => {});
+      if (game.file_path) {
+        await fse.remove(game.file_path).catch(() => {});
       }
+      const webglDir = path.join(PATHS.WEBGL_DIR, game.slug);
+      const premiumDir = path.join(PATHS.PREMIUM_DIR, game.slug);
+      await fse.remove(webglDir).catch(() => {});
+      await fse.remove(premiumDir).catch(() => {});
       await db.query('DELETE FROM analytics_games WHERE game_id = ?', [req.params.id]);
       await db.query('DELETE FROM games WHERE id = ?', [req.params.id]);
     }
@@ -265,4 +358,49 @@ exports.postDelete = async (req, res) => {
     req.flash('error_msg', 'Delete failed: ' + err.message);
     res.redirect('/sitehandler/games');
   }
+};
+
+// ── POST /sitehandler/games/:id/upload-screenshots ───────────────────────────
+exports.postUploadScreenshots = async (req, res) => {
+  const { id } = req.params;
+  const files = req.files;
+
+  if (!files || files.length === 0) {
+    req.flash('error_msg', 'No files uploaded.');
+    return res.redirect(`/sitehandler/games/${id}`);
+  }
+
+  try {
+    const values = files.map(file => [id, `/images/screenshots/${file.filename}`]);
+    await db.query('INSERT INTO game_screenshots (game_id, image_url) VALUES ?', [values]);
+    req.flash('success_msg', `✅ ${files.length} screenshots uploaded successfully.`);
+  } catch (err) {
+    req.flash('error_msg', 'Failed to save screenshots: ' + err.message);
+  }
+  res.redirect(`/sitehandler/games/${id}`);
+};
+
+// ── POST /sitehandler/games/:id/delete-screenshot/:screenshotId ──────────────
+exports.postDeleteScreenshot = async (req, res) => {
+  const { id, screenshotId } = req.params;
+  try {
+    const [rows] = await db.query('SELECT image_url FROM game_screenshots WHERE id = ?', [screenshotId]);
+    if (rows.length > 0) {
+      const imageUrl = rows[0].image_url;
+      await db.query('DELETE FROM game_screenshots WHERE id = ?', [screenshotId]);
+
+      // Delete file from disk
+      const fse = require('fs-extra');
+      const path = require('path');
+      const filePath = path.join(__dirname, '../../public', imageUrl);
+      await fse.remove(filePath).catch(() => {});
+
+      req.flash('success_msg', '✅ Screenshot deleted.');
+    } else {
+      req.flash('error_msg', 'Screenshot not found.');
+    }
+  } catch (err) {
+    req.flash('error_msg', 'Delete failed: ' + err.message);
+  }
+  res.redirect(`/sitehandler/games/${id}`);
 };

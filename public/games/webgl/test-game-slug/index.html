@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <title>Tic Tac Toe WebGL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Phaser 3 -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+
+    <!-- Socket.IO and WebRTC -->
+    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+    <script src="js/WebRTCManager.js"></script>
+
+    <!-- Game Scripts -->
+    <script src="js/constants.js"></script>
+    <script src="js/BotLogic.js"></script>
+    <script src="js/scenes/BootScene.js"></script>
+    <script src="js/scenes/MenuScene.js"></script>
+    <script src="js/scenes/OnlineMenuScene.js"></script>
+    <script src="js/scenes/HostScene.js"></script>
+    <script src="js/scenes/JoinScene.js"></script>
+    <script src="js/scenes/GameScene.js"></script>
+    <script src="js/scenes/PauseScene.js"></script>
+    <script src="js/scenes/GameOverScene.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div id="game-container"></div>
+</body>
+</html>

@@ -41,8 +41,14 @@ const upload = multer({
 const imageStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, THUMBS_DIR),
   filename:    (req, file, cb) => {
-    // Name after game slug so it's deterministic and easy to replace
-    const slug = req.params.id ? `game-${req.params.id}` : `game-${Date.now()}`;
+    // Name after game slug and fieldname so it's deterministic and easy to replace
+    let suffix = '';
+    if (file.fieldname === 'secondary_image') {
+      suffix = '-secondary';
+    } else if (file.fieldname === 'promotional_image') {
+      suffix = '-promo';
+    }
+    const slug = req.params.id ? `game-${req.params.id}${suffix}` : `game-${Date.now()}${suffix}`;
     cb(null, slug + path.extname(file.originalname).toLowerCase());
   },
 });
@@ -60,4 +66,23 @@ const uploadImage = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
 
-module.exports = { upload, uploadImage };
+// ── Screenshots uploader (multiple files) ──────────────────────────────────────
+const SCREENSHOTS_DIR = path.join(__dirname, '..', 'public', 'images', 'screenshots');
+fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
+
+const screenshotStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, SCREENSHOTS_DIR),
+  filename:    (req, file, cb) => {
+    const gameId = req.params.id || 'unknown';
+    const uid = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+    cb(null, `screenshot-${gameId}-${uid}${path.extname(file.originalname).toLowerCase()}`);
+  },
+});
+
+const uploadScreenshots = multer({
+  storage: screenshotStorage,
+  fileFilter: imageFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+});
+
+module.exports = { upload, uploadImage, uploadScreenshots };

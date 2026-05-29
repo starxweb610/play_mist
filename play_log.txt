@@ -1,0 +1,58 @@
+[2026-05-29T15:42:31.384Z] Incoming Request: {"game_id":6,"user_id":null,"device":"other","session_id":"sess_guest_1780069349755"}
+[2026-05-29T15:42:31.386Z] DB Insertion FAILED: Unknown column 'user_id' in 'field list'
+[2026-05-29T16:54:43.541Z] Incoming Request: {"game_id":6,"user_id":null,"device":"other","session_id":"sess_guest_1780073681794"}
+[2026-05-29T16:54:43.546Z] DB Insertion FAILED: Unknown column 'user_id' in 'field list'
+[2026-05-29T16:56:31.605Z] Incoming Request: {"game_id":6,"user_id":null,"device":"other","session_id":"sess_guest_1780073789486"}
+[2026-05-29T16:56:31.608Z] DB Insertion FAILED: Unknown column 'user_id' in 'field list'
+[2026-05-29T16:56:53.757Z] Incoming Request: {"game_id":7,"user_id":null,"device":"other","session_id":"sess_guest_1780073812206"}
+[2026-05-29T16:56:53.759Z] DB Insertion FAILED: Unknown column 'user_id' in 'field list'
+[2026-05-29T16:57:38.336Z] Incoming Request: {"game_id":5,"user_id":null,"device":"other","session_id":"sess_guest_1780073856461"}
+[2026-05-29T16:57:38.341Z] DB Insertion SUCCESS
+[2026-05-29T17:00:16.156Z] Incoming Request: {"game_id":6,"user_id":1,"device":"other","session_id":"sess_1_1780074014469"}
+[2026-05-29T17:00:16.160Z] DB Insertion SUCCESS
+[2026-05-29T17:04:08.299Z] Incoming Request: {"game_id":5,"user_id":1,"device":"other","session_id":"sess_1_1780074246757"}
+[2026-05-29T17:04:08.303Z] DB Insertion SUCCESS
+[2026-05-29T17:04:17.052Z] Incoming Request: {"game_id":5,"user_id":1,"device":"other","session_id":"sess_1_1780074255374"}
+[2026-05-29T17:04:17.055Z] DB Insertion SUCCESS
+[2026-05-29T17:04:33.247Z] Incoming Request: {"game_id":4,"user_id":1,"device":"other","session_id":"sess_1_1780074271711"}
+[2026-05-29T17:04:33.249Z] DB Insertion SUCCESS
+[2026-05-29T17:04:36.741Z] Incoming Request: {"game_id":4,"user_id":1,"device":"other","session_id":"sess_1_1780074275199"}
+[2026-05-29T17:04:36.744Z] DB Insertion SUCCESS
+[2026-05-29T17:04:39.938Z] Incoming Request: {"game_id":4,"user_id":1,"device":"other","session_id":"sess_1_1780074278376"}
+[2026-05-29T17:04:39.940Z] DB Insertion SUCCESS
+[2026-05-29T17:04:51.000Z] Incoming Request: {"game_id":4,"user_id":1,"device":"other","session_id":"sess_1_1780074289259"}
+[2026-05-29T17:04:51.001Z] DB Insertion SUCCESS
+[2026-05-29T17:13:11.047Z] Incoming Request: {"game_id":6,"user_id":1,"device":"other","session_id":"sess_1_1780074789127"}
+[2026-05-29T17:13:11.053Z] DB Insertion SUCCESS
+[2026-05-29T17:13:39.846Z] Incoming Request: {"game_id":6,"user_id":1,"device":"other","session_id":"sess_1_1780074817561"}
+[2026-05-29T17:13:39.849Z] Duplicate play skipped today
+[2026-05-29T17:13:50.452Z] Incoming Request: {"game_id":7,"user_id":1,"device":"other","session_id":"sess_1_1780074828913"}
+[2026-05-29T17:13:50.456Z] DB Insertion SUCCESS
+[2026-05-29T17:16:26.125Z] Incoming Request: {"game_id":7,"user_id":1,"device":"other","session_id":"sess_1_1780074984573"}
+[2026-05-29T17:16:26.127Z] Duplicate play skipped today
+[2026-05-29T17:19:48.565Z] Incoming Request: {"game_id":6,"user_id":1,"device":"other","session_id":"sess_1_1780075186256"}
+[2026-05-29T17:19:48.569Z] Duplicate play skipped today
+[2026-05-29T17:50:02.253Z] Incoming Request: {"game_id":9,"user_id":1,"device":"android","session_id":"sess_1_1780077000636"}
+[2026-05-29T17:50:02.259Z] DB Insertion SUCCESS
+[2026-05-29T17:57:40.265Z] Incoming Request: {"game_id":7,"user_id":2,"device":"android","session_id":"sess_2_1780077458417"}
+[2026-05-29T17:57:40.271Z] DB Insertion SUCCESS
+[2026-05-29T18:02:21.566Z] Incoming Request: {"game_id":7,"user_id":2,"device":"android","session_id":"sess_2_1780077739747"}
+[2026-05-29T18:02:21.569Z] Duplicate play skipped today
+[2026-05-29T18:16:52.921Z] Incoming Request: {"game_id":9,"user_id":3,"device":"android","session_id":"sess_3_1780078611343"}
+[2026-05-29T18:16:52.924Z] DB Insertion SUCCESS
+[2026-05-29T18:22:55.253Z] Incoming Request: {"game_id":7,"user_id":3,"device":"android","session_id":"sess_3_1780078973678"}
+[2026-05-29T18:22:55.256Z] DB Insertion SUCCESS
+[2026-05-29T18:43:30.531Z] Incoming Request: {"game_id":9,"user_id":3,"device":"android","session_id":"sess_3_1780080208970"}
+[2026-05-29T18:43:30.533Z] Duplicate play skipped today
+[2026-05-29T19:01:57.937Z] Incoming Request: {"game_id":5,"user_id":3,"device":"android","session_id":"sess_3_1780081316366"}
+[2026-05-29T19:01:57.941Z] DB Insertion SUCCESS
+[2026-05-29T19:21:38.534Z] Incoming Request: {"game_id":7,"user_id":3,"device":"android","session_id":"sess_3_1780082496955"}
+[2026-05-29T19:21:38.540Z] Duplicate play skipped today
+[2026-05-29T19:43:10.193Z] Incoming Request: {"game_id":7,"user_id":3,"device":"android","session_id":"sess_3_1780083788602"}
+[2026-05-29T19:43:10.195Z] Duplicate play skipped today
+[2026-05-29T19:43:10.222Z] Incoming Request: {"game_id":7,"user_id":3,"device":"android","session_id":"sess_3_1780083788625"}
+[2026-05-29T19:43:10.223Z] Duplicate play skipped today
+[2026-05-29T20:25:40.399Z] Incoming Request: {"game_id":7,"user_id":3,"device":"android","session_id":"sess_3_1780086338799"}
+[2026-05-29T20:25:40.404Z] Duplicate play skipped today
+[2026-05-29T20:27:07.260Z] Incoming Request: {"game_id":9,"user_id":4,"device":"android","session_id":"sess_4_1780086425661"}
+[2026-05-29T20:27:07.264Z] DB Insertion SUCCESS

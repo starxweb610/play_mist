@@ -14,6 +14,7 @@
         <p class="page-subheading">Manage all WebGL and Premium games in the Playmist platform.</p>
       </div>
       <div class="page-header-actions">
+        <a href="/sitehandler/genres" class="btn-admin-ghost" style="margin-right: 8px;">📂 Manage Genres</a>
         <a href="/sitehandler/games/create" class="btn-admin-primary">+ New Game</a>
       </div>
     </div>
@@ -28,7 +29,7 @@
       </select>
       <select name="genre" class="filter-select">
         <option value="">All Genres</option>
-        <% GENRES.forEach(g => { %><option value="<%= g %>" <%= filters.genre === g ? 'selected' : '' %>><%= g %></option><% }) %>
+        <% genres.forEach(g => { %><option value="<%= g.name %>" <%= filters.genre === g.name ? 'selected' : '' %>><%= g.name %></option><% }) %>
       </select>
       <select name="status" class="filter-select">
         <option value="">All Status</option>
@@ -76,7 +77,7 @@
                 <td>
                   <% if (game.file_path) { %>
                     <span class="badge badge--active">✓ Uploaded</span>
-                    <% if (game.type === 'webgl' && game.play_url) { %>
+                    <% if ((game.type === 'webgl' || game.type === 'premium') && game.play_url) { %>
                       <a href="<%= game.play_url %>" target="_blank" class="link-sm">Test ↗</a>
                     <% } %>
                   <% } else { %>

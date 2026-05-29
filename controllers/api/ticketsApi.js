@@ -21,3 +21,51 @@ exports.createTicket = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+/**
+ * GET /api/v1/user/tickets
+ * Fetch tickets submitted by the logged-in player along with support replies.
+ */
+exports.getUserTickets = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    // Query all tickets for this user
+    const [tickets] = await db.query(
+      `SELECT id, subject, message, status, priority, created_at, updated_at 
+       FROM tickets 
+       WHERE user_id = ? 
+       ORDER BY created_at DESC`,
+      [userId]
+    );
+
+    // For each ticket, fetch replies
+    const ticketIds = tickets.map(t => t.id);
+    let repliesMap = {};
+    if (ticketIds.length > 0) {
+      const [replies] = await db.query(
+        `SELECT r.id, r.ticket_id, r.message, r.created_at, a.name AS admin_name 
+         FROM ticket_replies r
+         LEFT JOIN admins a ON r.admin_id = a.id
+         WHERE r.ticket_id IN (?) 
+         ORDER BY r.created_at ASC`,
+        [ticketIds]
+      );
+      replies.forEach(reply => {
+        if (!repliesMap[reply.ticket_id]) {
+          repliesMap[reply.ticket_id] = [];
+        }
+        repliesMap[reply.ticket_id].push(reply);
+      });
+    }
+
+    const result = tickets.map(t => ({
+      ...t,
+      replies: repliesMap[t.id] || []
+    }));
+
+    res.json(result);
+  } catch (err) {
+    console.error('getUserTickets error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};

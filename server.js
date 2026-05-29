@@ -1,10 +1,26 @@
 require('dotenv').config();
+
+process.on('uncaughtException', (err) => {
+  require('fs').appendFileSync(
+    require('path').join(__dirname, 'crash.log'),
+    `[${new Date().toISOString()}] Uncaught Exception: ${err.stack || err}\n`
+  );
+});
+
+process.on('unhandledRejection', (reason) => {
+  require('fs').appendFileSync(
+    require('path').join(__dirname, 'crash.log'),
+    `[${new Date().toISOString()}] Unhandled Rejection: ${reason?.stack || reason}\n`
+  );
+});
+
 const express = require('express');
 const path    = require('path');
 const morgan  = require('morgan');
 const helmet  = require('helmet');
 const session = require('express-session');
 const flash   = require('connect-flash');
+const cors    = require('cors');
 const db      = require('./config/database');
 
 const publicRoutes      = require('./routes/index');
@@ -12,6 +28,7 @@ const sitehandlerRoutes = require('./routes/sitehandler');
 const apiRoutes         = require('./routes/api');
 
 const app  = express();
+app.use(cors());
 const PORT = process.env.PORT || 3000;
 
 // ─── Security ────────────────────────────────────────────────────────────────
@@ -89,3 +106,5 @@ app.listen(PORT, () => {
   console.log(`🛠️  Admin panel     → http://localhost:${PORT}/sitehandler`);
   console.log(`📡 Mobile API      → http://localhost:${PORT}/api`);
 });
+// Trigger nodemon reload
+

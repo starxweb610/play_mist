@@ -50,6 +50,16 @@ exports.getIndex = async (req, res) => {
     // Tables not yet created or empty — show zeros
   }
 
+  const getYYYYMMDD = (val) => {
+    if (!val) return '';
+    const dObj = val instanceof Date ? val : new Date(val);
+    if (isNaN(dObj.getTime())) return '';
+    const year = dObj.getFullYear();
+    const month = String(dObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dObj.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Build 14-day date labels for charts (fill missing days with 0)
   const labels  = [];
   const openCounts = [];
@@ -57,10 +67,15 @@ exports.getIndex = async (req, res) => {
   for (let i = 13; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
+    
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    
     labels.push(dateStr.slice(5)); // MM-DD
-    const op = dailyOpens.find(r => r.date?.toString().split('T')[0] === dateStr);
-    const pl = dailyPlays.find(r => r.date?.toString().split('T')[0] === dateStr);
+    const op = dailyOpens.find(r => getYYYYMMDD(r.date) === dateStr);
+    const pl = dailyPlays.find(r => getYYYYMMDD(r.date) === dateStr);
     openCounts.push(op ? op.count : 0);
     playCounts.push(pl ? pl.count : 0);
   }

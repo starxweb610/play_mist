@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Rename Tag</h2>
+        <p class="page-subheading">Update the name of the tag.</p>
+      </div>
+      <a href="/sitehandler/tags" class="btn-admin-ghost">← Back to Tags</a>
+    </div>
+
+    <div class="form-card" style="max-width:500px">
+      <form action="/sitehandler/tags/<%= tag.id %>/update" method="POST" novalidate>
+        <div class="form-group">
+          <label class="form-label">Tag Name <span class="req">*</span></label>
+          <input type="text" name="name" class="form-input" required value="<%= tag.name %>" maxlength="80" />
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-admin-primary">Save Changes</button>
+          <a href="/sitehandler/tags" class="btn-admin-ghost">Cancel</a>
+        </div>
+      </form>
+    </div>
+
+  </main>
+</div>
+<script src="/sitehandler/js/admin.js"></script>
+</body>
+</html>

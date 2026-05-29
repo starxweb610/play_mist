@@ -1,7 +1,7 @@
 const express    = require('express');
 const router     = express.Router();
 const { isAdmin } = require('../middleware/auth');
-const { upload, uploadImage } = require('../config/upload');
+const { upload, uploadImage, uploadScreenshots } = require('../config/upload');
 
 const authController      = require('../controllers/sitehandler/authController');
 const dashboardController = require('../controllers/sitehandler/dashboardController');
@@ -10,6 +10,10 @@ const gamesController     = require('../controllers/sitehandler/gamesController'
 const ticketsController   = require('../controllers/sitehandler/ticketsController');
 const adminsController    = require('../controllers/sitehandler/adminsController');
 const settingsController  = require('../controllers/sitehandler/settingsController');
+const genresController    = require('../controllers/sitehandler/genresController');
+const tagsController      = require('../controllers/sitehandler/tagsController');
+const usersController     = require('../controllers/sitehandler/usersController');
+
 
 // ─── Auth (public within /sitehandler) ────────────────────────────────────────
 router.get ('/login',  authController.getLogin);
@@ -34,8 +38,18 @@ router.get ('/games/:id',            gamesController.getDetail);
 router.post('/games/:id/update',     gamesController.postUpdate);
 router.post('/games/:id/upload',     upload.single('game_zip'),         gamesController.postUpload);
 router.post('/games/:id/upload-image', uploadImage.single('game_image'), gamesController.postUploadImage);
+router.post('/games/:id/upload-secondary-image', uploadImage.single('secondary_image'), gamesController.postUploadSecondaryImage);
+router.post('/games/:id/upload-promotional-image', uploadImage.single('promotional_image'), gamesController.postUploadPromotionalImage);
+router.post('/games/:id/upload-screenshots', uploadScreenshots.array('screenshots', 10), gamesController.postUploadScreenshots);
+router.post('/games/:id/delete-screenshot/:screenshotId', gamesController.postDeleteScreenshot);
 router.post('/games/:id/toggle',     gamesController.postToggle);
 router.post('/games/:id/delete',     gamesController.postDelete);
+
+// Users
+router.get ('/users',                usersController.getIndex);
+router.get ('/users/:id/transactions', usersController.getTransactions);
+router.post('/users/:id/toggle',     usersController.postToggle);
+router.post('/users/:id/delete',     usersController.postDelete);
 
 // Tickets
 router.get ('/tickets',              ticketsController.getIndex);
@@ -54,5 +68,19 @@ router.post('/admins/:id/delete',    adminsController.postDelete);
 router.get ('/settings',             settingsController.getIndex);
 router.post('/settings/profile',     settingsController.postProfile);
 router.post('/settings/password',    settingsController.postPassword);
+
+// Genres
+router.get ('/genres',               genresController.getIndex);
+router.post('/genres/create',        genresController.postCreate);
+router.get ('/genres/:id/edit',      genresController.getEdit);
+router.post('/genres/:id/update',    genresController.postUpdate);
+router.post('/genres/:id/delete',    genresController.postDelete);
+
+// Tags
+router.get ('/tags',                 tagsController.getIndex);
+router.post('/tags/create',          tagsController.postCreate);
+router.get ('/tags/:id/edit',        tagsController.getEdit);
+router.post('/tags/:id/update',      tagsController.postUpdate);
+router.post('/tags/:id/delete',      tagsController.postDelete);
 
 module.exports = router;

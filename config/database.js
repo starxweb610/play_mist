@@ -11,9 +11,72 @@ const pool = mysql2.createPool({
   queueLimit: 0,
 });
 
+pool.on('error', (err) => {
+  console.error('❌ Unexpected database pool error:', err.message || err);
+});
+
 pool.getConnection()
-  .then(conn => {
+  .then(async (conn) => {
     console.log('✅ MySQL connected successfully');
+    
+    // Auto-migrate missing columns
+    try {
+      const migrateColumn = async (table, column, definition) => {
+        const [columnCheck] = await conn.query(
+          `SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+           WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+          [table, column]
+        );
+        if (columnCheck[0].c === 0) {
+          await conn.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+          console.log(`  ✅ Database Migrator: Added ${column} to ${table}`);
+        }
+      };
+
+      await migrateColumn('games', 'zip_url', 'VARCHAR(500) DEFAULT NULL AFTER play_url');
+      await migrateColumn('games', 'secondary_thumbnail', 'VARCHAR(500) DEFAULT NULL AFTER thumbnail_url');
+      await migrateColumn('games', 'promotional_thumbnail', 'VARCHAR(500) DEFAULT NULL AFTER secondary_thumbnail');
+      await migrateColumn('games', 'is_featured', 'TINYINT(1) DEFAULT 0 AFTER is_active');
+      
+      // Also user_id columns for analytics
+      await migrateColumn('analytics_games', 'user_id', 'INT DEFAULT NULL AFTER game_id');
+      await migrateColumn('analytics_app', 'user_id', 'INT DEFAULT NULL AFTER device');
+
+      // Users table credits column
+      await migrateColumn('users', 'credits', 'INT DEFAULT 1000 AFTER avatar');
+      await conn.query('UPDATE users SET credits = 1000 WHERE credits IS NULL');
+
+      // Create credit_transactions table if not exists
+      try {
+        await conn.query(`
+          CREATE TABLE IF NOT EXISTS credit_transactions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            game_id INT NOT NULL,
+            credits_used INT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        `);
+        console.log('  ✅ Database Migrator: Ensured credit_transactions table exists');
+      } catch (tblErr) {
+        console.warn('⚠️  Database Migrator: Failed to create credit_transactions with foreign keys, trying fallback:', tblErr.message);
+        await conn.query(`
+          CREATE TABLE IF NOT EXISTS credit_transactions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            game_id INT NOT NULL,
+            credits_used INT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        `);
+      }
+
+    } catch (migErr) {
+      console.warn('⚠️  Database auto-migration failed:', migErr.message);
+    }
+
     conn.release();
   })
   .catch(err => {

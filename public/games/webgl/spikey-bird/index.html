@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>merge_it_all</title>
+    <style>
+      /* ── Reset ─────────────────────────────────────────────── */
+      *, *::before, *::after { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #0d0d0d; /* Letterbox bars */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      /* ── Canvas ─────────────────────────────────────────────── */
+      /*
+       * Portrait aspect ratio: 1080 × 1920  (9:16)
+       * Strategy: fill full viewport HEIGHT, cap width to maintain ratio.
+       */
+      #unity-canvas {
+        background: #231F20;
+        display: block;
+        height: 100vh;
+        width: auto;
+        max-width: calc(100vh * (1080 / 1920));
+      }
+
+      /* ── Loader overlay ─────────────────────────────────────── */
+      #custom-loader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 0px;
+        background: radial-gradient(ellipse at center,
+                      #1a1a2e 0%,
+                      #0d0d1a 60%,
+                      #000000 100%);
+        z-index: 9999;
+      }
+
+      /* Subtle animated glow ring behind the Lottie */
+      #custom-loader::before {
+        content: '';
+        position: absolute;
+        width: 340px;
+        height: 340px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.06);
+        box-shadow: 0 0 60px rgba(99, 102, 241, 0.25),
+                    inset 0 0 60px rgba(99, 102, 241, 0.1);
+        animation: pulse-ring 2.4s ease-in-out infinite;
+      }
+
+      @keyframes pulse-ring {
+        0%, 100% { transform: scale(1);   opacity: 0.6; }
+        50%       { transform: scale(1.08); opacity: 1;   }
+      }
+
+      /* Lottie player */
+      #lottie-logo {
+        width: 300px;
+        height: 300px;
+        position: relative;
+        z-index: 1;
+        filter: drop-shadow(0 0 24px rgba(99, 102, 241, 0.45));
+      }
+
+      /* "Loading…" text */
+      #loader-text {
+        position: relative;
+        z-index: 1;
+        color: rgba(255, 255, 255, 0.85);
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        font-size: 1.05em;
+        font-weight: 400;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        margin-top: 28px;
+        animation: fade-text 1.8s ease-in-out infinite alternate;
+      }
+
+      @keyframes fade-text {
+        from { opacity: 0.45; }
+        to   { opacity: 1; }
+      }
+
+      /* Thin shimmer progress bar at the bottom of the overlay */
+      #loader-progress-track {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+      }
+
+      #loader-progress-bar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
+        box-shadow: 0 0 12px rgba(99, 102, 241, 0.8);
+        transition: width 0.4s ease;
+        animation: shimmer 1.6s linear infinite;
+        background-size: 200% 100%;
+      }
+
+      @keyframes shimmer {
+        0%   { background-position: -200% 0; }
+        100% { background-position:  200% 0; }
+      }
+
+    </style>
+  </head>
+
+  <body>
+    <!-- ── Unity canvas ──────────────────────────────────────── -->
+    <canvas id="unity-canvas" width=600 height=760 tabindex="-1"></canvas>
+
+    <!-- ── Loading overlay ──────────────────────────────────── -->
+    <div id="custom-loader">
+      <!-- Lottie animated logo centered on screen -->
+      <dotlottie-wc
+        id="lottie-logo"
+        src="TemplateData/loading.json"
+        speed="1"
+        mode="forward"
+        loop
+        autoplay>
+      </dotlottie-wc>
+
+      <div id="loader-text">Loading your game&hellip;</div>
+
+      <!-- Thin progress bar at the bottom of the overlay -->
+      <div id="loader-progress-track">
+        <div id="loader-progress-bar"></div>
+      </div>
+    </div>
+
+
+    <!-- ── Unity loader script ──────────────────────────────── -->
+    <script src="Build/jelly_crush.loader.js"></script>
+    <script>
+      // ── Viewport / mobile setup ────────────────────────────
+      (function () {
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        document.head.appendChild(meta);
+
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+          var canvas = document.getElementById('unity-canvas');
+          canvas.style.width    = '100%';
+          canvas.style.height   = '100%';
+          canvas.style.position = 'fixed';
+          canvas.style.top      = '0';
+          canvas.style.left     = '0';
+          document.body.style.textAlign = 'left';
+
+        }
+      })();
+
+      // ── Fake progress animation while Unity initialises ────
+      var progressBar = document.getElementById('loader-progress-bar');
+      var fakeProgress = 0;
+      var fakeTimer = setInterval(function () {
+        // Ramps quickly at first, slows near 90 %
+        fakeProgress += (90 - fakeProgress) * 0.04;
+        if (progressBar) progressBar.style.width = fakeProgress + '%';
+      }, 120);
+
+      // ── Boot Unity ────────────────────────────────────────
+      createUnityInstance(document.getElementById('unity-canvas'), {
+        arguments: [],
+        dataUrl:      'Build/jelly_crush.data.unityweb',
+        frameworkUrl: 'Build/jelly_crush.framework.js.unityweb',
+        codeUrl:      'Build/jelly_crush.wasm.unityweb',
+        streamingAssetsUrl: 'StreamingAssets',
+        companyName:    "DefaultCompany",
+        productName:    "merge_it_all",
+        productVersion: "1.0.0",
+        // matchWebGLToCanvasSize: false,
+        // devicePixelRatio: 1,
+      }).then(function (unityInstance) {
+        window.unityInstance = unityInstance;
+
+        // Complete the progress bar then fade out the loader
+        clearInterval(fakeTimer);
+        if (progressBar) progressBar.style.width = '100%';
+
+        setTimeout(function () {
+          var loader = document.getElementById('custom-loader');
+          if (loader) {
+            loader.style.transition = 'opacity 0.6s ease';
+            loader.style.opacity = '0';
+            setTimeout(function () { loader.style.display = 'none'; }, 650);
+          }
+        }, 300);
+
+      }).catch(function (message) {
+        alert(message);
+      });
+    </script>
+
+    <!-- Lottie web-component runtime (ESM module) -->
+    <script src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.7.1/dist/dotlottie-wc.js" type="module"></script>
+  </body>
+</html>

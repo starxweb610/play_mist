@@ -41,6 +41,18 @@ CREATE TABLE IF NOT EXISTS games (
   version           VARCHAR(20)  DEFAULT '1.0.0',
   file_path         VARCHAR(500),
   play_url          VARCHAR(500),
+  zip_url           VARCHAR(500),
+  long_description  TEXT,
+  trailer_url       VARCHAR(500),
+  thumbnail_url     VARCHAR(500),
+  secondary_thumbnail   VARCHAR(500) DEFAULT NULL,
+  promotional_thumbnail VARCHAR(500) DEFAULT NULL,
+  studio            VARCHAR(200)  DEFAULT 'Tiny Bear',
+  size              VARCHAR(20)   DEFAULT '24MB',
+  plays             VARCHAR(20)   DEFAULT '1.2M',
+  rating            VARCHAR(10)   DEFAULT '4.8',
+  credits_cost      INT           DEFAULT 10,
+  flag              VARCHAR(50)   DEFAULT NULL,
   is_active         TINYINT(1)   DEFAULT 0,
   is_featured       TINYINT(1)   DEFAULT 0,
   created_by        INT,
@@ -100,12 +112,14 @@ CREATE TABLE IF NOT EXISTS analytics_app (
 CREATE TABLE IF NOT EXISTS analytics_games (
   id         INT PRIMARY KEY AUTO_INCREMENT,
   game_id    INT,
+  user_id    INT DEFAULT NULL,
   device     ENUM('android','ios','other') NOT NULL DEFAULT 'other',
   session_id VARCHAR(120),
   event_date DATE        NOT NULL,
   event_time TIME        NOT NULL,
   created_at TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE SET NULL
+  FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE SET NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- ─── Feedbacks (In-App Feedback System) ──────────────────────────────────────
@@ -123,4 +137,38 @@ CREATE TABLE IF NOT EXISTS newsletter_signups (
   id           INT PRIMARY KEY AUTO_INCREMENT,
   email        VARCHAR(255) NOT NULL UNIQUE,
   signed_up_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ─── Genres ──────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS genres (
+  id   INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(80) NOT NULL UNIQUE
+);
+
+INSERT IGNORE INTO genres (name) VALUES
+('Action'), ('Adventure'), ('Arcade'), ('Casual'), ('Puzzle'),
+('Racing'), ('RPG'), ('Shooter'), ('Simulation'), ('Sports'),
+('Strategy'), ('Tower Defense'), ('Other');
+
+-- ─── Tags ────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS tags (
+  id   INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(80) NOT NULL UNIQUE
+);
+
+-- ─── Game Tags Junction ──────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS game_tags (
+  game_id INT NOT NULL,
+  tag_id  INT NOT NULL,
+  PRIMARY KEY (game_id, tag_id),
+  FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+  FOREIGN KEY (tag_id)  REFERENCES tags(id) ON DELETE CASCADE
+);
+
+-- ─── Game Screenshots ────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS game_screenshots (
+  id        INT PRIMARY KEY AUTO_INCREMENT,
+  game_id   INT NOT NULL,
+  image_url VARCHAR(500) NOT NULL,
+  FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
 );

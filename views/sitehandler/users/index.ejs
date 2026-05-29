@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Player Accounts</h2>
+        <p class="page-subheading">View registered mobile players and control their status.</p>
+      </div>
+    </div>
+
+    <!-- Players Table -->
+    <% if (users.length > 0) { %>
+      <div class="data-table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr><th>Player</th><th>Email Address</th><th>Credits</th><th>Status</th><th>Registered At</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            <% users.forEach(u => { %>
+              <tr>
+                <td>
+                  <div class="game-title-cell">
+                    <div class="admin-avatar-sm" style="background:linear-gradient(135deg, #B5FF6B, #9B7DFF);color:#0B0911"><%= u.username.charAt(0).toUpperCase() %></div>
+                    <div>
+                      <div class="fw-600">@<%= u.username %></div>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-sm"><%= u.email %></td>
+                <td><strong style="color: var(--accent-color);"><%= u.credits !== null ? u.credits : 1000 %></strong></td>
+                <td>
+                  <span class="badge <%= u.is_active ? 'badge--active' : 'badge--inactive' %>"><%= u.is_active ? 'Active' : 'Inactive' %></span>
+                </td>
+                <td class="text-sm text-dim"><%= new Date(u.created_at).toLocaleDateString() %> <%= new Date(u.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) %></td>
+                <td>
+                  <div class="action-btns">
+                    <a href="/sitehandler/users/<%= u.id %>/transactions" class="action-btn">Transactions</a>
+                    <form action="/sitehandler/users/<%= u.id %>/toggle" method="POST" style="display:inline">
+                      <button type="submit" class="action-btn"><%= u.is_active ? 'Deactivate' : 'Activate' %></button>
+                    </form>
+                    <form action="/sitehandler/users/<%= u.id %>/delete" method="POST" style="display:inline">
+                      <button type="submit" class="action-btn action-btn--danger"
+                        data-confirm="Delete player '<%= u.username %>'? This cannot be undone.">Delete</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <div style="text-align:center;padding:48px;background:var(--card-bg);border-radius:12px;border:1px solid var(--border-color);color:var(--text-muted)">
+        <span style="font-size:36px;display:block;margin-bottom:12px">👥</span>
+        <h3>No Players Registered Yet</h3>
+        <p>Players will automatically register here once they complete the onboarding screens in the mobile app.</p>
+      </div>
+    <% } %>
+
+  </main>
+</div>
+<script src="/sitehandler/js/admin.js"></script>
+</body>
+</html>
