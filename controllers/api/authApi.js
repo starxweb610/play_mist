@@ -145,27 +145,26 @@ exports.deductCredits = async (req, res) => {
 
     const cost = games[0].credits_cost !== null ? games[0].credits_cost : (games[0].type === 'premium' ? 25 : 5);
 
-    // Get the user's current credits
-    const [users] = await db.query(
-      'SELECT credits FROM users WHERE id = ?',
-      [userId]
+    // Atomic conditional deduction — a read-then-write here can double-spend
+    // under concurrent requests. COALESCE patches legacy NULL balances.
+    const [result] = await db.query(
+      `UPDATE users
+       SET credits = COALESCE(credits, 1000) - ?
+       WHERE id = ? AND COALESCE(credits, 1000) >= ?`,
+      [cost, userId, cost]
     );
 
-    if (!users.length) {
-      return res.status(404).json({ error: 'User not found' });
+    if (result.affectedRows === 0) {
+      const [users] = await db.query('SELECT credits FROM users WHERE id = ?', [userId]);
+      if (!users.length) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      const balance = users[0].credits !== null ? users[0].credits : 1000;
+      return res.status(400).json({ error: 'Insufficient credits', balance, cost });
     }
 
-    const currentCredits = users[0].credits !== null ? users[0].credits : 1000;
-
-    if (currentCredits < cost) {
-      return res.status(400).json({ error: 'Insufficient credits', balance: currentCredits, cost });
-    }
-
-    const newCredits = currentCredits - cost;
-    await db.query(
-      'UPDATE users SET credits = ? WHERE id = ?',
-      [newCredits, userId]
-    );
+    const [updated] = await db.query('SELECT credits FROM users WHERE id = ?', [userId]);
+    const newCredits = updated[0].credits;
 
     // Record the transaction
     try {
@@ -180,6 +179,58 @@ exports.deductCredits = async (req, res) => {
     return res.json({ success: true, balance: newCredits, cost });
   } catch (err) {
     console.error('deductCredits error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+// ─── Rewarded-ad credits ──────────────────────────────────────────────────────
+const REWARDED_AD_CREDITS = 200;
+const REWARDED_ADS_DAILY_CAP = 20;
+
+/**
+ * POST /api/v1/user/reward-credits
+ * Grants credits for a completed rewarded ad. The server owns the amount;
+ * the client only reports the event. Rewards are recorded in
+ * credit_transactions as negative credits_used with game_id NULL, which
+ * also powers the per-day cap.
+ *
+ * NOTE: for production-grade fraud resistance, verify rewards via AdMob
+ * server-side verification (SSV) callbacks instead of trusting the client.
+ */
+exports.rewardCredits = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const [todayRewards] = await db.query(
+      `SELECT COUNT(*) AS c FROM credit_transactions
+       WHERE user_id = ? AND credits_used < 0 AND created_at >= CURDATE()`,
+      [userId]
+    );
+    if (todayRewards[0].c >= REWARDED_ADS_DAILY_CAP) {
+      return res.status(429).json({ error: 'Daily ad reward limit reached' });
+    }
+
+    const [result] = await db.query(
+      'UPDATE users SET credits = COALESCE(credits, 1000) + ? WHERE id = ?',
+      [REWARDED_AD_CREDITS, userId]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    try {
+      await db.query(
+        'INSERT INTO credit_transactions (user_id, game_id, credits_used) VALUES (?, NULL, ?)',
+        [userId, -REWARDED_AD_CREDITS]
+      );
+    } catch (txErr) {
+      console.error('Failed to log reward transaction:', txErr.message);
+    }
+
+    const [updated] = await db.query('SELECT credits FROM users WHERE id = ?', [userId]);
+    return res.json({ success: true, balance: updated[0].credits, amount: REWARDED_AD_CREDITS });
+  } catch (err) {
+    console.error('rewardCredits error:', err);
     return res.status(500).json({ error: err.message });
   }
 };

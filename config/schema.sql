@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS users (
   email         VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255),
   avatar        VARCHAR(500),
+  credits       INT          DEFAULT 1000,
   is_active     TINYINT(1)   DEFAULT 1,
   created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 );

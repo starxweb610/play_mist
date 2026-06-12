@@ -24,6 +24,9 @@ v1Router.post('/auth/check-username', authApi.checkUsername);
 v1Router.post('/auth/register', authApi.register);
 v1Router.post('/auth/refresh', authApi.refresh);
 
+// Image/file proxy to bypass Nginx regex interception
+v1Router.get('/image-proxy', gamesApi.imageProxy);
+
 /**
  * GET /api/v1/all-games
  * Returns a raw JSON array of active games.
@@ -38,6 +41,7 @@ v1Router.get('/genres', verifyJwt, gamesApi.getGenres);
 v1Router.get('/user/profile', verifyJwt, authApi.getProfile);
 v1Router.get('/user/transactions', verifyJwt, authApi.getTransactions);
 v1Router.post('/user/deduct-credits', verifyJwt, authApi.deductCredits);
+v1Router.post('/user/reward-credits', verifyJwt, authApi.rewardCredits);
 v1Router.get('/user/tickets', verifyJwt, ticketsApi.getUserTickets);
 
 // Mount versioned router
@@ -56,8 +60,6 @@ router.post('/tickets', ticketsApi.createTicket);
 router.get('/health', async (_req, res) => {
   try {
     const db = require('../config/database');
-    const fs = require('fs');
-    const path = require('path');
 
     // Safe DB migration: Check if 'user_id' column exists in 'analytics_games'
     const [cols] = await db.query(
@@ -116,25 +118,36 @@ router.get('/health', async (_req, res) => {
     const promoThumbMigrated = await migrateColumn('games', 'promotional_thumbnail', 'VARCHAR(500) DEFAULT NULL AFTER secondary_thumbnail');
     const featMigrated = await migrateColumn('games', 'is_featured', 'TINYINT(1) DEFAULT 0 AFTER is_active');
 
-    const [users] = await db.query('SELECT id, username, email FROM users');
-    const [plays] = await db.query('SELECT * FROM analytics_games ORDER BY id DESC LIMIT 10');
-    const [games] = await db.query('SELECT * FROM games');
-    const [dbName] = await db.query('SELECT DATABASE() as db');
+    // users.credits (older schemas lack it) + normalize legacy NULL balances
+    const creditsMigrated = await migrateColumn('users', 'credits', 'INT DEFAULT 1000 AFTER avatar');
+    await db.query('UPDATE users SET credits = 1000 WHERE credits IS NULL');
 
-    const report = {
-      timestamp: new Date().toISOString(),
-      activeDb: dbName[0].db,
-      migratedColumn: migrated,
-      usersCount: users.length,
-      users: users,
-      playsCount: plays.length,
-      plays: plays,
-      gamesCount: games.length,
-      games: games
-    };
+    // Rewarded-ad transactions have no game: game_id must be nullable
+    const [gameIdCol] = await db.query(
+      `SELECT IS_NULLABLE FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'credit_transactions' AND COLUMN_NAME = 'game_id'`
+    );
+    let gameIdNullableMigrated = false;
+    if (gameIdCol.length && gameIdCol[0].IS_NULLABLE === 'NO') {
+      await db.query('ALTER TABLE credit_transactions MODIFY game_id INT NULL');
+      gameIdNullableMigrated = true;
+    }
 
-    fs.writeFileSync(path.join(__dirname, '..', 'db_report.txt'), JSON.stringify(report, null, 2));
-    res.json({ status: 'ok', service: 'playmist-api', reportGenerated: true, migrated });
+    // Status only — no user/game data in the response (this endpoint is public)
+    res.json({
+      status: 'ok',
+      service: 'playmist-api',
+      migrated: {
+        analyticsGamesUserId: migrated,
+        analyticsAppUserId: appMigrated,
+        zipUrl: zipUrlMigrated,
+        secondaryThumbnail: secThumbMigrated,
+        promotionalThumbnail: promoThumbMigrated,
+        isFeatured: featMigrated,
+        usersCredits: creditsMigrated,
+        txGameIdNullable: gameIdNullableMigrated
+      }
+    });
   } catch (err) {
     console.error("Health check diagnostics error:", err);
     res.json({ status: 'error', error: err.message });
