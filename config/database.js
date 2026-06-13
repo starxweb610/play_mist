@@ -49,6 +49,16 @@ pool.getConnection()
       // Idempotency key for AdMob SSV-credited rewards
       await migrateColumn('credit_transactions', 'ad_transaction_id', 'VARCHAR(64) NULL UNIQUE AFTER credits_used');
 
+      // SSV-credited rewards have no associated game, so game_id must be nullable
+      const [gameIdCol] = await conn.query(
+        `SELECT IS_NULLABLE FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'credit_transactions' AND COLUMN_NAME = 'game_id'`
+      );
+      if (gameIdCol.length > 0 && gameIdCol[0].IS_NULLABLE === 'NO') {
+        await conn.query('ALTER TABLE credit_transactions MODIFY COLUMN game_id INT NULL');
+        console.log('  ✅ Database Migrator: Made credit_transactions.game_id nullable');
+      }
+
       // Create credit_transactions table if not exists
       try {
         await conn.query(`

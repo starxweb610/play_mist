@@ -104,21 +104,39 @@ exports.ssvCallback = async (req, res) => {
       return res.status(200).send('Daily cap reached');
     }
 
-    const [result] = await db.query(
-      'UPDATE users SET credits = COALESCE(credits, 1000) + ? WHERE id = ?',
-      [rewardAmount, userId]
-    );
-    if (result.affectedRows === 0) {
-      console.warn(`SSV callback: unknown user ${userId}`);
-      return res.status(200).send('Unknown user');
+    // Insert the transaction record and the credit update together, so a
+    // failure on either side can never leave credits granted without a
+    // matching transaction row (or vice versa).
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      await connection.query(
+        'INSERT INTO credit_transactions (user_id, game_id, credits_used, ad_transaction_id) VALUES (?, NULL, ?, ?)',
+        [userId, -rewardAmount, transactionId]
+      );
+
+      const [result] = await connection.query(
+        'UPDATE users SET credits = COALESCE(credits, 1000) + ? WHERE id = ?',
+        [rewardAmount, userId]
+      );
+      if (result.affectedRows === 0) {
+        await connection.rollback();
+        console.warn(`SSV callback: unknown user ${userId}`);
+        return res.status(200).send('Unknown user');
+      }
+
+      await connection.commit();
+      return res.status(200).send('OK');
+    } catch (err) {
+      await connection.rollback();
+      if (err.code === 'ER_DUP_ENTRY') {
+        return res.status(200).send('Already processed');
+      }
+      throw err;
+    } finally {
+      connection.release();
     }
-
-    await db.query(
-      'INSERT INTO credit_transactions (user_id, game_id, credits_used, ad_transaction_id) VALUES (?, NULL, ?, ?)',
-      [userId, -rewardAmount, transactionId]
-    );
-
-    return res.status(200).send('OK');
   } catch (err) {
     console.error('ssvCallback error:', err);
     return res.status(500).send('Internal error');
