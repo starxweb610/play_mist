@@ -3,6 +3,15 @@ const fs   = require('fs');
 const path = require('path');
 const PATHS = require('../../config/paths');
 
+// Helper to format image paths using the image proxy to bypass Nginx interceptions
+function formatImagePath(pathStr) {
+  if (!pathStr) return '';
+  if (pathStr.startsWith('/images/')) {
+    return `/api/v1/image-proxy?file=${encodeURIComponent(pathStr)}`;
+  }
+  return pathStr;
+}
+
 /**
  * GET /api/v1/all-games
  *
@@ -100,9 +109,9 @@ exports.getAllGames = async (req, res) => {
       gamename:             g.title,
       gameurl:              g.play_url  || '',
       description:          g.long_description || g.short_description || '',
-      imageurl:             g.thumbnail_url    || '',
-      secondaryThumbnail:   g.secondary_thumbnail || '',
-      promotionalThumbnail: g.promotional_thumbnail || '',
+      imageurl:             formatImagePath(g.thumbnail_url),
+      secondaryThumbnail:   formatImagePath(g.secondary_thumbnail),
+      promotionalThumbnail: formatImagePath(g.promotional_thumbnail),
       trailerurl:           g.trailer_url      || '',
       uploadedat:           g.created_at ? g.created_at.toISOString() : '',
       gameorientation:      g.orientation || 'landscape',
@@ -120,7 +129,7 @@ exports.getAllGames = async (req, res) => {
       creditsCost:          g.credits_cost || 0,
       flag:                 g.flag || null,
       tags:                 tagsMap[g.id] || [],
-      screenshots:          screenshotsMap[g.id] || [],
+      screenshots:          (screenshotsMap[g.id] || []).map(formatImagePath),
     }));
 
     // Unity's JsonUtility expects a plain JSON array at the root
@@ -172,9 +181,9 @@ exports.getLatestGames = async (req, res) => {
       gamename:             g.title,
       gameurl:              g.play_url  || '',
       description:          g.long_description || g.short_description || '',
-      imageurl:             g.thumbnail_url    || '',
-      secondaryThumbnail:   g.secondary_thumbnail || '',
-      promotionalThumbnail: g.promotional_thumbnail || '',
+      imageurl:             formatImagePath(g.thumbnail_url),
+      secondaryThumbnail:   formatImagePath(g.secondary_thumbnail),
+      promotionalThumbnail: formatImagePath(g.promotional_thumbnail),
       trailerurl:           g.trailer_url      || '',
       uploadedat:           g.created_at ? g.created_at.toISOString() : '',
       gameorientation:      g.orientation || 'landscape',
@@ -192,7 +201,7 @@ exports.getLatestGames = async (req, res) => {
       creditsCost:          g.credits_cost || 0,
       flag:                 g.flag || null,
       tags:                 tagsMap[g.id] || [],
-      screenshots:          screenshotsMap[g.id] || [],
+      screenshots:          (screenshotsMap[g.id] || []).map(formatImagePath),
     }));
 
     res.json(games);
@@ -246,9 +255,9 @@ exports.getPopularGames = async (req, res) => {
       gamename:             g.title,
       gameurl:              g.play_url  || '',
       description:          g.long_description || g.short_description || '',
-      imageurl:             g.thumbnail_url    || '',
-      secondaryThumbnail:   g.secondary_thumbnail || '',
-      promotionalThumbnail: g.promotional_thumbnail || '',
+      imageurl:             formatImagePath(g.thumbnail_url),
+      secondaryThumbnail:   formatImagePath(g.secondary_thumbnail),
+      promotionalThumbnail: formatImagePath(g.promotional_thumbnail),
       trailerurl:           g.trailer_url      || '',
       uploadedat:           g.created_at ? g.created_at.toISOString() : '',
       gameorientation:      g.orientation || 'landscape',
@@ -266,7 +275,7 @@ exports.getPopularGames = async (req, res) => {
       creditsCost:          g.credits_cost || 0,
       flag:                 g.flag || null,
       tags:                 tagsMap[g.id] || [],
-      screenshots:          screenshotsMap[g.id] || [],
+      screenshots:          (screenshotsMap[g.id] || []).map(formatImagePath),
     }));
 
     res.json(games);
@@ -297,4 +306,60 @@ exports.getGenres = async (req, res) => {
     console.error('GET /api/v1/genres error:', err.message);
     res.status(500).json({ error: err.message });
   }
+};
+
+/**
+ * GET /api/v1/image-proxy
+ * Proxies static image requests to bypass Nginx regex caching blocks.
+ */
+exports.imageProxy = (req, res) => {
+  const { file } = req.query;
+  if (!file) {
+    return res.status(400).send('File parameter is required');
+  }
+
+  // Prevent directory traversal (e.g. file=../../etc/passwd)
+  const cleanPath = path.normalize(file).replace(/^(\.\.[\/\\])+/, '');
+  
+  // Restrict access to /images/ and /games/ premium/webgl directories
+  const isAllowed = cleanPath.startsWith('/images/') || 
+                    cleanPath.startsWith('images/') ||
+                    cleanPath.startsWith('/games/') ||
+                    cleanPath.startsWith('games/');
+
+  if (!isAllowed) {
+    return res.status(403).send('Forbidden');
+  }
+
+  let fullPath;
+  if (cleanPath.startsWith('/games/premium/') || cleanPath.startsWith('games/premium/')) {
+    const relativePart = cleanPath.startsWith('/') ? cleanPath.slice(1) : cleanPath;
+    const diskPath = relativePart.replace('games/premium', 'uploads/games/premium');
+    fullPath = path.join(__dirname, '../..', diskPath);
+  } else {
+    fullPath = path.join(__dirname, '../..', 'public', cleanPath);
+  }
+
+  if (!fs.existsSync(fullPath) || fs.statSync(fullPath).isDirectory()) {
+    return res.status(404).send('File not found');
+  }
+
+  // Determine content type based on extension
+  const ext = path.extname(fullPath).toLowerCase();
+  const contentTypes = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.svg': 'image/svg+xml',
+    '.css': 'text/css',
+    '.js': 'application/javascript',
+    '.json': 'application/json',
+    '.wasm': 'application/wasm',
+  };
+
+  const contentType = contentTypes[ext] || 'application/octet-stream';
+  res.setHeader('Content-Type', contentType);
+  res.sendFile(fullPath);
 };

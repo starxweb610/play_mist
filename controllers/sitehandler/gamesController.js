@@ -105,9 +105,27 @@ exports.getDetail = async (req, res) => {
     const selectedTagIds = gameTags.map(gt => gt.tag_id);
     const [screenshots] = await db.query('SELECT * FROM game_screenshots WHERE game_id = ?', [req.params.id]);
 
+    const game = rows[0];
+    const formatAdminImagePath = (pathStr) => {
+      if (!pathStr) return '';
+      if (pathStr.startsWith('/images/')) {
+        return `/api/v1/image-proxy?file=${encodeURIComponent(pathStr)}`;
+      }
+      return pathStr;
+    };
+
+    game.thumbnail_url = formatAdminImagePath(game.thumbnail_url);
+    game.secondary_thumbnail = formatAdminImagePath(game.secondary_thumbnail);
+    game.promotional_thumbnail = formatAdminImagePath(game.promotional_thumbnail);
+
+    const mappedScreenshots = screenshots.map(s => ({
+      ...s,
+      image_url: formatAdminImagePath(s.image_url)
+    }));
+
     res.render('sitehandler/games/detail', {
-      title: rows[0].title, activePage: 'games',
-      game: rows[0], genres, tags, selectedTagIds, screenshots
+      title: game.title, activePage: 'games',
+      game, genres, tags, selectedTagIds, screenshots: mappedScreenshots
     });
   } catch (err) {
     req.flash('error_msg', err.message);

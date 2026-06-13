@@ -46,6 +46,9 @@ pool.getConnection()
       await migrateColumn('users', 'credits', 'INT DEFAULT 1000 AFTER avatar');
       await conn.query('UPDATE users SET credits = 1000 WHERE credits IS NULL');
 
+      // Idempotency key for AdMob SSV-credited rewards
+      await migrateColumn('credit_transactions', 'ad_transaction_id', 'VARCHAR(64) NULL UNIQUE AFTER credits_used');
+
       // Create credit_transactions table if not exists
       try {
         await conn.query(`

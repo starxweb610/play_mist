@@ -101,10 +101,18 @@ app.use((err, req, res, _next) => {
 });
 
 // ─── Start ───────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
+  const { networkInterfaces } = require('os');
+  const lanIp = Object.values(networkInterfaces())
+    .flat()
+    .find((i) => i.family === 'IPv4' && !i.internal)?.address;
+
   console.log(`🎮 Playmist website → http://localhost:${PORT}`);
   console.log(`🛠️  Admin panel     → http://localhost:${PORT}/sitehandler`);
   console.log(`📡 Mobile API      → http://localhost:${PORT}/api`);
+  if (lanIp) {
+    console.log(`🌐 LAN access      → http://${lanIp}:${PORT}`);
+  }
 });
 // Trigger nodemon reload
 

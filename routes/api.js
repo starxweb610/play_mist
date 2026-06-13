@@ -15,6 +15,7 @@ const analyticsApi = require('../controllers/api/analyticsApi');
 const ticketsApi = require('../controllers/api/ticketsApi');
 const gamesApi = require('../controllers/api/gamesApi');
 const authApi = require('../controllers/api/authApi');
+const adsApi = require('../controllers/api/adsApi');
 const { verifyJwt } = require('../middleware/auth');
 
 // ─── /api/v1 routes (Unity client & React client) ────────────────────────────
@@ -41,8 +42,11 @@ v1Router.get('/genres', verifyJwt, gamesApi.getGenres);
 v1Router.get('/user/profile', verifyJwt, authApi.getProfile);
 v1Router.get('/user/transactions', verifyJwt, authApi.getTransactions);
 v1Router.post('/user/deduct-credits', verifyJwt, authApi.deductCredits);
-v1Router.post('/user/reward-credits', verifyJwt, authApi.rewardCredits);
 v1Router.get('/user/tickets', verifyJwt, ticketsApi.getUserTickets);
+
+// AdMob rewarded-ad server-side verification (SSV) callback — called by
+// Google's ad servers directly, authenticated via signature, not JWT.
+v1Router.get('/ads/ssv-callback', adsApi.ssvCallback);
 
 // Mount versioned router
 router.use('/v1', v1Router);
