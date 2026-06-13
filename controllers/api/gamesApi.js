@@ -3,15 +3,7 @@ const fs   = require('fs');
 const path = require('path');
 const PATHS = require('../../config/paths');
 const r2   = require('../../config/r2');
-
-// Helper to format image paths using the image proxy to bypass Nginx interceptions
-function formatImagePath(pathStr) {
-  if (!pathStr) return '';
-  if (pathStr.startsWith('/images/')) {
-    return `/api/v1/image-proxy?file=${encodeURIComponent(pathStr)}`;
-  }
-  return pathStr;
-}
+const { formatImagePath } = require('../../utils/images');
 
 /**
  * GET /api/v1/all-games

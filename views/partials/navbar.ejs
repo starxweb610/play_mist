@@ -1,0 +1,18 @@
+<!-- ─── NAVBAR ───────────────────────────────────────────────────────── -->
+<nav class="navbar<%= typeof scrolled !== 'undefined' && scrolled ? ' scrolled' : '' %>" id="navbar">
+  <div class="nav-container">
+    <a href="/" class="nav-logo" aria-label="<%= appName %> Home">
+      <span class="logo-icon">🎮</span>
+      <span class="logo-text"><%= appName %></span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="/games" class="nav-link">Games</a>
+      <a href="/#features" class="nav-link">Features</a>
+      <a href="/#download" class="nav-link">Download</a>
+    </div>
+    <a href="/#download" class="nav-cta" id="navCta">Get the App</a>
+    <button class="hamburger" id="hamburger" aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>

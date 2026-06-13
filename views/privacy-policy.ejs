@@ -32,25 +32,7 @@
   <!-- ─── PARTICLE CANVAS ──────────────────────────────────────────────── -->
   <canvas id="particleCanvas"></canvas>
 
-  <!-- ─── NAVBAR ───────────────────────────────────────────────────────── -->
-  <nav class="navbar scrolled" id="navbar">
-    <div class="nav-container">
-      <a href="/" class="nav-logo" aria-label="Playmist Home">
-        <span class="logo-icon">🎮</span>
-        <span class="logo-text"><%= appName %></span>
-      </a>
-      <div class="nav-links" id="navLinks">
-        <a href="/#features" class="nav-link">Features</a>
-        <a href="/#games" class="nav-link">Games</a>
-        <a href="/#download" class="nav-link">Download</a>
-      </div>
-      <a href="/#download" class="nav-cta" id="navCta">Get the App</a>
-      <button class="hamburger" id="hamburger" aria-label="Toggle menu" aria-expanded="false">
-        <span></span><span></span><span>
-        </span>
-      </button>
-    </div>
-  </nav>
+  <%- include('partials/navbar', { appName, scrolled: true }) %>
 
   <!-- ─── PAGE HERO ─────────────────────────────────────────────────────── -->
   <section class="policy-hero">
@@ -680,48 +662,7 @@
     </main>
   </div>
 
-  <!-- ─── FOOTER ───────────────────────────────────────────────────────── -->
-  <footer class="footer">
-    <div class="container">
-      <div class="footer-top">
-        <div class="footer-brand">
-          <a href="/" class="nav-logo">
-            <span class="logo-icon">🎮</span>
-            <span class="logo-text"><%= appName %></span>
-          </a>
-          <p class="footer-tagline">The all-in-one mobile gaming platform. Play more, download less.</p>
-        </div>
-        <div class="footer-links-group">
-          <h4>Platform</h4>
-          <ul>
-            <li><a href="/#features">Features</a></li>
-            <li><a href="/#games">Games</a></li>
-            <li><a href="/#download">Download</a></li>
-          </ul>
-        </div>
-        <div class="footer-links-group">
-          <h4>Legal</h4>
-          <ul>
-            <li><a href="/privacy-policy" aria-current="page">Privacy Policy</a></li>
-            <li><a href="#">Terms of Service</a></li>
-            <li><a href="#">Cookie Policy</a></li>
-          </ul>
-        </div>
-        <div class="footer-links-group">
-          <h4>Contact</h4>
-          <ul>
-            <li><a href="mailto:support@playmist.app">support@playmist.app</a></li>
-            <li><a href="#">Twitter / X</a></li>
-            <li><a href="#">Instagram</a></li>
-          </ul>
-        </div>
-      </div>
-      <div class="footer-bottom">
-        <p>&copy; <%= new Date().getFullYear() %> <%= appName %>. All rights reserved.</p>
-        <p>Built with ❤️ for gamers everywhere.</p>
-      </div>
-    </div>
-  </footer>
+  <%- include('partials/footer', { appName }) %>
 
   <script src="/js/main.js"></script>
 </body>

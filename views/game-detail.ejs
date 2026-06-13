@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- SEO -->
+  <title><%= title %></title>
+  <meta name="description" content="<%= (game.shortDesc || game.longDesc || '').slice(0, 160) %>" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="<%= appUrl %>/games/<%= game.slug %>" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="<%= game.title %> – <%= appName %>" />
+  <meta property="og:description" content="<%= (game.shortDesc || game.longDesc || '').slice(0, 160) %>" />
+  <meta property="og:url" content="<%= appUrl %>/games/<%= game.slug %>" />
+  <meta property="og:type" content="website" />
+  <% if (game.thumbnail) { %><meta property="og:image" content="<%= game.thumbnail %>" /><% } %>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/css/style.css" />
+
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>" />
+</head>
+<body>
+
+  <canvas id="particleCanvas"></canvas>
+
+  <%- include('partials/navbar', { appName, scrolled: true }) %>
+
+  <!-- ─── GAME HERO ────────────────────────────────────────────────────── -->
+  <header class="game-hero">
+    <div class="game-hero-bg" aria-hidden="true">
+      <% if (game.thumbnail) { %><img src="<%= game.thumbnail %>" alt="" /><% } %>
+      <div class="game-hero-overlay"></div>
+    </div>
+    <div class="container game-hero-content">
+      <a href="/games" class="back-link">← Back to Library</a>
+      <div class="game-hero-main">
+        <div class="game-hero-thumb">
+          <% if (game.thumbnail) { %>
+            <img src="<%= game.thumbnail %>" alt="<%= game.title %>" />
+          <% } else { %>
+            <div class="game-thumb-fallback game-thumb-fallback--lg">🎮</div>
+          <% } %>
+        </div>
+        <div class="game-hero-info">
+          <div class="game-hero-badges">
+            <span class="game-badge <%= game.type === 'premium' ? 'game-badge--premium' : '' %>"><%= game.type === 'premium' ? 'OFFLINE · PREMIUM' : 'FREE · INSTANT PLAY' %></span>
+            <% if (game.flag) { %><span class="game-badge game-badge--flag"><%= game.flag %></span><% } %>
+          </div>
+          <h1 class="game-hero-title"><%= game.title %></h1>
+          <p class="game-hero-desc"><%= game.shortDesc %></p>
+          <div class="game-hero-meta">
+            <span class="meta-item"><strong><%= game.genre %></strong> Genre</span>
+            <% if (game.rating) { %><span class="meta-item"><strong>⭐ <%= game.rating %></strong> Rating</span><% } %>
+            <% if (game.plays) { %><span class="meta-item"><strong><%= game.plays %></strong> Plays</span><% } %>
+            <span class="meta-item"><strong><%= game.studio %></strong> Studio</span>
+          </div>
+          <% if (game.tags && game.tags.length > 0) { %>
+            <div class="feature-tags game-hero-tags">
+              <% game.tags.forEach(tag => { %><span class="tag"><%= tag %></span><% }) %>
+            </div>
+          <% } %>
+          <div class="game-hero-actions">
+            <% if (game.playable) { %>
+              <a href="/play/<%= game.slug %>" class="btn btn-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                Play Now — Free
+              </a>
+            <% } else { %>
+              <a href="/#download" class="btn btn-primary">
+                Get the App to Play
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </a>
+            <% } %>
+            <% if (game.type === 'premium') { %>
+              <span class="game-hero-hint">📱 This is a premium offline game — playable inside the <%= appName %> app.</span>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ─── DETAILS ──────────────────────────────────────────────────────── -->
+  <section class="section game-detail-section">
+    <div class="container game-detail-layout">
+      <div class="game-detail-main">
+        <% if (game.longDesc) { %>
+          <div class="detail-block">
+            <h2 class="detail-block-title">About this game</h2>
+            <p class="detail-block-text"><%= game.longDesc %></p>
+          </div>
+        <% } %>
+
+        <% if (game.trailerUrl) { %>
+          <div class="detail-block">
+            <h2 class="detail-block-title">Trailer</h2>
+            <video class="game-trailer" src="<%= game.trailerUrl %>" controls preload="none"></video>
+          </div>
+        <% } %>
+
+        <% if (game.screenshots && game.screenshots.length > 0) { %>
+          <div class="detail-block">
+            <h2 class="detail-block-title">Screenshots</h2>
+            <div class="screenshot-grid">
+              <% game.screenshots.forEach(s => { %>
+                <a href="<%= s %>" target="_blank" rel="noopener noreferrer" class="screenshot-item">
+                  <img src="<%= s %>" alt="<%= game.title %> screenshot" loading="lazy" />
+                </a>
+              <% }) %>
+            </div>
+          </div>
+        <% } %>
+      </div>
+
+      <aside class="game-detail-sidebar">
+        <div class="info-card">
+          <h3 class="form-card-title">Game Info</h3>
+          <dl class="info-list">
+            <div class="info-row"><dt>Type</dt><dd><%= game.type === 'premium' ? 'Premium (Offline)' : 'Instant (WebGL)' %></dd></div>
+            <div class="info-row"><dt>Genre</dt><dd><%= game.genre %></dd></div>
+            <div class="info-row"><dt>Orientation</dt><dd><%= game.orientation === 'portrait' ? '📱 Portrait' : '🖥️ Landscape' %></dd></div>
+            <div class="info-row"><dt>Studio</dt><dd><%= game.studio %></dd></div>
+            <div class="info-row"><dt>Version</dt><dd><%= game.version %></dd></div>
+            <% if (game.size) { %><div class="info-row"><dt>Size</dt><dd><%= game.size %></dd></div><% } %>
+            <% if (game.rating) { %><div class="info-row"><dt>Rating</dt><dd>⭐ <%= game.rating %></dd></div><% } %>
+            <% if (game.type === 'webgl' && game.creditsCost > 0) { %>
+              <div class="info-row"><dt>Credits</dt><dd><%= game.creditsCost %> / play in-app</dd></div>
+            <% } %>
+          </dl>
+          <% if (game.playable) { %>
+            <a href="/play/<%= game.slug %>" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:16px">▶ Play Now</a>
+          <% } %>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ─── RELATED GAMES ────────────────────────────────────────────────── -->
+  <% if (relatedGames.length > 0) { %>
+    <section class="section related-section">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag">More like this</span>
+          <h2 class="section-title">You might also <span class="gradient-text">enjoy</span></h2>
+        </div>
+        <div class="games-grid library-grid">
+          <% relatedGames.forEach((g, i) => { %>
+            <a href="/games/<%= g.slug %>" class="game-card lib-card" data-aos="zoom-in" data-aos-delay="<%= i * 60 %>">
+              <div class="game-thumb game-thumb--img">
+                <% if (g.thumbnail) { %>
+                  <img src="<%= g.thumbnail %>" alt="<%= g.title %>" loading="lazy" />
+                <% } else { %>
+                  <div class="game-thumb-fallback">🎮</div>
+                <% } %>
+                <% if (g.playable) { %><span class="play-overlay">▶ Play Now</span><% } %>
+              </div>
+              <div class="game-info">
+                <h4><%= g.title %></h4>
+                <span class="game-genre"><%= g.genre %></span>
+              </div>
+              <div class="game-badge <%= g.type === 'premium' ? 'game-badge--premium' : '' %>"><%= g.type === 'premium' ? 'OFFLINE' : 'FREE' %></div>
+            </a>
+          <% }) %>
+        </div>
+      </div>
+    </section>
+  <% } %>
+
+  <%- include('partials/footer', { appName }) %>
+
+  <script src="/js/main.js"></script>
+</body>
+</html>

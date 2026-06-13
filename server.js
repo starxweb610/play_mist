@@ -42,7 +42,9 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 // ─── Static Files ────────────────────────────────────────────────────────────
-app.use(express.static(path.join(__dirname, 'public')));
+// redirect: false — 'public/games' is a real directory, but '/games' must
+// reach our game-library route rather than getting a 301 to '/games/'.
+app.use(express.static(path.join(__dirname, 'public'), { redirect: false }));
 // Serve premium/addressable game assets (extracted ZIPs in uploads/games/premium)
 app.use('/games/premium', express.static(path.join(__dirname, 'uploads', 'games', 'premium')));
 

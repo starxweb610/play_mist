@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- SEO -->
+  <title><%= title %></title>
+  <meta name="description" content="Browse and play the full Playmist game library. Instant WebGL games you can play right in your browser, plus premium offline titles available in the app." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="<%= appUrl %>/games" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="<%= title %>" />
+  <meta property="og:description" content="Play instant WebGL games right in your browser — no download required. Explore the full Playmist game library." />
+  <meta property="og:url" content="<%= appUrl %>/games" />
+  <meta property="og:type" content="website" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/css/style.css" />
+
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>" />
+</head>
+<body>
+
+  <canvas id="particleCanvas"></canvas>
+
+  <%- include('partials/navbar', { appName, scrolled: true }) %>
+
+  <!-- ─── LIBRARY HEADER ───────────────────────────────────────────────── -->
+  <header class="library-hero">
+    <div class="hero-bg-orbs" aria-hidden="true">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+    </div>
+    <div class="container">
+      <span class="section-tag">Game Library</span>
+      <h1 class="library-title">Play <span class="gradient-text">instantly</span> in your browser</h1>
+      <p class="library-subtitle">Jump into any Instant game right now — no install needed. Premium offline titles are available inside the <%= appName %> app.</p>
+
+      <form class="library-search" action="/games" method="GET">
+        <% if (filters.type) { %><input type="hidden" name="type" value="<%= filters.type %>" /><% } %>
+        <% if (filters.genre) { %><input type="hidden" name="genre" value="<%= filters.genre %>" /><% } %>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" name="q" value="<%= filters.q %>" placeholder="Search games..." aria-label="Search games" />
+        <% if (filters.q) { %><a href="/games<%= filters.type ? '?type=' + filters.type : '' %>" class="search-clear" aria-label="Clear search">✕</a><% } %>
+      </form>
+    </div>
+  </header>
+
+  <!-- ─── FILTERS ──────────────────────────────────────────────────────── -->
+  <section class="section library-filters-section">
+    <div class="container">
+      <div class="library-filters">
+        <div class="games-tabs" role="tablist">
+          <%
+            const typeQuery = (t) => {
+              const params = new URLSearchParams();
+              if (t) params.set('type', t);
+              if (filters.genre) params.set('genre', filters.genre);
+              if (filters.q) params.set('q', filters.q);
+              const qs = params.toString();
+              return '/games' + (qs ? '?' + qs : '');
+            };
+          %>
+          <a href="<%= typeQuery(null) %>" class="games-tab <%= !filters.type ? 'active' : '' %>">All Games</a>
+          <a href="<%= typeQuery('webgl') %>" class="games-tab <%= filters.type === 'webgl' ? 'active' : '' %>">⚡ Instant</a>
+          <a href="<%= typeQuery('premium') %>" class="games-tab <%= filters.type === 'premium' ? 'active' : '' %>">👑 Premium</a>
+        </div>
+
+        <% if (genres.length > 0) { %>
+          <div class="genre-chips">
+            <%
+              const genreQuery = (genreName) => {
+                const params = new URLSearchParams();
+                if (filters.type) params.set('type', filters.type);
+                if (genreName) params.set('genre', genreName);
+                if (filters.q) params.set('q', filters.q);
+                const qs = params.toString();
+                return '/games' + (qs ? '?' + qs : '');
+              };
+            %>
+            <a href="<%= genreQuery(null) %>" class="genre-chip <%= !filters.genre ? 'active' : '' %>">All Genres</a>
+            <% genres.forEach(g => { %>
+              <a href="<%= genreQuery(g.name) %>" class="genre-chip <%= filters.genre === g.name ? 'active' : '' %>"><%= g.name %> <span class="genre-count"><%= g.gameCount %></span></a>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+
+      <!-- ─── GAMES GRID ─────────────────────────────────────────────────── -->
+      <% if (games.length > 0) { %>
+        <div class="games-grid library-grid">
+          <% games.forEach((g, i) => { %>
+            <a href="/games/<%= g.slug %>" class="game-card lib-card" data-aos="zoom-in" data-aos-delay="<%= (i % 8) * 50 %>">
+              <div class="game-thumb game-thumb--img">
+                <% if (g.thumbnail) { %>
+                  <img src="<%= g.thumbnail %>" alt="<%= g.title %>" loading="lazy" />
+                <% } else { %>
+                  <div class="game-thumb-fallback">🎮</div>
+                <% } %>
+                <% if (g.playable) { %><span class="play-overlay">▶ Play Now</span><% } %>
+              </div>
+              <div class="game-info">
+                <h4><%= g.title %></h4>
+                <span class="game-genre"><%= g.genre %></span>
+              </div>
+              <div class="game-badge <%= g.type === 'premium' ? 'game-badge--premium' : '' %>"><%= g.type === 'premium' ? 'OFFLINE' : 'FREE' %></div>
+              <% if (g.flag) { %><div class="game-flag"><%= g.flag %></div><% } %>
+            </a>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <div class="library-empty">
+          <span class="library-empty-icon">🎮</span>
+          <h3>No games match your filters</h3>
+          <p>Try a different search or check back soon — new games are added regularly.</p>
+          <a href="/games" class="btn btn-ghost">Reset Filters</a>
+        </div>
+      <% } %>
+    </div>
+  </section>
+
+  <!-- ─── APP CTA ──────────────────────────────────────────────────────── -->
+  <section class="section download-section" id="download">
+    <div class="download-bg-glow" aria-hidden="true"></div>
+    <div class="container">
+      <div class="download-wrapper">
+        <div class="download-content">
+          <h2 class="download-title">
+            Want the <span class="gradient-text">full library?</span>
+          </h2>
+          <p class="download-subtitle">
+            Get the <%= appName %> app for premium offline games, leaderboards, achievements, and more — on top of every instant game on this page.
+          </p>
+          <div class="store-buttons">
+            <a href="/#download" class="btn btn-primary">
+              Get the App
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/footer', { appName }) %>
+
+  <script src="/js/main.js"></script>
+</body>
+</html>

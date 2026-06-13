@@ -38,24 +38,7 @@
   <!-- ─── PARTICLE CANVAS ──────────────────────────────────────────────── -->
   <canvas id="particleCanvas"></canvas>
 
-  <!-- ─── NAVBAR ───────────────────────────────────────────────────────── -->
-  <nav class="navbar" id="navbar">
-    <div class="nav-container">
-      <a href="/" class="nav-logo" aria-label="Playmist Home">
-        <span class="logo-icon">🎮</span>
-        <span class="logo-text"><%= appName %></span>
-      </a>
-      <div class="nav-links" id="navLinks">
-        <a href="#features" class="nav-link">Features</a>
-        <a href="#games" class="nav-link">Games</a>
-        <a href="#download" class="nav-link">Download</a>
-      </div>
-      <a href="#download" class="nav-cta" id="navCta">Get the App</a>
-      <button class="hamburger" id="hamburger" aria-label="Toggle menu" aria-expanded="false">
-        <span></span><span></span><span></span>
-      </button>
-    </div>
-  </nav>
+  <%- include('partials/navbar', { appName }) %>
 
   <!-- ─── HERO ─────────────────────────────────────────────────────────── -->
   <section class="hero" id="hero">
@@ -241,127 +224,63 @@
       </div>
 
       <div id="panel-instant" class="games-panel active" role="tabpanel" aria-labelledby="tab-instant">
-        <div class="games-grid">
-          <div class="game-card" data-aos="zoom-in">
-            <div class="game-thumb" style="--gc1:#7c3aed;--gc2:#4f46e5">🏃‍♂️</div>
-            <div class="game-info">
-              <h4>Temple Dash</h4>
-              <span class="game-genre">Runner</span>
-            </div>
-            <div class="game-badge">FREE</div>
+        <% if (webglGames.length > 0) { %>
+          <div class="games-grid">
+            <% webglGames.forEach((g, i) => { %>
+              <a href="/games/<%= g.slug %>" class="game-card lib-card" data-aos="zoom-in" data-aos-delay="<%= (i % 8) * 60 %>">
+                <div class="game-thumb game-thumb--img">
+                  <% if (g.thumbnail) { %>
+                    <img src="<%= g.thumbnail %>" alt="<%= g.title %>" loading="lazy" />
+                  <% } else { %>
+                    <div class="game-thumb-fallback">🎮</div>
+                  <% } %>
+                  <% if (g.playable) { %><span class="play-overlay">▶ Play Now</span><% } %>
+                </div>
+                <div class="game-info">
+                  <h4><%= g.title %></h4>
+                  <span class="game-genre"><%= g.genre %></span>
+                </div>
+                <div class="game-badge">FREE</div>
+              </a>
+            <% }) %>
           </div>
-          <div class="game-card" data-aos="zoom-in" data-aos-delay="60">
-            <div class="game-thumb" style="--gc1:#0ea5e9;--gc2:#0284c7">🎯</div>
-            <div class="game-info">
-              <h4>Sniper Zone</h4>
-              <span class="game-genre">Shooter</span>
-            </div>
-            <div class="game-badge">FREE</div>
-          </div>
-          <div class="game-card" data-aos="zoom-in" data-aos-delay="120">
-            <div class="game-thumb" style="--gc1:#f59e0b;--gc2:#d97706">🧩</div>
-            <div class="game-info">
-              <h4>Pixel Puzzle</h4>
-              <span class="game-genre">Puzzle</span>
-            </div>
-            <div class="game-badge">FREE</div>
-          </div>
-          <div class="game-card" data-aos="zoom-in" data-aos-delay="180">
-            <div class="game-thumb" style="--gc1:#10b981;--gc2:#059669">⚽</div>
-            <div class="game-info">
-              <h4>Kick King</h4>
-              <span class="game-genre">Sports</span>
-            </div>
-            <div class="game-badge">FREE</div>
-          </div>
-          <div class="game-card" data-aos="zoom-in" data-aos-delay="240">
-            <div class="game-thumb" style="--gc1:#f43f5e;--gc2:#e11d48">🃏</div>
-            <div class="game-info">
-              <h4>Card Wars</h4>
-              <span class="game-genre">Strategy</span>
-            </div>
-            <div class="game-badge">FREE</div>
-          </div>
-          <div class="game-card" data-aos="zoom-in" data-aos-delay="300">
-            <div class="game-thumb" style="--gc1:#8b5cf6;--gc2:#7c3aed">🏎️</div>
-            <div class="game-info">
-              <h4>Turbo Drift</h4>
-              <span class="game-genre">Racing</span>
-            </div>
-            <div class="game-badge">FREE</div>
-          </div>
-          <div class="game-card" data-aos="zoom-in" data-aos-delay="360">
-            <div class="game-thumb" style="--gc1:#06b6d4;--gc2:#0891b2">🌊</div>
-            <div class="game-info">
-              <h4>Wave Surfer</h4>
-              <span class="game-genre">Arcade</span>
-            </div>
-            <div class="game-badge">FREE</div>
-          </div>
-          <div class="game-card" data-aos="zoom-in" data-aos-delay="420">
-            <div class="game-thumb" style="--gc1:#f97316;--gc2:#ea580c">🧙</div>
-            <div class="game-info">
-              <h4>Mage Tower</h4>
-              <span class="game-genre">Tower Def.</span>
-            </div>
-            <div class="game-badge">FREE</div>
-          </div>
-        </div>
-        <p class="games-more">…and <strong>30+ more</strong> WebGL instant games available now!</p>
+          <p class="games-more">Play instantly — no download needed. <a href="/games?type=webgl" style="color:var(--clr-primary-2)">Browse all instant games →</a></p>
+        <% } else { %>
+          <p class="games-more">New instant games are on the way — check back soon!</p>
+        <% } %>
       </div>
 
       <div id="panel-premium" class="games-panel" role="tabpanel" aria-labelledby="tab-premium">
-        <div class="games-grid">
-          <div class="game-card" data-aos="zoom-in">
-            <div class="game-thumb" style="--gc1:#7c3aed;--gc2:#6d28d9">🐉</div>
-            <div class="game-info">
-              <h4>Dragon's Oath</h4>
-              <span class="game-genre">RPG</span>
-            </div>
-            <div class="game-badge game-badge--premium">OFFLINE</div>
+        <% if (premiumGames.length > 0) { %>
+          <div class="games-grid">
+            <% premiumGames.forEach((g, i) => { %>
+              <a href="/games/<%= g.slug %>" class="game-card lib-card" data-aos="zoom-in" data-aos-delay="<%= (i % 8) * 60 %>">
+                <div class="game-thumb game-thumb--img">
+                  <% if (g.thumbnail) { %>
+                    <img src="<%= g.thumbnail %>" alt="<%= g.title %>" loading="lazy" />
+                  <% } else { %>
+                    <div class="game-thumb-fallback">🎮</div>
+                  <% } %>
+                </div>
+                <div class="game-info">
+                  <h4><%= g.title %></h4>
+                  <span class="game-genre"><%= g.genre %></span>
+                </div>
+                <div class="game-badge game-badge--premium">OFFLINE</div>
+              </a>
+            <% }) %>
           </div>
-          <div class="game-card" data-aos="zoom-in" data-aos-delay="60">
-            <div class="game-thumb" style="--gc1:#0f172a;--gc2:#1e293b">🚀</div>
-            <div class="game-info">
-              <h4>Starfall</h4>
-              <span class="game-genre">Sci-Fi Action</span>
-            </div>
-            <div class="game-badge game-badge--premium">OFFLINE</div>
-          </div>
-          <div class="game-card" data-aos="zoom-in" data-aos-delay="120">
-            <div class="game-thumb" style="--gc1:#0e7490;--gc2:#155e75">🌊</div>
-            <div class="game-info">
-              <h4>Deep Blue</h4>
-              <span class="game-genre">Adventure</span>
-            </div>
-            <div class="game-badge game-badge--premium">OFFLINE</div>
-          </div>
-          <div class="game-card" data-aos="zoom-in" data-aos-delay="180">
-            <div class="game-thumb" style="--gc1:#92400e;--gc2:#78350f">⚔️</div>
-            <div class="game-info">
-              <h4>Iron Legion</h4>
-              <span class="game-genre">Strategy</span>
-            </div>
-            <div class="game-badge game-badge--premium">OFFLINE</div>
-          </div>
-          <div class="game-card" data-aos="zoom-in" data-aos-delay="240">
-            <div class="game-thumb" style="--gc1:#166534;--gc2:#14532d">🌿</div>
-            <div class="game-info">
-              <h4>Jungle King</h4>
-              <span class="game-genre">Survival</span>
-            </div>
-            <div class="game-badge game-badge--premium">OFFLINE</div>
-          </div>
-          <div class="game-card" data-aos="zoom-in" data-aos-delay="300">
-            <div class="game-thumb" style="--gc1:#1e1b4b;--gc2:#312e81">🌌</div>
-            <div class="game-info">
-              <h4>Nebula Wars</h4>
-              <span class="game-genre">Space Shooter</span>
-            </div>
-            <div class="game-badge game-badge--premium">OFFLINE</div>
-          </div>
-        </div>
-        <p class="games-more">…and <strong>more premium titles</strong> coming every month!</p>
+          <p class="games-more">…and <strong>more premium titles</strong> coming every month! <a href="/games?type=premium" style="color:var(--clr-primary-2)">Browse all →</a></p>
+        <% } else { %>
+          <p class="games-more">Premium offline titles are coming soon — stay tuned!</p>
+        <% } %>
+      </div>
+
+      <div class="games-cta">
+        <a href="/games" class="btn btn-ghost">
+          Browse Full Library
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
       </div>
     </div>
   </section>
@@ -455,48 +374,7 @@
     </div>
   </section>
 
-  <!-- ─── FOOTER ───────────────────────────────────────────────────────── -->
-  <footer class="footer">
-    <div class="container">
-      <div class="footer-top">
-        <div class="footer-brand">
-          <a href="/" class="nav-logo">
-            <span class="logo-icon">🎮</span>
-            <span class="logo-text"><%= appName %></span>
-          </a>
-          <p class="footer-tagline">The all-in-one mobile gaming platform. Play more, download less.</p>
-        </div>
-        <div class="footer-links-group">
-          <h4>Platform</h4>
-          <ul>
-            <li><a href="#features">Features</a></li>
-            <li><a href="#games">Games</a></li>
-            <li><a href="#download">Download</a></li>
-          </ul>
-        </div>
-        <div class="footer-links-group">
-          <h4>Legal</h4>
-          <ul>
-            <li><a href="/privacy-policy">Privacy Policy</a></li>
-            <li><a href="#">Terms of Service</a></li>
-            <li><a href="#">Cookie Policy</a></li>
-          </ul>
-        </div>
-        <div class="footer-links-group">
-          <h4>Contact</h4>
-          <ul>
-            <li><a href="mailto:support@playmist.app">support@playmist.app</a></li>
-            <li><a href="#">Twitter / X</a></li>
-            <li><a href="#">Instagram</a></li>
-          </ul>
-        </div>
-      </div>
-      <div class="footer-bottom">
-        <p>&copy; <%= new Date().getFullYear() %> <%= appName %>. All rights reserved.</p>
-        <p>Built with ❤️ for gamers everywhere.</p>
-      </div>
-    </div>
-  </footer>
+  <%- include('partials/footer', { appName }) %>
 
   <script src="/js/main.js"></script>
 </body>
