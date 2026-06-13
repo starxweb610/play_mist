@@ -1,10 +1,29 @@
 const db     = require('../../config/database');
 const AdmZip = require('adm-zip');
 const fse    = require('fs-extra');
+const fs     = require('fs');
 const path   = require('path');
 const PATHS  = require('../../config/paths');
+const r2     = require('../../config/r2');
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+/**
+ * Recursively collects absolute file paths under `dir`, skipping macOS zip
+ * metadata (__MACOSX folders and ._* dotfiles).
+ */
+function walkFiles(dir) {
+  const results = [];
+  (function walk(current) {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      if (entry.name === '__MACOSX' || entry.name.startsWith('._')) continue;
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else results.push(full);
+    }
+  })(dir);
+  return results;
+}
+
 function slugify(str) {
   return str.toLowerCase().trim()
     .replace(/[^a-z0-9\s-]/g, '')
@@ -196,6 +215,7 @@ exports.postUpload = async (req, res) => {
     return res.redirect(`/sitehandler/games/${id}`);
   }
 
+  let extractDir = null;
   try {
     const [rows] = await db.query('SELECT * FROM games WHERE id = ?', [id]);
     if (!rows.length) throw new Error('Game not found');
@@ -204,49 +224,62 @@ exports.postUpload = async (req, res) => {
     const zip     = new AdmZip(zipFile.path);
     const entries = zip.getEntries().map(e => e.entryName.replace(/\\/g, '/'));
 
-    let destDir = '';
-    let playUrl = null;
-    let zipUrl = '';
-
     if (game.type === 'webgl' || game.type === 'premium') {
       // Require index.html at root
       const hasRoot = entries.some(e => e === 'index.html' || e.match(/^[^/]+\/index\.html$/));
       if (!hasRoot) throw new Error('ZIP must contain index.html at root (or one folder deep).');
 
-      destDir = path.join(PATHS.WEBGL_DIR, game.slug);
-      await fse.remove(destDir);
-      await fse.ensureDir(destDir);
+      extractDir = path.join(PATHS.TEMP_DIR, `extract_${Date.now()}_${id}`);
+      await fse.ensureDir(extractDir);
 
       // If index.html is inside a subdirectory, extract the folder's content directly
       const subFolder = entries.find(e => e.match(/^[^/]+\/index\.html$/));
       if (subFolder) {
-        // Extract everything and move subfolder contents to root
-        const tempExtract = path.join(PATHS.TEMP_DIR, `extract_${Date.now()}`);
+        // Extract everything and move subfolder contents to the extract root
+        const tempExtract = path.join(PATHS.TEMP_DIR, `extract_raw_${Date.now()}_${id}`);
         await fse.ensureDir(tempExtract);
         zip.extractAllTo(tempExtract, true);
         const folderName = subFolder.split('/')[0];
-        await fse.copy(path.join(tempExtract, folderName), destDir);
+        await fse.copy(path.join(tempExtract, folderName), extractDir);
         await fse.remove(tempExtract);
       } else {
-        zip.extractAllTo(destDir, true);
+        zip.extractAllTo(extractDir, true);
       }
 
-      playUrl = `/games/webgl/${game.slug}/index.html`;
-      zipUrl = `/games/webgl/${game.slug}/game.zip`;
+      const r2Prefix = `games/webgl/${game.slug}`;
 
-      // Move the zip file to the destination folder instead of deleting it
-      const zipDest = path.join(destDir, 'game.zip');
-      await fse.move(zipFile.path, zipDest, { overwrite: true });
+      // Clear any previous build so renamed/removed files don't linger on R2
+      await r2.deletePrefix(`${r2Prefix}/`);
 
-      await db.query('UPDATE games SET file_path=?, play_url=?, zip_url=? WHERE id=?', [destDir, playUrl, zipUrl, id]);
-      req.flash('success_msg', `✅ ${game.type === 'premium' ? 'Premium' : 'WebGL'} game uploaded! Test it at: ${playUrl}`);
+      // Upload every extracted file to R2, preserving relative paths and
+      // setting Content-Type/Content-Encoding (handles Unity's .gz/.br builds)
+      const files = walkFiles(extractDir);
+      const CONCURRENCY = 5;
+      for (let i = 0; i < files.length; i += CONCURRENCY) {
+        await Promise.all(files.slice(i, i + CONCURRENCY).map(filePath => {
+          const rel = path.relative(extractDir, filePath).replace(/\\/g, '/');
+          const key = `${r2Prefix}/${rel}`;
+          return r2.uploadFile(key, filePath, r2.getContentType(rel), r2.getContentEncoding(rel));
+        }));
+      }
+
+      // Upload the raw zip alongside the extracted build
+      await r2.uploadFile(`${r2Prefix}/game.zip`, zipFile.path, 'application/zip');
+
+      const playUrl = r2.getPublicUrl(`${r2Prefix}/index.html`);
+      const zipUrl  = r2.getPublicUrl(`${r2Prefix}/game.zip`);
+
+      await db.query('UPDATE games SET file_path=?, play_url=?, zip_url=? WHERE id=?', [r2Prefix, playUrl, zipUrl, id]);
+      req.flash('success_msg', `✅ ${game.type === 'premium' ? 'Premium' : 'WebGL'} game uploaded to R2! Test it at: ${playUrl}`);
     }
 
     res.redirect(`/sitehandler/games/${id}`);
   } catch (err) {
-    if (zipFile) await fse.remove(zipFile.path).catch(() => {});
     req.flash('error_msg', 'Upload failed: ' + err.message);
     res.redirect(`/sitehandler/games/${id}`);
+  } finally {
+    await fse.remove(zipFile.path).catch(() => {});
+    if (extractDir) await fse.remove(extractDir).catch(() => {});
   }
 };
 
@@ -261,17 +294,13 @@ exports.postUploadImage = async (req, res) => {
   }
 
   try {
-    // Build a public URL relative to the web root (file is in public/images/games/)
-    const publicUrl = `/images/games/${imgFile.filename}`;
+    const key = `images/games/game-${id}${path.extname(imgFile.originalname).toLowerCase()}`;
+    const publicUrl = await r2.uploadBuffer(key, imgFile.buffer, imgFile.mimetype);
 
-    // Delete old thumbnail if it has a different filename (different extension)
+    // Delete old thumbnail from R2 if it had a different key (different extension)
     const [rows] = await db.query('SELECT thumbnail_url FROM games WHERE id = ?', [id]);
-    if (rows.length && rows[0].thumbnail_url) {
-      const fse  = require('fs-extra');
-      const path = require('path');
-      const oldPath = path.join(__dirname, '../../public', rows[0].thumbnail_url);
-      if (oldPath !== imgFile.path) await fse.remove(oldPath).catch(() => {});
-    }
+    const oldKey = rows.length ? r2.keyFromUrl(rows[0].thumbnail_url) : null;
+    if (oldKey && oldKey !== key) await r2.deleteObject(oldKey).catch(() => {});
 
     await db.query('UPDATE games SET thumbnail_url = ? WHERE id = ?', [publicUrl, id]);
     req.flash('success_msg', '✅ Game thumbnail updated.');
@@ -293,15 +322,12 @@ exports.postUploadSecondaryImage = async (req, res) => {
   }
 
   try {
-    const publicUrl = `/images/games/${imgFile.filename}`;
+    const key = `images/games/game-${id}-secondary${path.extname(imgFile.originalname).toLowerCase()}`;
+    const publicUrl = await r2.uploadBuffer(key, imgFile.buffer, imgFile.mimetype);
 
     const [rows] = await db.query('SELECT secondary_thumbnail FROM games WHERE id = ?', [id]);
-    if (rows.length && rows[0].secondary_thumbnail) {
-      const fse  = require('fs-extra');
-      const path = require('path');
-      const oldPath = path.join(__dirname, '../../public', rows[0].secondary_thumbnail);
-      if (oldPath !== imgFile.path) await fse.remove(oldPath).catch(() => {});
-    }
+    const oldKey = rows.length ? r2.keyFromUrl(rows[0].secondary_thumbnail) : null;
+    if (oldKey && oldKey !== key) await r2.deleteObject(oldKey).catch(() => {});
 
     await db.query('UPDATE games SET secondary_thumbnail = ? WHERE id = ?', [publicUrl, id]);
     req.flash('success_msg', '✅ Secondary thumbnail updated.');
@@ -323,15 +349,12 @@ exports.postUploadPromotionalImage = async (req, res) => {
   }
 
   try {
-    const publicUrl = `/images/games/${imgFile.filename}`;
+    const key = `images/games/game-${id}-promo${path.extname(imgFile.originalname).toLowerCase()}`;
+    const publicUrl = await r2.uploadBuffer(key, imgFile.buffer, imgFile.mimetype);
 
     const [rows] = await db.query('SELECT promotional_thumbnail FROM games WHERE id = ?', [id]);
-    if (rows.length && rows[0].promotional_thumbnail) {
-      const fse  = require('fs-extra');
-      const path = require('path');
-      const oldPath = path.join(__dirname, '../../public', rows[0].promotional_thumbnail);
-      if (oldPath !== imgFile.path) await fse.remove(oldPath).catch(() => {});
-    }
+    const oldKey = rows.length ? r2.keyFromUrl(rows[0].promotional_thumbnail) : null;
+    if (oldKey && oldKey !== key) await r2.deleteObject(oldKey).catch(() => {});
 
     await db.query('UPDATE games SET promotional_thumbnail = ? WHERE id = ?', [publicUrl, id]);
     req.flash('success_msg', '✅ Promotional thumbnail updated.');
@@ -359,14 +382,30 @@ exports.postDelete = async (req, res) => {
     const [rows] = await db.query('SELECT * FROM games WHERE id = ?', [req.params.id]);
     if (rows.length) {
       const game = rows[0];
-      // Remove files from filesystem
-      if (game.file_path) {
+
+      // R2: remove the extracted build + zip for this game
+      await r2.deletePrefix(`games/webgl/${game.slug}/`).catch(() => {});
+
+      // R2: remove thumbnail / secondary / promotional images and screenshots
+      const [screenshots] = await db.query('SELECT image_url FROM game_screenshots WHERE game_id = ?', [req.params.id]);
+      const imageUrls = [
+        game.thumbnail_url, game.secondary_thumbnail, game.promotional_thumbnail,
+        ...screenshots.map(s => s.image_url),
+      ];
+      for (const url of imageUrls) {
+        const key = r2.keyFromUrl(url);
+        if (key) await r2.deleteObject(key).catch(() => {});
+      }
+
+      // Legacy local cleanup for games/images uploaded before the R2 migration
+      if (game.file_path && fs.existsSync(game.file_path)) {
         await fse.remove(game.file_path).catch(() => {});
       }
       const webglDir = path.join(PATHS.WEBGL_DIR, game.slug);
       const premiumDir = path.join(PATHS.PREMIUM_DIR, game.slug);
       await fse.remove(webglDir).catch(() => {});
       await fse.remove(premiumDir).catch(() => {});
+
       await db.query('DELETE FROM analytics_games WHERE game_id = ?', [req.params.id]);
       await db.query('DELETE FROM games WHERE id = ?', [req.params.id]);
     }
@@ -389,7 +428,13 @@ exports.postUploadScreenshots = async (req, res) => {
   }
 
   try {
-    const values = files.map(file => [id, `/images/screenshots/${file.filename}`]);
+    const values = [];
+    for (const file of files) {
+      const uid = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+      const key = `images/screenshots/screenshot-${id}-${uid}${path.extname(file.originalname).toLowerCase()}`;
+      const publicUrl = await r2.uploadBuffer(key, file.buffer, file.mimetype);
+      values.push([id, publicUrl]);
+    }
     await db.query('INSERT INTO game_screenshots (game_id, image_url) VALUES ?', [values]);
     req.flash('success_msg', `✅ ${files.length} screenshots uploaded successfully.`);
   } catch (err) {
@@ -407,11 +452,14 @@ exports.postDeleteScreenshot = async (req, res) => {
       const imageUrl = rows[0].image_url;
       await db.query('DELETE FROM game_screenshots WHERE id = ?', [screenshotId]);
 
-      // Delete file from disk
-      const fse = require('fs-extra');
-      const path = require('path');
-      const filePath = path.join(__dirname, '../../public', imageUrl);
-      await fse.remove(filePath).catch(() => {});
+      const key = r2.keyFromUrl(imageUrl);
+      if (key) {
+        await r2.deleteObject(key).catch(() => {});
+      } else {
+        // Legacy local file (pre-migration screenshot)
+        const filePath = path.join(__dirname, '../../public', imageUrl);
+        await fse.remove(filePath).catch(() => {});
+      }
 
       req.flash('success_msg', '✅ Screenshot deleted.');
     } else {

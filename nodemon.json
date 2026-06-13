@@ -1,0 +1,8 @@
+{
+  "ignore": [
+    "uploads/**",
+    "public/games/**",
+    "public/images/**",
+    "*.log"
+  ]
+}

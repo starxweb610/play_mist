@@ -2,6 +2,7 @@ const db   = require('../../config/database');
 const fs   = require('fs');
 const path = require('path');
 const PATHS = require('../../config/paths');
+const r2   = require('../../config/r2');
 
 // Helper to format image paths using the image proxy to bypass Nginx interceptions
 function formatImagePath(pathStr) {
@@ -37,16 +38,29 @@ function formatImagePath(pathStr) {
  */
 
 /**
- * Recursively collect all file paths under `dir` and convert them to
- * public URLs by stripping the PREMIUM_DIR prefix and prepending /games/premium.
- * Returns [] if the directory doesn't exist or the walk fails.
+ * Returns public URLs for every file belonging to a premium game's
+ * addressable bundle.
+ *
+ * New games store `file_path` as an R2 key prefix (e.g. "games/webgl/my-slug")
+ * — list the bucket under that prefix and return R2 public URLs.
+ *
+ * Legacy games store `file_path` as an absolute local filesystem path —
+ * walk that directory and build /games/webgl or /games/premium URLs as before.
+ * Returns [] if neither resolves to anything.
  */
-function collectAdFiles(dir, type) {
+async function collectAdFiles(filePath, type) {
+  if (!filePath) return [];
+
+  if (!path.isAbsolute(filePath)) {
+    const keys = await r2.listPrefix(`${filePath}/`);
+    return keys.map(key => r2.getPublicUrl(key));
+  }
+
   const results = [];
-  if (!dir || !fs.existsSync(dir)) return results;
-  const baseDir = type === 'premium' && dir.includes('premium') ? PATHS.PREMIUM_DIR : PATHS.WEBGL_DIR;
-  const urlPrefix = type === 'premium' && dir.includes('premium') ? '/games/premium' : '/games/webgl';
-  
+  if (!fs.existsSync(filePath)) return results;
+  const baseDir = type === 'premium' && filePath.includes('premium') ? PATHS.PREMIUM_DIR : PATHS.WEBGL_DIR;
+  const urlPrefix = type === 'premium' && filePath.includes('premium') ? '/games/premium' : '/games/webgl';
+
   (function walk(current) {
     let entries;
     try { entries = fs.readdirSync(current, { withFileTypes: true }); }
@@ -62,7 +76,7 @@ function collectAdFiles(dir, type) {
         results.push(`${urlPrefix}/${rel}`);
       }
     }
-  })(dir);
+  })(filePath);
   return results;
 }
 
@@ -104,7 +118,7 @@ exports.getAllGames = async (req, res) => {
       screenshotsMap[r.game_id].push(r.image_url);
     }
 
-    const games = rows.map(g => ({
+    const games = await Promise.all(rows.map(async g => ({
       id:                   String(g.id),
       gamename:             g.title,
       gameurl:              g.play_url  || '',
@@ -120,7 +134,7 @@ exports.getAllGames = async (req, res) => {
       gamestatus:           g.is_active ? 'active' : 'inactive',
       isFeatured:           g.is_featured === 1,
       zipurl:               g.zip_url    || '',
-      adFiles:              g.type === 'premium' ? collectAdFiles(g.file_path, g.type) : [],
+      adFiles:              g.type === 'premium' ? await collectAdFiles(g.file_path, g.type) : [],
       genre:                g.genre || '',
       studio:               g.studio || '',
       size:                 g.size || '',
@@ -130,7 +144,7 @@ exports.getAllGames = async (req, res) => {
       flag:                 g.flag || null,
       tags:                 tagsMap[g.id] || [],
       screenshots:          (screenshotsMap[g.id] || []).map(formatImagePath),
-    }));
+    })));
 
     // Unity's JsonUtility expects a plain JSON array at the root
     res.json(games);
@@ -176,7 +190,7 @@ exports.getLatestGames = async (req, res) => {
       screenshotsMap[r.game_id].push(r.image_url);
     }
 
-    const games = rows.map(g => ({
+    const games = await Promise.all(rows.map(async g => ({
       id:                   String(g.id),
       gamename:             g.title,
       gameurl:              g.play_url  || '',
@@ -192,7 +206,7 @@ exports.getLatestGames = async (req, res) => {
       gamestatus:           g.is_active ? 'active' : 'inactive',
       isFeatured:           g.is_featured === 1,
       zipurl:               g.zip_url    || '',
-      adFiles:              g.type === 'premium' ? collectAdFiles(g.file_path, g.type) : [],
+      adFiles:              g.type === 'premium' ? await collectAdFiles(g.file_path, g.type) : [],
       genre:                g.genre || '',
       studio:               g.studio || '',
       size:                 g.size || '',
@@ -202,7 +216,7 @@ exports.getLatestGames = async (req, res) => {
       flag:                 g.flag || null,
       tags:                 tagsMap[g.id] || [],
       screenshots:          (screenshotsMap[g.id] || []).map(formatImagePath),
-    }));
+    })));
 
     res.json(games);
   } catch (err) {
@@ -250,7 +264,7 @@ exports.getPopularGames = async (req, res) => {
       screenshotsMap[r.game_id].push(r.image_url);
     }
 
-    const games = rows.map(g => ({
+    const games = await Promise.all(rows.map(async g => ({
       id:                   String(g.id),
       gamename:             g.title,
       gameurl:              g.play_url  || '',
@@ -266,7 +280,7 @@ exports.getPopularGames = async (req, res) => {
       gamestatus:           g.is_active ? 'active' : 'inactive',
       isFeatured:           g.is_featured === 1,
       zipurl:               g.zip_url    || '',
-      adFiles:              g.type === 'premium' ? collectAdFiles(g.file_path, g.type) : [],
+      adFiles:              g.type === 'premium' ? await collectAdFiles(g.file_path, g.type) : [],
       genre:                g.genre || '',
       studio:               g.studio || '',
       size:                 g.size || '',
@@ -276,7 +290,7 @@ exports.getPopularGames = async (req, res) => {
       flag:                 g.flag || null,
       tags:                 tagsMap[g.id] || [],
       screenshots:          (screenshotsMap[g.id] || []).map(formatImagePath),
-    }));
+    })));
 
     res.json(games);
   } catch (err) {
