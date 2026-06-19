@@ -17,4 +17,7 @@ router.get('/play/:slug', publicController.getPlayGame);
 // GET /privacy-policy
 router.get('/privacy-policy', publicController.getPrivacyPolicy);
 
+// GET /sitemap.xml
+router.get('/sitemap.xml', publicController.getSitemap);
+
 module.exports = router;

@@ -368,7 +368,26 @@ exports.postUploadPromotionalImage = async (req, res) => {
 // ── POST /sitehandler/games/:id/toggle ──────────────────────────────────────
 exports.postToggle = async (req, res) => {
   try {
+    const [rows] = await db.query('SELECT title, thumbnail_url, is_active FROM games WHERE id = ?', [req.params.id]);
+    if (!rows.length) { req.flash('error_msg', 'Game not found.'); return res.redirect('/sitehandler/games'); }
+
     await db.query('UPDATE games SET is_active = NOT is_active WHERE id = ?', [req.params.id]);
+
+    // When a game goes from inactive → active (published), send a push to all users
+    if (!rows[0].is_active) {
+      const { sendAndSaveNotification } = require('../../utils/fcm');
+      const gameTitle = rows[0].title;
+      sendAndSaveNotification({
+        type:     'new_game',
+        title:    '🎮 New game on Play Mist!',
+        body:     `"${gameTitle}" is now available. Tap to play!`,
+        imageUrl: rows[0].thumbnail_url || null,
+        gameId:   parseInt(req.params.id),
+        sentBy:   req.session.admin?.id || null,
+        data:     { type: 'new_game', game_id: req.params.id },
+      }).catch(e => console.error('FCM push error:', e));
+    }
+
     res.redirect('/sitehandler/games');
   } catch (err) {
     req.flash('error_msg', err.message);

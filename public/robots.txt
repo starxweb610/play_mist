@@ -1,0 +1,22 @@
+User-agent: *
+
+# Public pages — allow indexing
+Allow: /$
+Allow: /games$
+Allow: /games/
+Allow: /privacy-policy$
+
+# Static assets
+Allow: /css/
+Allow: /js/
+Allow: /images/
+
+# Keep authenticated portals out of search engines
+Disallow: /sitehandler/
+Disallow: /developer/
+Disallow: /api/
+
+# Play pages have no crawlable content (iframe-only) — indexed via game detail
+Disallow: /play/
+
+Sitemap: https://playmist.app/sitemap.xml

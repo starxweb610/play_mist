@@ -203,6 +203,21 @@ exports.runMigrations = async () => {
       )
     `);
 
+    // ── developer_submissions: add preview_play_url column ───────────────────
+    await migrateColumn('developer_submissions', 'preview_play_url', 'VARCHAR(600) DEFAULT NULL AFTER zip_size');
+
+    // ── developer_submissions: expand status ENUM to include 'draft' ─────────
+    const [subStatusCol] = await db.query(
+      `SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'developer_submissions' AND COLUMN_NAME = 'status'`
+    );
+    if (subStatusCol.length && !subStatusCol[0].COLUMN_TYPE.includes('draft')) {
+      await db.query(
+        `ALTER TABLE developer_submissions
+         MODIFY COLUMN status ENUM('draft','pending','under_review','approved','rejected') DEFAULT 'draft'`
+      );
+    }
+
     // ── developers.bio / avatar_url ───────────────────────────────────────────
     await migrateColumn('developers', 'bio',        'TEXT DEFAULT NULL');
     await migrateColumn('developers', 'avatar_url', 'VARCHAR(500) DEFAULT NULL');
@@ -296,6 +311,51 @@ exports.runMigrations = async () => {
         updated_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (project_id)   REFERENCES developer_projects(id) ON DELETE CASCADE,
         FOREIGN KEY (developer_id) REFERENCES developers(id)         ON DELETE CASCADE
+      )
+    `);
+
+    // ── push_tokens ───────────────────────────────────────────────────────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS push_tokens (
+        id         INT PRIMARY KEY AUTO_INCREMENT,
+        user_id    INT NOT NULL,
+        fcm_token  VARCHAR(500) NOT NULL,
+        device_id  VARCHAR(200) DEFAULT NULL,
+        platform   VARCHAR(20)  DEFAULT NULL,
+        created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_user_token (user_id, fcm_token),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // ── notifications ─────────────────────────────────────────────────────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id               INT PRIMARY KEY AUTO_INCREMENT,
+        type             ENUM('new_game','custom') DEFAULT 'custom',
+        title            VARCHAR(255) NOT NULL,
+        body             TEXT         NOT NULL,
+        image_url        VARCHAR(500) DEFAULT NULL,
+        data_json        TEXT         DEFAULT NULL,
+        game_id          INT          DEFAULT NULL,
+        sent_by          INT          DEFAULT NULL,
+        total_recipients INT          DEFAULT 0,
+        sent_at          TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE SET NULL,
+        FOREIGN KEY (sent_by) REFERENCES admins(id) ON DELETE SET NULL
+      )
+    `);
+
+    // ── user_notification_reads ───────────────────────────────────────────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_notification_reads (
+        user_id         INT NOT NULL,
+        notification_id INT NOT NULL,
+        read_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, notification_id),
+        FOREIGN KEY (user_id)         REFERENCES users(id)         ON DELETE CASCADE,
+        FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE
       )
     `);
 

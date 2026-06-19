@@ -8,13 +8,50 @@
   <title><%= title %></title>
   <meta name="description" content="Browse and play the full Playmist game library. Instant WebGL games you can play right in your browser, plus premium offline titles available in the app." />
   <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="<%= appUrl %>/games" />
+  <link rel="canonical" href="<%= appUrl %>/games<%= filters.genre ? '?genre=' + encodeURIComponent(filters.genre) : '' %>" />
 
   <!-- Open Graph -->
   <meta property="og:title" content="<%= title %>" />
   <meta property="og:description" content="Play instant WebGL games right in your browser — no download required. Explore the full Playmist game library." />
   <meta property="og:url" content="<%= appUrl %>/games" />
   <meta property="og:type" content="website" />
+  <meta property="og:image" content="<%= appUrl %>/images/og-default.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:site_name" content="<%= appName %>" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="<%= title %>" />
+  <meta name="twitter:description" content="Play instant WebGL games right in your browser — no download required. Explore the full Playmist game library." />
+  <meta name="twitter:image" content="<%= appUrl %>/images/og-default.png" />
+
+  <!-- JSON-LD: CollectionPage + ItemList -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": "<%= appUrl %>/games#webpage",
+    "url": "<%= appUrl %>/games",
+    "name": "<%= title %>",
+    "description": "Browse and play the full Playmist game library. Instant WebGL games playable in your browser.",
+    "isPartOf": { "@id": "<%= appUrl %>/#website" },
+    "mainEntity": {
+      "@type": "ItemList",
+      "name": "Playmist Game Library",
+      "itemListElement": [
+        <% games.slice(0, 10).forEach(function(g, i) { %>
+        {
+          "@type": "ListItem",
+          "position": <%= i + 1 %>,
+          "url": "<%= appUrl %>/games/<%= g.slug %>",
+          "name": "<%= g.title.replace(/"/g, '&quot;') %>"
+        }<%= i < Math.min(games.length, 10) - 1 ? ',' : '' %>
+        <% }) %>
+      ]
+    }
+  }
+  </script>
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />

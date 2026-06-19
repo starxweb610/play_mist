@@ -8,16 +8,61 @@
   <meta name="description" content="Playmist is a free web gaming portal. Play 50+ instant WebGL games right in your browser — no download, no account needed. Also available on Android." />
   <meta name="keywords" content="playmist, play games online, free browser games, webgl games, instant play games, gaming portal" />
   <meta name="author" content="Playmist" />
+  <meta name="robots" content="index, follow" />
   <link rel="canonical" href="<%= appUrl %>" />
 
+  <!-- Open Graph -->
   <meta property="og:title" content="<%= appName %> – Play Free Games in Your Browser" />
   <meta property="og:description" content="Jump into 50+ instant games right in your browser. No download, no account. Always free." />
   <meta property="og:url" content="<%= appUrl %>" />
   <meta property="og:type" content="website" />
+  <meta property="og:image" content="<%= appUrl %>/images/og-default.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:site_name" content="<%= appName %>" />
 
+  <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Playmist – Free Browser Gaming Portal" />
   <meta name="twitter:description" content="Play 50+ instant games in your browser. No download required." />
+  <meta name="twitter:image" content="<%= appUrl %>/images/og-default.png" />
+
+  <!-- JSON-LD: WebSite + Organization -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "<%= appUrl %>/#website",
+        "url": "<%= appUrl %>",
+        "name": "<%= appName %>",
+        "description": "Free web gaming portal — play 50+ instant WebGL games in your browser. Also available on Android.",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "<%= appUrl %>/games?q={search_term_string}"
+          },
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@type": "Organization",
+        "@id": "<%= appUrl %>/#organization",
+        "name": "<%= appName %>",
+        "url": "<%= appUrl %>",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "<%= appUrl %>/images/play_logo.png"
+        },
+        "sameAs": [
+          "<%= androidUrl %>"
+        ]
+      }
+    ]
+  }
+  </script>
 
   <!-- Fonts: match the mobile app exactly -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />

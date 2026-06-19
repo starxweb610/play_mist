@@ -16,6 +16,7 @@ const usersController                 = require('../controllers/sitehandler/user
 const developerSubmissionsController  = require('../controllers/sitehandler/developerSubmissionsController');
 const developersController            = require('../controllers/sitehandler/developersController');
 const guidelinesController            = require('../controllers/sitehandler/guidelinesController');
+const notificationsController         = require('../controllers/sitehandler/notificationsController');
 
 
 // ─── Auth (public within /sitehandler) ────────────────────────────────────────
@@ -104,5 +105,9 @@ router.post('/developers/:id/unban', developersController.postUnban);
 router.get ('/guidelines',                    guidelinesController.getEdit);
 router.post('/guidelines',                    guidelinesController.postSave);
 router.post('/guidelines/image-upload',       uploadImage.single('image'), guidelinesController.postImageUpload);
+
+// Notifications
+router.get ('/notifications',       notificationsController.getIndex);
+router.post('/notifications/send',  notificationsController.postSend);
 
 module.exports = router;

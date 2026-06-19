@@ -218,6 +218,54 @@ exports.getPlayGame = async (req, res) => {
 };
 
 /**
+ * GET /sitemap.xml
+ * Dynamic XML sitemap for all public, indexable pages.
+ */
+exports.getSitemap = async (req, res) => {
+  const appUrl = APP_URL();
+
+  const staticUrls = [
+    { loc: appUrl,                      changefreq: 'weekly',  priority: '1.0' },
+    { loc: `${appUrl}/games`,           changefreq: 'daily',   priority: '0.9' },
+    { loc: `${appUrl}/privacy-policy`,  changefreq: 'monthly', priority: '0.3' },
+  ];
+
+  let gameUrls = [];
+  try {
+    const [rows] = await db.query(
+      `SELECT slug, created_at FROM games WHERE is_active = 1 ORDER BY created_at DESC`
+    );
+    gameUrls = rows.map(g => ({
+      loc:        `${appUrl}/games/${g.slug}`,
+      changefreq: 'weekly',
+      priority:   '0.8',
+      lastmod:    g.created_at ? new Date(g.created_at).toISOString().split('T')[0] : null,
+    }));
+  } catch (_) {
+    // DB unavailable — serve static URLs only
+  }
+
+  const allUrls = [...staticUrls, ...gameUrls];
+
+  const xml = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...allUrls.map(u => [
+      '  <url>',
+      `    <loc>${u.loc}</loc>`,
+      u.lastmod ? `    <lastmod>${u.lastmod}</lastmod>` : '',
+      `    <changefreq>${u.changefreq}</changefreq>`,
+      `    <priority>${u.priority}</priority>`,
+      '  </url>',
+    ].filter(Boolean).join('\n')),
+    '</urlset>',
+  ].join('\n');
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xml);
+};
+
+/**
  * GET /privacy-policy
  * Privacy Policy page
  */

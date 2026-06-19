@@ -20,6 +20,7 @@ const streakApi         = require('../controllers/api/streakApi');
 const dailyPickApi      = require('../controllers/api/dailyPickApi');
 const achievementsApi   = require('../controllers/api/achievementsApi');
 const challengeApi      = require('../controllers/api/challengeApi');
+const notificationsApi  = require('../controllers/api/notificationsApi');
 const { verifyJwt }     = require('../middleware/auth');
 
 // ─── /api/v1 routes (Unity client & React client) ────────────────────────────
@@ -63,6 +64,11 @@ v1Router.post('/daily-challenge/claim', verifyJwt, challengeApi.claimChallenge);
 // AdMob rewarded-ad server-side verification (SSV) callback — called by
 // Google's ad servers directly, authenticated via signature, not JWT.
 v1Router.get('/ads/ssv-callback', adsApi.ssvCallback);
+
+// Push notifications
+v1Router.post('/push-token',                verifyJwt, notificationsApi.registerToken);
+v1Router.get ('/notifications',             verifyJwt, notificationsApi.getNotifications);
+v1Router.post('/notifications/mark-read',  verifyJwt, notificationsApi.markAllRead);
 
 // Mount versioned router
 router.use('/v1', v1Router);

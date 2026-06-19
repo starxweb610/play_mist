@@ -4,11 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-  <!-- SEO -->
+  <!-- SEO: player page has no crawlable content; game detail page is the SEO landing page -->
   <title><%= title %></title>
-  <meta name="description" content="Play <%= game.title %> free in your browser — no download required. Powered by <%= appName %>." />
-  <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="<%= appUrl %>/play/<%= game.slug %>" />
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="canonical" href="<%= appUrl %>/games/<%= game.slug %>" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
