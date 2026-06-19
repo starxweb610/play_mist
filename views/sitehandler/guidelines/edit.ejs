@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %>  <link rel="icon" href="/favicon.ico" />
+</head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Submission Guidelines</h2>
+        <p class="page-subheading">Edit the content displayed to developers on their Guidelines page.</p>
+      </div>
+    </div>
+
+    <form method="POST" action="/sitehandler/guidelines" id="guidelinesForm">
+      <div class="card" style="padding:24px">
+        <!-- Quill toolbar -->
+        <div id="quillToolbar">
+          <span class="ql-formats">
+            <select class="ql-header">
+              <option value="1">Heading 1</option>
+              <option value="2">Heading 2</option>
+              <option value="3">Heading 3</option>
+              <option selected>Normal</option>
+            </select>
+          </span>
+          <span class="ql-formats">
+            <button class="ql-bold"></button>
+            <button class="ql-italic"></button>
+            <button class="ql-underline"></button>
+            <button class="ql-strike"></button>
+          </span>
+          <span class="ql-formats">
+            <button class="ql-list" value="ordered"></button>
+            <button class="ql-list" value="bullet"></button>
+            <button class="ql-indent" value="-1"></button>
+            <button class="ql-indent" value="+1"></button>
+          </span>
+          <span class="ql-formats">
+            <button class="ql-link"></button>
+            <button class="ql-image"></button>
+            <button class="ql-blockquote"></button>
+            <button class="ql-code-block"></button>
+          </span>
+          <span class="ql-formats">
+            <select class="ql-color"></select>
+            <select class="ql-background"></select>
+          </span>
+          <span class="ql-formats">
+            <button class="ql-clean"></button>
+          </span>
+        </div>
+
+        <div id="quillEditor" style="min-height:420px;font-size:.9375rem"><%- content %></div>
+        <input type="hidden" name="content" id="contentInput" />
+      </div>
+
+      <div style="margin-top:16px;display:flex;gap:12px">
+        <button type="submit" class="btn-admin-primary" id="saveBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save Guidelines
+        </button>
+        <a href="/developer/guidelines" target="_blank" class="btn-admin-ghost">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Preview as Developer
+        </a>
+      </div>
+    </form>
+
+  </main>
+</div>
+
+<!-- Quill CSS -->
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet" />
+<!-- Quill JS -->
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+<script src="/sitehandler/js/admin.js"></script>
+
+<style>
+  #quillToolbar {
+    border: 1px solid rgba(139,92,246,.25);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    background: #1a1a2e;
+  }
+  #quillEditor {
+    border: 1px solid rgba(139,92,246,.25);
+    border-radius: 0 0 8px 8px;
+    background: #16162a;
+    color: #f1f0ff;
+  }
+  .ql-toolbar.ql-snow { border: none; }
+  .ql-container.ql-snow { border: none; }
+  .ql-snow .ql-stroke { stroke: #a09cb0; }
+  .ql-snow .ql-fill  { fill:   #a09cb0; }
+  .ql-snow .ql-picker-label { color: #a09cb0; }
+  .ql-snow .ql-picker-options { background: #1a1a2e; border-color: rgba(139,92,246,.3); }
+  .ql-snow .ql-picker-item { color: #f1f0ff; }
+  .ql-snow.ql-toolbar button:hover .ql-stroke,
+  .ql-snow.ql-toolbar button.ql-active .ql-stroke { stroke: #a78bfa; }
+  .ql-snow.ql-toolbar button:hover .ql-fill,
+  .ql-snow.ql-toolbar button.ql-active .ql-fill   { fill:   #a78bfa; }
+  .ql-editor { min-height: 420px; }
+  .ql-editor h1, .ql-editor h2, .ql-editor h3 { color: #f1f0ff; margin-bottom: .5em; }
+  .ql-editor p, .ql-editor li { color: #c4c0d4; }
+  .ql-editor a { color: #a78bfa; }
+  .ql-editor blockquote {
+    border-left: 3px solid rgba(139,92,246,.5);
+    color: #a09cb0;
+    padding-left: 12px;
+    margin: 8px 0;
+  }
+</style>
+
+<script>
+  const quill = new Quill('#quillEditor', {
+    theme: 'snow',
+    modules: {
+      toolbar: {
+        container: '#quillToolbar',
+        handlers: {
+          image: imageUploadHandler,
+        },
+      },
+    },
+  });
+
+  function imageUploadHandler() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.click();
+    input.onchange = async () => {
+      const file = input.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('image', file);
+      try {
+        const res  = await fetch('/sitehandler/guidelines/image-upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.url) {
+          const range = quill.getSelection(true);
+          quill.insertEmbed(range.index, 'image', data.url);
+        } else {
+          alert('Image upload failed: ' + (data.error || 'Unknown error'));
+        }
+      } catch (e) {
+        alert('Image upload failed: ' + e.message);
+      }
+    };
+  }
+
+  document.getElementById('guidelinesForm').addEventListener('submit', function () {
+    document.getElementById('contentInput').value = quill.root.innerHTML;
+  });
+</script>
+</body>
+</html>

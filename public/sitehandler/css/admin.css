@@ -92,21 +92,15 @@ input, select, textarea { font: inherit; }
   flex-shrink: 0;
 }
 
-.brand-icon {
-  font-size: 1.8rem;
-  flex-shrink: 0;
-  filter: drop-shadow(0 0 8px rgba(139,92,246,0.7));
+.sidebar-brand-logo {
+  height: 28px;
+  width: auto;
+  display: block;
 }
 
-.brand-name {
-  font-family: var(--ff-h);
-  font-size: 1.1rem;
-  font-weight: 800;
-  background: var(--a-grad);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  white-space: nowrap;
+.sidebar-brand a {
+  display: block;
+  flex-shrink: 0;
 }
 
 .brand-sub {
@@ -719,19 +713,11 @@ input, select, textarea { font: inherit; }
   margin-bottom: 28px;
 }
 
-.login-brand-icon {
-  font-size: 2rem;
-  filter: drop-shadow(0 0 8px rgba(139,92,246,0.7));
-}
-
-.login-brand-name {
-  font-family: var(--ff-h);
-  font-size: 1.2rem;
-  font-weight: 800;
-  background: var(--a-grad);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.login-brand-logo {
+  height: 38px;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
 }
 
 .login-brand-sub {

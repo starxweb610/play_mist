@@ -57,4 +57,33 @@ const uploadScreenshots = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
 
-module.exports = { upload, uploadImage, uploadScreenshots };
+// ── Developer submission zip (250 MB hard cap) ───────────────────────────────
+const developerUpload = multer({
+  storage: tempStorage,
+  fileFilter: zipFilter,
+  limits: { fileSize: 250 * 1024 * 1024 }, // 250 MB
+});
+
+// ── Developer thumbnail (in-memory, 5 MB) ────────────────────────────────────
+const developerThumbnail = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: imageFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+});
+
+// ── Developer document upload — PDF / TXT only (in-memory, 10 MB) ────────────
+const docFilter = (_req, file, cb) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const ok  = ext === '.pdf' || ext === '.txt' ||
+              file.mimetype === 'application/pdf' ||
+              file.mimetype === 'text/plain';
+  ok ? cb(null, true) : cb(new Error('Only PDF and TXT files are accepted'), false);
+};
+
+const developerDoc = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: docFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+});
+
+module.exports = { upload, uploadImage, uploadScreenshots, developerUpload, developerThumbnail, developerDoc };

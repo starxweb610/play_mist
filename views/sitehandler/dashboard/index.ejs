@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><%- include('../partials/head') %></head>
+<head><%- include('../partials/head') %>  <link rel="icon" href="/favicon.ico" />
+</head>
 <body class="admin-body">
 <%- include('../partials/sidebar', { activePage, admin, appName }) %>
 <div class="admin-main" id="adminMain">
@@ -46,11 +47,11 @@
       </div>
       <div class="stat-card">
         <div class="stat-card-icon" style="--ic:#10b981">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
         </div>
         <div class="stat-card-body">
-          <span class="stat-card-label">Feedbacks</span>
-          <span class="stat-card-value"><%= overview.totalFeedbacks %></span>
+          <span class="stat-card-label">Pending Reviews</span>
+          <span class="stat-card-value"><%= overview.pendingReviews %></span>
         </div>
       </div>
     </div>

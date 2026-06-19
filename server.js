@@ -26,6 +26,7 @@ const db      = require('./config/database');
 const publicRoutes      = require('./routes/index');
 const sitehandlerRoutes = require('./routes/sitehandler');
 const apiRoutes         = require('./routes/api');
+const developerRoutes   = require('./routes/developer');
 
 const app  = express();
 app.use(cors());
@@ -74,12 +75,14 @@ app.use((req, res, next) => {
   res.locals.error_msg   = req.flash('error_msg');
   res.locals.error       = req.flash('error');
   res.locals.admin       = req.session.admin || null;
+  res.locals.developer   = req.session.developer || null;
   next();
 });
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
 app.use('/api', apiRoutes);
 app.use('/sitehandler', sitehandlerRoutes);
+app.use('/developer', developerRoutes);
 app.use('/', publicRoutes);
 
 // ─── 404 ─────────────────────────────────────────────────────────────────────
@@ -103,18 +106,22 @@ app.use((err, req, res, _next) => {
 });
 
 // ─── Start ───────────────────────────────────────────────────────────────────
-app.listen(PORT, '0.0.0.0', () => {
-  const { networkInterfaces } = require('os');
-  const lanIp = Object.values(networkInterfaces())
-    .flat()
-    .find((i) => i.family === 'IPv4' && !i.internal)?.address;
+const { runMigrations } = require('./utils/migrate');
 
-  console.log(`🎮 Playmist website → http://localhost:${PORT}`);
-  console.log(`🛠️  Admin panel     → http://localhost:${PORT}/sitehandler`);
-  console.log(`📡 Mobile API      → http://localhost:${PORT}/api`);
-  if (lanIp) {
-    console.log(`🌐 LAN access      → http://${lanIp}:${PORT}`);
-  }
+runMigrations().then(() => {
+  app.listen(PORT, '0.0.0.0', () => {
+    const { networkInterfaces } = require('os');
+    const lanIp = Object.values(networkInterfaces())
+      .flat()
+      .find((i) => i.family === 'IPv4' && !i.internal)?.address;
+
+    console.log(`🎮 Playmist website → http://localhost:${PORT}`);
+    console.log(`🛠️  Admin panel     → http://localhost:${PORT}/sitehandler`);
+    console.log(`📡 Mobile API      → http://localhost:${PORT}/api`);
+    if (lanIp) {
+      console.log(`🌐 LAN access      → http://${lanIp}:${PORT}`);
+    }
+  });
 });
 // Trigger nodemon reload
 

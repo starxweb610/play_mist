@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %>  <link rel="icon" href="/favicon.ico" />
+</head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage: 'dev-submissions', admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Game Submissions</h2>
+        <p class="page-subheading">Review HTML5 game submissions from external developers.</p>
+      </div>
+    </div>
+
+    <!-- Status Tabs -->
+    <div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap">
+      <% const tabs = [
+        { val: '',             label: 'All',          count: Object.values(counts).reduce((a,b)=>a+b,0) },
+        { val: 'pending',      label: 'Pending',      count: counts.pending || 0 },
+        { val: 'under_review', label: 'Under Review', count: counts.under_review || 0 },
+        { val: 'approved',     label: 'Approved',     count: counts.approved || 0 },
+        { val: 'rejected',     label: 'Rejected',     count: counts.rejected || 0 },
+      ]; %>
+      <% tabs.forEach(tab => { %>
+        <a href="/sitehandler/developer-submissions?<%= tab.val ? 'status=' + tab.val : '' %>"
+           class="btn-admin-<%= filter === tab.val ? 'primary' : 'ghost' %>"
+           style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:.82rem;font-weight:600;text-decoration:none;border:1px solid var(--admin-border,rgba(255,255,255,.1));color:inherit;transition:all .15s">
+          <%= tab.label %>
+          <span style="background:rgba(255,255,255,.12);border-radius:10px;padding:1px 7px;font-size:.75rem"><%= tab.count %></span>
+        </a>
+      <% }); %>
+    </div>
+
+    <% if (submissions.length === 0) { %>
+      <div style="text-align:center;padding:60px;color:#666">
+        <p style="font-size:1.1rem">No submissions found.</p>
+      </div>
+    <% } else { %>
+    <div class="data-table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Game</th>
+            <th>Developer / Studio</th>
+            <th>Genre</th>
+            <th>Size</th>
+            <th>Status</th>
+            <th>Submitted</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% submissions.forEach(s => {
+            const statusLabel = { pending: 'Pending', under_review: 'Under Review', approved: 'Approved', rejected: 'Rejected' };
+            const statusBadge = { pending: 'warning', under_review: 'info', approved: 'success', rejected: 'danger' };
+          %>
+          <tr>
+            <td class="text-dim">#<%= s.id %></td>
+            <td>
+              <div class="fw-600"><%= s.title %></div>
+              <div style="font-size:.78rem;color:#888"><%= s.orientation %> · v<%= s.version %></div>
+            </td>
+            <td>
+              <div class="fw-600"><%= s.developer_name %></div>
+              <div style="font-size:.78rem;color:#888"><%= s.studio_name %></div>
+            </td>
+            <td><%= s.genre %></td>
+            <td class="text-dim"><%= s.zip_size_fmt %></td>
+            <td><span class="badge badge--<%= statusBadge[s.status] || s.status %>"><%= statusLabel[s.status] || s.status %></span></td>
+            <td class="text-sm text-dim"><%= new Date(s.created_at).toLocaleDateString() %></td>
+            <td>
+              <a href="/sitehandler/developer-submissions/<%= s.id %>" class="btn-admin-ghost" style="padding:5px 12px;border-radius:6px;font-size:.8rem;text-decoration:none;border:1px solid var(--admin-border,rgba(255,255,255,.1));color:inherit">
+                Review
+              </a>
+            </td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+
+  </main>
+</div>
+</body>
+</html>

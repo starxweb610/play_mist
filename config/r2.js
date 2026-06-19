@@ -11,6 +11,7 @@ const {
   DeleteObjectCommand,
   DeleteObjectsCommand,
   ListObjectsV2Command,
+  GetObjectCommand,
 } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 
@@ -167,6 +168,11 @@ async function listPrefix(prefix) {
   return keys;
 }
 
+async function downloadStream(key) {
+  const response = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+  return response.Body;
+}
+
 module.exports = {
   getContentType,
   getContentEncoding,
@@ -177,4 +183,5 @@ module.exports = {
   deleteObject,
   deletePrefix,
   listPrefix,
+  downloadStream,
 };

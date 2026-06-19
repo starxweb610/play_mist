@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/favicon.ico" />
   <title><%= typeof title !== 'undefined' ? title + ' — ' : '' %><%= appName %> Admin</title>
   <meta name="robots" content="noindex, nofollow" />
 
@@ -21,11 +22,8 @@
   <!-- ─── SIDEBAR ─────────────────────────────────────────────────────────── -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
-      <span class="brand-icon">🎮</span>
-      <div class="brand-text">
-        <span class="brand-name"><%= appName %></span>
-        <span class="brand-sub">Admin Panel</span>
-      </div>
+      <a href="/"><img src="/images/play_logo.png" alt="PlayMist" class="sidebar-brand-logo" /></a>
+      <span class="brand-sub">Admin Panel</span>
     </div>
 
     <nav class="sidebar-nav" aria-label="Admin navigation">

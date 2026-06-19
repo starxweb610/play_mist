@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('partials/head', { title: 'Projects' }) %>
+  <style>
+    .proj-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 16px;
+    }
+    .proj-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color .15s, transform .1s, box-shadow .15s;
+      box-shadow: var(--shadow-card);
+    }
+    .proj-card:hover { border-color: var(--line-strong); transform: translateY(-2px); box-shadow: var(--shadow-modal); }
+    .proj-card-head { display: flex; align-items: flex-start; gap: 12px; }
+    .proj-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px; font-weight: 800; flex-shrink: 0; color: #fff;
+    }
+    .proj-icon.coral   { background: linear-gradient(135deg,#ff6b6b,#ee5a24); }
+    .proj-icon.violet  { background: linear-gradient(135deg,#a78bfa,#7c3aed); }
+    .proj-icon.teal    { background: linear-gradient(135deg,#2dd073,#0ea5e9); }
+    .proj-icon.amber   { background: linear-gradient(135deg,#ffb547,#f97316); }
+    .proj-icon.lime    { background: linear-gradient(135deg,#B5FF6B,#7EE64A); color: #1a1d24; }
+    .proj-name  { font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1.3; margin: 0 0 2px; }
+    .proj-desc  { font-size: 12px; color: var(--ink-3); line-height: 1.45; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .proj-progress-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--ink-3); }
+    .proj-bar { height: 4px; background: var(--surface-3); border-radius: 2px; overflow: hidden; }
+    .proj-bar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; transition: width .3s; }
+    .proj-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .proj-due  { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink-3); }
+
+    /* Status badge row */
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+    .s-active    .status-dot { background: var(--info); }
+    .s-on_track  .status-dot { background: var(--ok); }
+    .s-at_risk   .status-dot { background: var(--warn); }
+    .s-completed .status-dot { background: var(--ink-3); }
+
+    /* New project modal */
+    .np-label { font-size: 12px; font-weight: 500; color: var(--ink-2); display: block; margin-bottom: 6px; }
+    .np-field { margin-bottom: 16px; }
+  </style>
+  <link rel="icon" href="/favicon.ico" />
+</head>
+<body>
+<div class="container-app">
+  <%- include('partials/sidebar', { activePage: 'projects' }) %>
+
+  <main class="main-content">
+    <header class="topbar">
+      <button class="dev-menu-btn" id="devMenuBtn" aria-label="Open navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <span class="topbar-title">Projects</span>
+      <div class="top-actions">
+        <button class="btn primary sm" onclick="openNewProject()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          New Project
+        </button>
+      </div>
+    </header>
+
+    <div class="page-content scroll">
+      <%- include('partials/flash') %>
+
+      <div class="page-h" style="margin-bottom:20px;">
+        <div>
+          <h1 style="margin:0;font-size:20px;font-weight:700;color:var(--ink);">Your Projects</h1>
+          <div style="font-size:13px;color:var(--ink-3);margin-top:3px;">Track game builds, set deadlines, and manage tasks for each project.</div>
+        </div>
+      </div>
+
+      <% if (projects && projects.length > 0) { %>
+        <div class="proj-grid">
+          <% projects.forEach((project, i) => {
+            const icons  = ['coral','violet','teal','amber','lime'];
+            const icon   = icons[i % icons.length];
+            const total  = project.task_count || 0;
+            const done   = project.completed_tasks || 0;
+            const pct    = total > 0 ? Math.round(done / total * 100) : 0;
+            const isOver = project.deadline && new Date(project.deadline) < new Date();
+            const sMap   = { active:'Info', on_track:'On Track', at_risk:'At Risk', completed:'Completed' };
+          %>
+          <a href="/developer/projects/<%= project.id %>" class="proj-card">
+            <div class="proj-card-head">
+              <div class="proj-icon <%= icon %>"><%= project.name.charAt(0).toUpperCase() %></div>
+              <div style="flex:1;min-width:0;">
+                <h4 class="proj-name"><%= project.name %></h4>
+                <% if (project.description) { %>
+                  <p class="proj-desc"><%= project.description %></p>
+                <% } %>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;">
+              <span class="s-<%= project.status %>" style="display:inline-flex;align-items:center;font-size:11px;color:var(--ink-3);font-weight:500;">
+                <span class="status-dot"></span><%= sMap[project.status] || project.status %>
+              </span>
+            </div>
+
+            <div>
+              <div class="proj-progress-row">
+                <span>Tasks <%= done %>/<%= total %></span>
+                <span class="num" style="font-weight:600;color:var(--ink-2);"><%= pct %>%</span>
+              </div>
+              <div class="proj-bar" style="margin-top:6px;">
+                <i style="width:<%= pct %>%;background:<%= project.status === 'completed' ? 'var(--ok)' : 'var(--accent)' %>;"></i>
+              </div>
+            </div>
+
+            <div class="proj-meta">
+              <div class="proj-due">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                <% if (project.deadline) { %>
+                  <span style="color:<%= isOver ? 'var(--danger)' : 'var(--ink-3)' %>">
+                    <%= isOver ? 'Overdue · ' : 'Due · ' %><%= new Date(project.deadline).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) %>
+                  </span>
+                <% } else { %>
+                  <span>No deadline</span>
+                <% } %>
+              </div>
+              <span style="font-size:11px;color:var(--ink-4);">
+                <%= new Date(project.created_at).toLocaleDateString('en-US',{month:'short',year:'numeric'}) %>
+              </span>
+            </div>
+          </a>
+          <% }); %>
+        </div>
+      <% } else { %>
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40" style="color:var(--ink-3);margin-bottom:12px;">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+          <h3>No projects yet</h3>
+          <p>Create your first project to start tracking game builds and tasks.</p>
+          <button class="btn primary sm" onclick="openNewProject()">Create your first project</button>
+        </div>
+      <% } %>
+    </div>
+  </main>
+</div>
+
+<!-- ── NEW PROJECT MODAL ──────────────────────────────────────────────────────── -->
+<div id="new-project-modal" class="modal-scrim" style="display:none;">
+  <div class="modal" style="max-width:520px;width:95%;">
+    <div class="modal-head">
+      <h2 style="margin:0;font-size:17px;font-weight:700;color:var(--ink);">New Project</h2>
+      <button onclick="closeNewProject()" style="background:none;border:none;cursor:pointer;color:var(--ink-3);padding:6px;border-radius:6px;display:flex;align-items:center;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <form method="POST" action="/developer/projects" style="padding:0 24px 24px;">
+      <div class="np-field">
+        <label class="np-label" for="np-name">Project Name <span style="color:var(--accent);">*</span></label>
+        <input type="text" id="np-name" name="name" class="form-group input" required placeholder="e.g. Space Blaster 2" style="display:block;width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--ink);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;" />
+      </div>
+      <div class="np-field">
+        <label class="np-label" for="np-desc">Description <span style="color:var(--ink-3);font-weight:400;">(optional)</span></label>
+        <textarea id="np-desc" name="description" rows="3" placeholder="What are you building?" style="display:block;width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--ink);font-size:13px;font-family:inherit;outline:none;resize:vertical;box-sizing:border-box;"></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div class="np-field" style="margin-bottom:0;">
+          <label class="np-label" for="np-status">Status</label>
+          <select id="np-status" name="status" style="display:block;width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--ink);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;">
+            <option value="active">Active</option>
+            <option value="on_track">On Track</option>
+            <option value="at_risk">At Risk</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+        <div class="np-field" style="margin-bottom:0;">
+          <label class="np-label" for="np-deadline">Deadline <span style="color:var(--ink-3);font-weight:400;">(optional)</span></label>
+          <input type="date" id="np-deadline" name="deadline" style="display:block;width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--ink);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;color-scheme:dark;" />
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+        <button type="button" class="btn ghost sm" onclick="closeNewProject()">Cancel</button>
+        <button type="submit" class="btn primary sm">Create Project</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openNewProject()  { document.getElementById('new-project-modal').style.display = ''; setTimeout(()=>document.getElementById('np-name').focus(),80); }
+  function closeNewProject() { document.getElementById('new-project-modal').style.display = 'none'; }
+  document.getElementById('new-project-modal').addEventListener('click', function(e) { if (e.target === this) closeNewProject(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNewProject(); });
+</script>
+</body>
+</html>

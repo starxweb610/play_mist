@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><%- include('../partials/head') %></head>
+<head><%- include('../partials/head') %>  <link rel="icon" href="/favicon.ico" />
+</head>
 <body class="admin-body">
 <%- include('../partials/sidebar', { activePage, admin, appName }) %>
 <div class="admin-main" id="adminMain">
@@ -25,20 +26,37 @@
       <div class="data-table-wrapper">
         <table class="data-table">
           <thead>
-            <tr><th>Transaction ID</th><th>Game Launched</th><th>Credits Deducted</th><th>Date & Time</th></tr>
+            <tr><th>Transaction ID</th><th>Description</th><th>Source</th><th>Credits</th><th>Date & Time</th></tr>
           </thead>
           <tbody>
-            <% transactions.forEach(t => { %>
+            <%
+              const sourceLabels = {
+                game:        'Game play',
+                ad:          'Ad reward',
+                streak:      'Daily streak',
+                achievement: 'Achievement',
+                challenge:   'Daily challenge',
+                welcome:     'Welcome bonus',
+                other:       'Other',
+              };
+              transactions.forEach(t => {
+                const earned = t.credits_used < 0;
+                const label = t.gamename || sourceLabels[t.source] || (earned ? 'Credit earned' : 'Deduction');
+                const srcBadge = sourceLabels[t.source] || t.source || '—';
+            %>
               <tr>
                 <td class="text-sm text-dim">#<%= t.id %></td>
                 <td>
-                  <div class="game-title-cell">
-                    <div class="fw-600"><%= t.gamename || 'Deleted Game' %></div>
-                  </div>
+                  <div class="fw-600"><%= label %></div>
                 </td>
                 <td>
-                  <span class="badge" style="color: #FFA0C8; background: rgba(255,107,168,0.1); font-family: var(--font-mono); font-weight: 700; border: 1px solid rgba(255,107,168,0.2);">
-                    -<%= t.credits_used %> credits
+                  <span class="badge" style="font-family: var(--font-mono); font-size: 11px;">
+                    <%= srcBadge %>
+                  </span>
+                </td>
+                <td>
+                  <span class="badge" style="color: <%= earned ? '#B5FF6B' : '#FFA0C8' %>; background: <%= earned ? 'rgba(181,255,107,0.1)' : 'rgba(255,107,168,0.1)' %>; font-family: var(--font-mono); font-weight: 700; border: 1px solid <%= earned ? 'rgba(181,255,107,0.2)' : 'rgba(255,107,168,0.2)' %>;">
+                    <%= earned ? '+' + Math.abs(t.credits_used) : '-' + t.credits_used %> credits
                   </span>
                 </td>
                 <td class="text-sm text-dim">

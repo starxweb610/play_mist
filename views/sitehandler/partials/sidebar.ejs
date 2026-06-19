@@ -1,10 +1,7 @@
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-brand">
-    <span class="brand-icon">🎮</span>
-    <div class="brand-text">
-      <span class="brand-name"><%= appName %></span>
-      <span class="brand-sub">Admin Panel</span>
-    </div>
+    <a href="/"><img src="/images/play_logo.png" alt="PlayMist" class="sidebar-brand-logo" /></a>
+    <span class="brand-sub">Admin Panel</span>
   </div>
 
   <nav class="sidebar-nav" aria-label="Admin navigation">
@@ -41,6 +38,22 @@
       <a href="/sitehandler/tickets" class="nav-item <%= activePage === 'tickets' ? 'active' : '' %>">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V7a2 2 0 00-2-2H6a2 2 0 00-2 2v10a2 2 0 002 2h4m-4-5h8m-8-4h8"/><circle cx="18" cy="18" r="3"/><path d="M21 21l-1.5-1.5"/></svg>
         <span>Tickets</span>
+      </a>
+    </div>
+
+    <div class="nav-group">
+      <span class="nav-group-label">Developer Portal</span>
+      <a href="/sitehandler/developer-submissions" class="nav-item <%= activePage === 'dev-submissions' ? 'active' : '' %>">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+        <span>Submissions</span>
+      </a>
+      <a href="/sitehandler/developers" class="nav-item <%= activePage === 'developers' ? 'active' : '' %>">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 3v4M8 3v4M12 3v4M8 13h.01M12 13h.01M16 13h.01"/></svg>
+        <span>Developers</span>
+      </a>
+      <a href="/sitehandler/guidelines" class="nav-item <%= activePage === 'guidelines' ? 'active' : '' %>">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        <span>Guidelines</span>
       </a>
     </div>
 

@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('partials/head', { title: project.name }) %>
+  <link rel="stylesheet" href="https://cdn.quilljs.com/1.3.7/quill.snow.css">
+  <style>
+    /* ── Tab nav ──────────────────────────────────────────────────────────── */
+    .proj-tabs {
+      display: flex; gap: 2px;
+      border-bottom: 1px solid var(--line);
+      margin: 0 -20px 0; padding: 0 20px;
+    }
+    .proj-tab-btn {
+      position: relative; padding: 11px 18px; border: none; cursor: pointer;
+      background: none; color: var(--ink-3); font-size: 13px; font-weight: 500;
+      font-family: inherit; border-bottom: 2px solid transparent;
+      margin-bottom: -1px; transition: color .15s;
+    }
+    .proj-tab-btn:hover { color: var(--ink); }
+    .proj-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .proj-tab-panel { display: none; padding-top: 22px; }
+    .proj-tab-panel.active { display: block; }
+
+    /* ── Overview layout ──────────────────────────────────────────────────── */
+    .overview-grid {
+      display: grid; grid-template-columns: 1fr 300px; gap: 18px; align-items: start;
+    }
+    @media (max-width: 800px) { .overview-grid { grid-template-columns: 1fr; } }
+
+    /* ── Kanban ───────────────────────────────────────────────────────────── */
+    .dev-kanban-board {
+      display: flex; gap: 14px; align-items: flex-start;
+      overflow-x: auto; padding-bottom: 16px;
+    }
+    .dev-kanban-col {
+      width: 272px; min-width: 272px; flex-shrink: 0;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .dev-kanban-col-hd {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px 10px; border-bottom: 1px solid var(--line); gap: 8px;
+    }
+    .dev-kanban-col-name { font-size: 13px; font-weight: 700; color: var(--ink); }
+    .dev-kanban-col-count {
+      font-size: 11px; font-weight: 700; background: var(--surface-3);
+      color: var(--ink-3); border-radius: 99px; padding: 1px 8px; min-width: 20px;
+      text-align: center;
+    }
+    .dev-kanban-items {
+      display: flex; flex-direction: column; gap: 8px;
+      padding: 10px; min-height: 80px;
+    }
+    .dev-kanban-card {
+      background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+      padding: 11px 12px; cursor: grab; display: flex; flex-direction: column; gap: 5px;
+      transition: box-shadow .12s, border-color .12s; user-select: none;
+    }
+    .dev-kanban-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,.18); border-color: var(--accent); }
+    .dev-kanban-card:active { cursor: grabbing; }
+    .dev-kanban-card-title { font-size: 13px; font-weight: 600; color: var(--ink); line-height: 1.4; }
+    .dev-kanban-card-desc {
+      font-size: 12px; color: var(--ink-3); line-height: 1.5;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .dev-kanban-card-meta { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+    .dev-kanban-badge {
+      font-size: 11px; font-weight: 600; padding: 2px 7px;
+      border-radius: 4px; text-transform: capitalize;
+    }
+    .dev-kanban-ghost { opacity: 0.35; background: var(--accent-soft) !important; }
+
+    /* ── Modal overlay ────────────────────────────────────────────────────── */
+    .modal-scrim {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.62); display: flex;
+      align-items: center; justify-content: center; z-index: 9000;
+    }
+    .modal {
+      background: var(--bg); border: 1px solid var(--line);
+      border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.4);
+      max-height: 90vh; overflow: auto;
+      padding: 24px;
+    }
+
+    /* ── Form fields (shared by kanban & docs) ────────────────────────────── */
+    .kanban-field-label {
+      display: block; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .06em;
+      color: var(--ink-4); margin-bottom: 6px;
+    }
+    input.kanban-field-input,
+    textarea.kanban-field-input,
+    select.kanban-field-input {
+      display: block; width: 100%; box-sizing: border-box;
+      padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px;
+      background: var(--surface-2); color: var(--ink);
+      font-size: 13px; font-family: inherit;
+      outline: none; transition: border-color .15s;
+    }
+    input.kanban-field-input:focus,
+    textarea.kanban-field-input:focus,
+    select.kanban-field-input:focus { border-color: var(--accent); }
+
+    .task-meta-label {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .06em; color: var(--ink-4);
+    }
+
+    /* ── Quill comment editor: keep small so Post Comment button stays visible */
+    #dev-task-modal .ql-editor { min-height: 52px; }
+
+    /* ── Quill toolbar dark-mode nudge ───────────────────────────────────── */
+    .ql-toolbar.ql-snow {
+      background: var(--surface-2);
+      border-color: var(--line) !important;
+      border-radius: 7px 7px 0 0;
+    }
+    .ql-container.ql-snow {
+      border-color: var(--line) !important;
+      border-radius: 0 0 7px 7px;
+      background: var(--surface);
+      color: var(--ink); font-size: 14px;
+    }
+    .ql-editor { min-height: 100px; }
+    .ql-snow .ql-stroke { stroke: var(--ink-3); }
+    .ql-snow .ql-fill  { fill:   var(--ink-3); }
+    .ql-snow .ql-picker-label { color: var(--ink-3); }
+
+    /* ── Misc ─────────────────────────────────────────────────────────────── */
+    .proj-stat-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .proj-stat-box {
+      flex: 1; min-width: 100px;
+      background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
+      padding: 14px 16px; text-align: center;
+    }
+    .proj-stat-num { font-size: 26px; font-weight: 800; color: var(--accent); letter-spacing: -.03em; }
+    .proj-stat-lbl { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+    .ef-label { display: block; font-size: 12px; font-weight: 500; color: var(--ink-2); margin-bottom: 5px; }
+    .ef-input {
+      display: block; width: 100%; box-sizing: border-box;
+      padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px;
+      background: var(--surface-2); color: var(--ink);
+      font-size: 13px; font-family: inherit; outline: none; transition: border-color .15s;
+    }
+    .ef-input:focus { border-color: var(--accent); }
+  </style>
+  <link rel="icon" href="/favicon.ico" />
+</head>
+<body>
+<div class="container-app">
+  <%- include('partials/sidebar', { activePage: 'projects' }) %>
+
+  <main class="main-content">
+    <header class="topbar">
+      <button class="dev-menu-btn" id="devMenuBtn" aria-label="Open navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <h3 style="margin:0;"><%= project.name %></h3>
+      </div>
+      <div class="top-actions">
+        <a href="/developer/projects" class="btn ghost sm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          Projects
+        </a>
+        <button class="btn ghost sm" onclick="openEditProject()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Edit
+        </button>
+      </div>
+    </header>
+
+    <div class="page-content scroll" style="padding-top:0;">
+      <%- include('partials/flash') %>
+
+      <%
+        const taskCount  = parseInt(project.task_count  || 0, 10);
+        const doneTasks  = parseInt(project.completed_tasks || 0, 10);
+        const pct        = taskCount > 0 ? Math.round(doneTasks / taskCount * 100) : 0;
+        const isOver     = project.deadline && new Date(project.deadline) < new Date();
+        const STATUS_LABEL = { active: 'Active', on_track: 'On Track', at_risk: 'At Risk', completed: 'Completed' };
+        const STATUS_COLOR = { active: 'var(--info)', on_track: 'var(--ok)', at_risk: 'var(--warn)', completed: 'var(--ink-3)' };
+      %>
+
+      <!-- Tab bar -->
+      <div class="proj-tabs" style="margin-bottom:0;">
+        <button class="proj-tab-btn" data-tab="overview"   onclick="switchTab('overview')">Overview</button>
+        <button class="proj-tab-btn" data-tab="kanban"     onclick="switchTab('kanban')">Kanban</button>
+        <button class="proj-tab-btn" data-tab="documents"  onclick="switchTab('documents')">Documents</button>
+      </div>
+
+      <!-- ── OVERVIEW TAB ──────────────────────────────────────────────────── -->
+      <div id="tab-overview" class="proj-tab-panel">
+        <div class="overview-grid">
+          <!-- Left: stats + description -->
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            <div class="proj-stat-row">
+              <div class="proj-stat-box">
+                <div class="proj-stat-num"><%= taskCount %></div>
+                <div class="proj-stat-lbl">Total Tasks</div>
+              </div>
+              <div class="proj-stat-box">
+                <div class="proj-stat-num"><%= doneTasks %></div>
+                <div class="proj-stat-lbl">Completed</div>
+              </div>
+              <div class="proj-stat-box">
+                <div class="proj-stat-num"><%= taskCount - doneTasks %></div>
+                <div class="proj-stat-lbl">Remaining</div>
+              </div>
+              <div class="proj-stat-box">
+                <div class="proj-stat-num"><%= pct %>%</div>
+                <div class="proj-stat-lbl">Progress</div>
+              </div>
+            </div>
+
+            <% if (taskCount > 0) { %>
+            <div class="card" style="padding:16px 20px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;font-weight:600;color:var(--ink);">Overall Progress</span>
+                <span style="font-size:13px;color:var(--ink-3);"><%= doneTasks %> / <%= taskCount %></span>
+              </div>
+              <div style="height:8px;background:var(--surface-3);border-radius:4px;overflow:hidden;">
+                <div style="height:100%;width:<%= pct %>%;background:var(--accent);border-radius:4px;transition:width .3s;"></div>
+              </div>
+            </div>
+            <% } %>
+
+            <% if (project.description) { %>
+            <div class="card">
+              <div class="card-title" style="margin-bottom:10px;">Description</div>
+              <div style="font-size:13px;color:var(--ink-2);line-height:1.7;white-space:pre-wrap;"><%= project.description %></div>
+            </div>
+            <% } %>
+
+            <div class="card" style="padding:16px 20px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <div class="card-title" style="margin:0;">Quick Actions</div>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                <button class="btn ghost sm" onclick="switchTab('kanban')">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="7" rx="1"/></svg>
+                  Open Kanban
+                </button>
+                <button class="btn ghost sm" onclick="switchTab('documents')">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  Documents
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: project meta -->
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            <div class="card">
+              <div class="card-title" style="margin-bottom:14px;">Project Info</div>
+              <ul class="meta-list" style="margin:0;">
+                <li>
+                  <span class="meta-key">Status</span>
+                  <span class="meta-val" style="color:<%= STATUS_COLOR[project.status] || 'var(--ink)' %>;font-weight:600;">
+                    <%= STATUS_LABEL[project.status] || project.status %>
+                  </span>
+                </li>
+                <li>
+                  <span class="meta-key">Deadline</span>
+                  <span class="meta-val" style="<%= isOver ? 'color:var(--danger);' : '' %>">
+                    <% if (project.deadline) { %>
+                      <%= isOver ? 'Overdue · ' : '' %><%= new Date(project.deadline).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) %>
+                    <% } else { %>
+                      Not set
+                    <% } %>
+                  </span>
+                </li>
+                <li>
+                  <span class="meta-key">Created</span>
+                  <span class="meta-val"><%= new Date(project.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) %></span>
+                </li>
+              </ul>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── KANBAN TAB ────────────────────────────────────────────────────── -->
+      <div id="tab-kanban" class="proj-tab-panel">
+        <div id="kanban-root" data-project-id="<%= project.id %>"
+          style="min-height:200px;color:var(--ink-3);font-size:13px;">
+          <div style="padding:40px;text-align:center;">Loading…</div>
+        </div>
+      </div>
+
+      <!-- ── DOCUMENTS TAB ─────────────────────────────────────────────────── -->
+      <div id="tab-documents" class="proj-tab-panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+          <div>
+            <div style="font-size:16px;font-weight:700;color:var(--ink);">Documents</div>
+            <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">GDD, design notes, briefs, and reference files</div>
+          </div>
+          <button class="btn primary sm" onclick="openNewDocModal()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Doc
+          </button>
+        </div>
+        <div id="docs-root" data-project-id="<%= project.id %>">
+          <div style="padding:40px;text-align:center;color:var(--ink-3);">Loading…</div>
+        </div>
+      </div>
+    </div><!-- end page-content -->
+  </main>
+</div>
+
+<!-- ── EDIT PROJECT MODAL ─────────────────────────────────────────────── -->
+<div id="edit-project-modal" class="modal-scrim" style="display:none;">
+  <div class="modal" style="max-width:520px;width:95%;padding:0;overflow:hidden;">
+    <div class="modal-head" style="padding:18px 22px;border-bottom:1px solid var(--line);">
+      <h2 style="margin:0;font-size:17px;font-weight:700;color:var(--ink);">Edit Project</h2>
+      <button onclick="closeEditProject()" style="background:none;border:none;cursor:pointer;color:var(--ink-3);padding:6px;border-radius:6px;display:flex;align-items:center;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form method="POST" action="/developer/projects/<%= project.id %>/update" style="padding:20px 22px 22px;">
+      <div style="margin-bottom:14px;">
+        <label class="ef-label" for="ep-name">Project Name *</label>
+        <input type="text" id="ep-name" name="name" class="ef-input" required value="<%= project.name %>" />
+      </div>
+      <div style="margin-bottom:14px;">
+        <label class="ef-label" for="ep-desc">Description</label>
+        <textarea id="ep-desc" name="description" rows="3" class="ef-input" style="resize:vertical;"><%= project.description || '' %></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:0;">
+        <div>
+          <label class="ef-label" for="ep-status">Status</label>
+          <select id="ep-status" name="status" class="ef-input">
+            <option value="active"    <%= project.status==='active'    ?'selected':'' %>>Active</option>
+            <option value="on_track"  <%= project.status==='on_track'  ?'selected':'' %>>On Track</option>
+            <option value="at_risk"   <%= project.status==='at_risk'   ?'selected':'' %>>At Risk</option>
+            <option value="completed" <%= project.status==='completed' ?'selected':'' %>>Completed</option>
+          </select>
+        </div>
+        <div>
+          <label class="ef-label" for="ep-deadline">Deadline</label>
+          <input type="date" id="ep-deadline" name="deadline" class="ef-input" style="color-scheme:dark;"
+            value="<%= project.deadline ? new Date(project.deadline).toISOString().split('T')[0] : '' %>" />
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+        <button type="button" class="btn ghost sm" onclick="closeEditProject()">Cancel</button>
+        <button type="submit" class="btn primary sm">Save Changes</button>
+      </div>
+    </form>
+    <div style="border-top:1px solid var(--line);padding:16px 22px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--danger);margin-bottom:10px;">Danger Zone</div>
+      <form method="POST" action="/developer/projects/<%= project.id %>/delete"
+            onsubmit="return confirm('Delete this project and ALL its tasks and documents? This cannot be undone.')">
+        <button type="submit" class="btn sm" style="background:rgba(255,92,92,.08);color:var(--danger);border:1px solid rgba(255,92,92,.22);width:100%;justify-content:center;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="margin-right:5px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          Delete Project
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script src="/js/developer-kanban.js"></script>
+<script src="/js/developer-docs.js"></script>
+<script>
+  // ── Tab switcher ──────────────────────────────────────────────────────────
+  const PROJ_ID   = '<%= project.id %>';
+  const TAB_KEY   = `dev_proj_tab_${PROJ_ID}`;
+  let kanbanInited = false;
+  let docsInited   = false;
+
+  function switchTab(name) {
+    document.querySelectorAll('.proj-tab-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === name);
+    });
+    document.querySelectorAll('.proj-tab-panel').forEach(p => {
+      p.classList.toggle('active', p.id === `tab-${name}`);
+    });
+    localStorage.setItem(TAB_KEY, name);
+
+    if (name === 'kanban' && !kanbanInited) {
+      kanbanInited = true;
+      initKanban();
+    }
+    if (name === 'documents' && !docsInited) {
+      docsInited = true;
+      initDocs();
+    }
+  }
+
+  // Restore saved tab or default to overview
+  const savedTab = localStorage.getItem(TAB_KEY) || 'overview';
+  switchTab(savedTab);
+
+  // ── Edit Project modal ────────────────────────────────────────────────────
+  function openEditProject()  { document.getElementById('edit-project-modal').style.display = ''; }
+  function closeEditProject() { document.getElementById('edit-project-modal').style.display = 'none'; }
+  document.getElementById('edit-project-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeEditProject();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      closeEditProject();
+      document.querySelector('.modal-scrim:not(#edit-project-modal)')?.remove();
+    }
+  });
+</script>
+</body>
+</html>

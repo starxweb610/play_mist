@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %>  <link rel="icon" href="/favicon.ico" />
+</head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage: 'developers', admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Developers</h2>
+        <p class="page-subheading">Manage developer accounts that submit games to PlayMist.</p>
+      </div>
+      <span style="font-size:.875rem;color:#888"><%= developers.length %> total</span>
+    </div>
+
+    <% if (developers.length === 0) { %>
+      <div style="text-align:center;padding:60px;color:#666">
+        <p>No developer accounts yet.</p>
+      </div>
+    <% } else { %>
+    <div class="data-table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Developer</th>
+            <th>Email</th>
+            <th>Country</th>
+            <th>Submissions</th>
+            <th>Published</th>
+            <th>Status</th>
+            <th>Joined</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% developers.forEach(d => { %>
+          <tr>
+            <td class="text-dim">#<%= d.id %></td>
+            <td>
+              <div class="fw-600"><%= d.name %></div>
+              <div style="font-size:.78rem;color:#888"><%= d.studio_name %></div>
+            </td>
+            <td class="text-sm text-dim"><%= d.email %></td>
+            <td class="text-sm"><%= d.country %></td>
+            <td style="text-align:center"><%= d.total_submissions || 0 %></td>
+            <td style="text-align:center;color:#86efac"><%= d.approved_count || 0 %></td>
+            <td>
+              <% if (d.is_active) { %>
+                <span class="badge badge--success">Active</span>
+              <% } else { %>
+                <span class="badge badge--danger">Banned</span>
+              <% } %>
+            </td>
+            <td class="text-sm text-dim"><%= new Date(d.created_at).toLocaleDateString() %></td>
+            <td>
+              <a href="/sitehandler/developers/<%= d.id %>" class="btn-admin-ghost" style="padding:5px 12px;border-radius:6px;font-size:.8rem;text-decoration:none;border:1px solid rgba(255,255,255,.1);color:inherit">View</a>
+            </td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+
+  </main>
+</div>
+</body>
+</html>

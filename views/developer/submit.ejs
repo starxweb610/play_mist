@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('partials/head', { title: 'Upload a Game' }) %>  <link rel="icon" href="/favicon.ico" />
+</head>
+<body>
+<div class="container-app">
+  <%- include('partials/sidebar', { activePage: 'submit', developer, appName }) %>
+
+  <main class="main-content">
+    <header class="topbar">
+      <button class="dev-menu-btn" id="devMenuBtn" aria-label="Open navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <span class="topbar-title">Upload a Game</span>
+      <div class="top-actions">
+        <a href="/developer/dashboard" class="btn ghost sm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          Back
+        </a>
+      </div>
+    </header>
+
+    <div class="page-content scroll">
+      <%- include('partials/flash') %>
+
+      <% if (errors && errors.length > 0) { %>
+        <div class="alert alert-error">
+          <% if (errors.length === 1) { %><%= errors[0] %>
+          <% } else { %><ul><% errors.forEach(e => { %><li><%= e %></li><% }); %></ul><% } %>
+        </div>
+      <% } %>
+
+      <% if (guidelines) { %>
+      <div class="card" style="margin-bottom:20px;">
+        <button type="button" onclick="toggleGuidelines(this)" style="width:100%;background:none;border:none;cursor:pointer;padding:0;text-align:left;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--accent);flex-shrink:0;">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              <span style="font-size:14px;font-weight:600;color:var(--ink);">Submission Guidelines</span>
+            </div>
+            <svg class="guidelines-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--ink-3);transition:transform .2s;flex-shrink:0;">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+        </button>
+        <div id="guidelines-body" style="display:none;padding:0 20px 20px;border-top:1px solid var(--line);">
+          <div class="guidelines-content" style="padding-top:16px;font-size:13px;line-height:1.75;color:var(--ink-2);">
+            <%- guidelines %>
+          </div>
+        </div>
+      </div>
+      <% } %>
+
+      <form method="POST" action="/developer/submit" enctype="multipart/form-data" id="uploadForm">
+
+        <!-- Game Details -->
+        <div class="card">
+          <div class="card-header" style="margin-bottom:0;padding-bottom:16px;border-bottom:1px solid var(--line);">
+            <div class="card-title">Game Details</div>
+          </div>
+          <div style="padding-top:20px;">
+            <div class="form-group">
+              <label for="title">Game Title</label>
+              <input type="text" id="title" name="title" required value="<%= form.title || '' %>" placeholder="My Awesome Game" maxlength="200" />
+            </div>
+
+            <div class="form-group">
+              <label for="description">Description</label>
+              <textarea id="description" name="description" required placeholder="Describe your game — gameplay, controls, features..." rows="5"><%= form.description || '' %></textarea>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="genre">Genre</label>
+                <select id="genre" name="genre" required>
+                  <option value="">Select genre</option>
+                  <% genres.forEach(g => { %>
+                    <option value="<%= g.name %>" <%= form.genre === g.name ? 'selected' : '' %>><%= g.name %></option>
+                  <% }); %>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="orientation">Orientation</label>
+                <select id="orientation" name="orientation">
+                  <option value="landscape" <%= (form.orientation || 'landscape') === 'landscape' ? 'selected' : '' %>>Landscape</option>
+                  <option value="portrait"  <%= form.orientation === 'portrait'  ? 'selected' : '' %>>Portrait</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="version">Version <span class="optional-label">(optional)</span></label>
+              <input type="text" id="version" name="version" value="<%= form.version || '1.0' %>" placeholder="1.0" maxlength="20" style="max-width:160px;" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Upload -->
+        <div class="card">
+          <div class="card-header" style="margin-bottom:0;padding-bottom:16px;border-bottom:1px solid var(--line);">
+            <div class="card-title">Game Build (ZIP)</div>
+          </div>
+          <div style="padding-top:18px;">
+            <p style="font-size:.85rem;color:var(--ink-3);margin-bottom:16px;">
+              Must be a <strong style="color:var(--ink-2);">.zip</strong> file with <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px;color:var(--accent);">index.html</code> at the root. Max size: <strong style="color:var(--ink-2);">250 MB</strong>.
+            </p>
+
+            <div class="upload-zone" id="uploadZone">
+              <input type="file" name="game_zip" id="game_zip" accept=".zip" required />
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              <div class="upload-label">Click to choose ZIP or drag &amp; drop</div>
+              <div class="upload-hint">Max 250 MB · ZIP only · index.html required at root</div>
+              <div class="upload-file-name" id="fileNameDisplay"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="submit-progress" id="submitProgress">
+          <div class="spinner"></div>
+          <span>Uploading your game — this may take a moment for large files...</span>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:4px;">
+          <button type="submit" class="btn primary" id="submitBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+            Upload Game
+          </button>
+          <a href="/developer/dashboard" class="btn ghost">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </main>
+</div>
+
+<script>
+  const zone      = document.getElementById('uploadZone');
+  const input     = document.getElementById('game_zip');
+  const display   = document.getElementById('fileNameDisplay');
+  const form      = document.getElementById('uploadForm');
+  const progress  = document.getElementById('submitProgress');
+  const submitBtn = document.getElementById('submitBtn');
+
+  input.addEventListener('change', () => {
+    display.textContent = input.files[0] ? input.files[0].name : '';
+  });
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) {
+      input.files = e.dataTransfer.files;
+      display.textContent = e.dataTransfer.files[0].name;
+    }
+  });
+  form.addEventListener('submit', () => {
+    progress.style.display = 'flex';
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Uploading...';
+  });
+
+  function toggleGuidelines(btn) {
+    const body    = document.getElementById('guidelines-body');
+    const chevron = btn.querySelector('.guidelines-chevron');
+    const open    = body.style.display === 'none';
+    body.style.display    = open ? '' : 'none';
+    chevron.style.transform = open ? 'rotate(180deg)' : '';
+  }
+</script>
+</body>
+</html>

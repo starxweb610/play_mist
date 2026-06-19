@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %>  <link rel="icon" href="/favicon.ico" />
+</head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage: 'developers', admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <a href="/sitehandler/developers" style="font-size:.85rem;color:#888;text-decoration:none;display:inline-flex;align-items:center;gap:6px;margin-bottom:8px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          Back to Developers
+        </a>
+        <h2 class="page-heading"><%= developer.name %></h2>
+        <p class="page-subheading"><%= developer.studio_name %></p>
+      </div>
+      <% if (developer.is_active) { %>
+        <span class="badge badge--success">Active</span>
+      <% } else { %>
+        <span class="badge badge--danger">Banned</span>
+      <% } %>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 300px;gap:24px;align-items:start">
+
+      <!-- Left: Submissions -->
+      <div>
+        <div class="card" style="margin-bottom:20px">
+          <h3 style="font-size:1rem;font-weight:700;margin-bottom:16px">Submissions (<%= submissions.length %>)</h3>
+          <% if (submissions.length === 0) { %>
+            <p style="color:#666;font-size:.875rem">No submissions yet.</p>
+          <% } else { %>
+          <table class="data-table">
+            <thead>
+              <tr><th>Game</th><th>Genre</th><th>Status</th><th>Submitted</th><th></th></tr>
+            </thead>
+            <tbody>
+              <% submissions.forEach(s => {
+                const statusLabel = { pending: 'Pending', under_review: 'Under Review', approved: 'Approved', rejected: 'Rejected' };
+                const statusBadge = { pending: 'warning', under_review: 'info', approved: 'success', rejected: 'danger' };
+              %>
+              <tr>
+                <td class="fw-600"><%= s.title %></td>
+                <td class="text-sm"><%= s.genre %></td>
+                <td><span class="badge badge--<%= statusBadge[s.status] || s.status %>"><%= statusLabel[s.status] || s.status %></span></td>
+                <td class="text-sm text-dim"><%= new Date(s.created_at).toLocaleDateString() %></td>
+                <td>
+                  <a href="/sitehandler/developer-submissions/<%= s.id %>" style="font-size:.8rem;color:#888;text-decoration:none">
+                    View
+                  </a>
+                </td>
+              </tr>
+              <% }); %>
+            </tbody>
+          </table>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Right: Profile + Actions -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <!-- Profile -->
+        <div class="card">
+          <h3 style="font-size:.95rem;font-weight:700;margin-bottom:14px">Developer Profile</h3>
+          <table style="width:100%;font-size:.85rem;border-collapse:collapse">
+            <% const rows = [
+              ['Name',       developer.name],
+              ['Email',      developer.email],
+              ['Studio',     developer.studio_name],
+              ['Country',    developer.country],
+              ['Phone',      developer.phone || '—'],
+              ['Joined',     new Date(developer.created_at).toLocaleDateString()],
+              ['Last Login', developer.last_login ? new Date(developer.last_login).toLocaleString() : 'Never'],
+            ]; %>
+            <% rows.forEach(([k,v]) => { %>
+            <tr>
+              <td style="padding:7px 0;color:#888;width:90px;vertical-align:top"><%= k %></td>
+              <td style="padding:7px 0;font-weight:500;word-break:break-all"><%= v %></td>
+            </tr>
+            <% }); %>
+          </table>
+        </div>
+
+        <!-- Ban reason if banned -->
+        <% if (!developer.is_active && developer.ban_reason) { %>
+        <div class="card" style="border-color:rgba(239,68,68,.3)">
+          <h3 style="font-size:.9rem;font-weight:700;margin-bottom:8px;color:#f87171">Ban Reason</h3>
+          <p style="font-size:.85rem;color:#fca5a5;line-height:1.5"><%= developer.ban_reason %></p>
+          <p style="font-size:.78rem;color:#666;margin-top:6px">Banned: <%= new Date(developer.banned_at).toLocaleString() %></p>
+        </div>
+        <% } %>
+
+        <!-- Ban action -->
+        <% if (developer.is_active) { %>
+        <div class="card" style="border-color:rgba(239,68,68,.2)">
+          <h3 style="font-size:.95rem;font-weight:700;margin-bottom:8px;color:#f87171">Ban Developer</h3>
+          <p style="font-size:.82rem;color:#888;margin-bottom:12px">Permanently prevents login. All existing sessions are invalidated on next request.</p>
+          <form method="POST" action="/sitehandler/developers/<%= developer.id %>/ban">
+            <div style="margin-bottom:10px">
+              <label style="font-size:.8rem;color:#888;display:block;margin-bottom:6px">Ban reason (required)</label>
+              <textarea name="ban_reason" required rows="2"
+                style="width:100%;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:10px;color:#fca5a5;font-family:inherit;font-size:.85rem;resize:vertical"
+                placeholder="Reason for banning this developer..."></textarea>
+            </div>
+            <button type="submit"
+              style="width:100%;padding:10px;border-radius:8px;font-size:.875rem;font-weight:600;cursor:pointer;background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3)"
+              onclick="return confirm('Ban this developer? They will not be able to log in.')">
+              Ban Developer
+            </button>
+          </form>
+        </div>
+        <% } else { %>
+        <div class="card">
+          <h3 style="font-size:.95rem;font-weight:700;margin-bottom:8px;color:#86efac">Reinstate Developer</h3>
+          <p style="font-size:.82rem;color:#888;margin-bottom:12px">Allow this developer to log in again.</p>
+          <form method="POST" action="/sitehandler/developers/<%= developer.id %>/unban">
+            <button type="submit"
+              style="width:100%;padding:10px;border-radius:8px;font-size:.875rem;font-weight:600;cursor:pointer;background:rgba(34,197,94,.12);color:#86efac;border:1px solid rgba(34,197,94,.3)"
+              onclick="return confirm('Reinstate this developer?')">
+              Reinstate Account
+            </button>
+          </form>
+        </div>
+        <% } %>
+      </div>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('partials/head', { title: submission.title }) %>  <link rel="icon" href="/favicon.ico" />
+</head>
+<body>
+<div class="container-app">
+  <%- include('partials/sidebar', { activePage: 'dashboard', developer, appName }) %>
+
+  <main class="main-content">
+    <header class="topbar">
+      <button class="dev-menu-btn" id="devMenuBtn" aria-label="Open navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <span class="topbar-title" style="max-width:360px;overflow:hidden;text-overflow:ellipsis;"><%= submission.title %></span>
+      <div class="top-actions">
+        <a href="/developer/dashboard" class="btn ghost sm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          Back
+        </a>
+      </div>
+    </header>
+
+    <div class="page-content scroll">
+      <%- include('partials/flash') %>
+
+      <%
+        const statusLabel = { draft: 'Draft', pending: 'Pending', under_review: 'Under Review', approved: 'Approved', rejected: 'Rejected' };
+        const statusCls   = { draft: 'badge-draft', pending: 'badge-pending', under_review: 'badge-under-review', approved: 'badge-approved', rejected: 'badge-rejected' };
+      %>
+
+      <!-- Draft action banner -->
+      <% if (submission.status === 'draft') { %>
+      <div style="background:var(--accent-soft);border:1px solid rgba(181,255,107,.22);border-radius:14px;padding:20px 24px;margin-bottom:20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-weight:600;color:var(--ink);margin-bottom:4px;">Game uploaded — now test it!</div>
+          <div style="font-size:.85rem;color:var(--ink-2);">Play your game below to make sure everything works. When satisfied, submit it for review.</div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <% if (submission.preview_play_url) { %>
+          <a href="#test-game" class="btn ghost sm" id="scrollToTestBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Test Game
+          </a>
+          <% } %>
+          <form method="POST" action="/developer/submissions/<%= submission.id %>/submit-review" style="margin:0;">
+            <button type="submit" class="btn primary sm" onclick="return confirm('Submit this game for review? Make sure you have tested it first.')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg>
+              Submit for Review
+            </button>
+          </form>
+        </div>
+      </div>
+      <% } %>
+
+      <div class="detail-grid">
+        <!-- Left: info -->
+        <div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Submission Details</div>
+              <span class="<%= statusCls[submission.status] %>">
+                <span class="badge-dot"></span>
+                <%= statusLabel[submission.status] || submission.status %>
+              </span>
+            </div>
+
+            <ul class="meta-list">
+              <li><span class="meta-key">Genre</span>      <span class="meta-val"><%= submission.genre %></span></li>
+              <li><span class="meta-key">Orientation</span><span class="meta-val"><%= submission.orientation %></span></li>
+              <li><span class="meta-key">Version</span>    <span class="meta-val"><%= submission.version %></span></li>
+              <li><span class="meta-key">File Size</span>  <span class="meta-val"><%= (submission.zip_size / (1024*1024)).toFixed(1) %> MB</span></li>
+              <li><span class="meta-key">Uploaded</span>   <span class="meta-val"><%= new Date(submission.created_at).toLocaleString() %></span></li>
+              <% if (submission.reviewed_at) { %>
+              <li><span class="meta-key">Reviewed</span>   <span class="meta-val"><%= new Date(submission.reviewed_at).toLocaleString() %></span></li>
+              <% } %>
+            </ul>
+          </div>
+
+          <div class="card">
+            <div class="card-title" style="margin-bottom:12px;">Description</div>
+            <div class="description-box"><%= submission.description %></div>
+          </div>
+
+          <% if (submission.status === 'rejected' && submission.rejection_reason) { %>
+          <div class="card">
+            <div class="card-title" style="margin-bottom:12px;color:var(--danger);">Rejection Reason</div>
+            <div class="rejection-box"><%= submission.rejection_reason %></div>
+            <p style="margin-top:14px;font-size:.85rem;color:var(--ink-3);">
+              Please address the issue above and submit a new build.
+              <a href="/developer/submit" class="btn primary sm" style="margin-left:10px;">Upload Again</a>
+            </p>
+          </div>
+          <% } %>
+        </div>
+
+        <!-- Right: status timeline -->
+        <div>
+          <div class="card">
+            <div class="card-title" style="margin-bottom:16px;">Status Timeline</div>
+            <div style="display:flex;flex-direction:column;gap:0;">
+              <% const steps = ['draft','pending','under_review','approved']; %>
+              <% steps.forEach((step, i) => {
+                const currentIdx = steps.indexOf(submission.status);
+                const isDone     = currentIdx > i || submission.status === 'approved';
+                const isActive   = submission.status === step;
+                const labels = { draft: 'Uploaded (Draft)', pending: 'Submitted for Review', under_review: 'Under Review', approved: 'Approved & Live' };
+                const dotBorder = isActive ? 'var(--accent)' : (isDone ? 'var(--ok)' : 'var(--line-strong)');
+                const dotBg     = isActive ? 'var(--accent-soft)' : (isDone ? 'var(--ok-soft)' : 'var(--surface-2)');
+                const dotColor  = isActive ? 'var(--accent)' : (isDone ? 'var(--ok)' : 'var(--ink-4)');
+                const lineBg    = (isDone && !isActive) ? 'var(--ok)' : 'var(--line-strong)';
+              %>
+              <div style="display:flex;gap:12px;align-items:flex-start;padding-bottom:<%= i < steps.length-1 ? '20px' : '0' %>;position:relative;">
+                <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
+                  <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;border:2px solid <%= dotBorder %>;background:<%= dotBg %>;color:<%= dotColor %>;">
+                    <% if (isDone && !isActive) { %>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    <% } else { %><%= i+1 %><% } %>
+                  </div>
+                  <% if (i < steps.length-1) { %>
+                  <div style="width:2px;flex:1;min-height:20px;background:<%= lineBg %>;margin-top:4px;"></div>
+                  <% } %>
+                </div>
+                <div style="padding-top:4px;">
+                  <div style="font-size:.875rem;font-weight:600;color:<%= (isActive || isDone) ? 'var(--ink)' : 'var(--ink-3)' %>;"><%= labels[step] %></div>
+                  <% if (isActive && step === 'draft') { %>
+                    <div style="font-size:.78rem;color:var(--accent);margin-top:2px;">Test your game and submit for review</div>
+                  <% } else if (isActive && submission.status !== 'approved') { %>
+                    <div style="font-size:.78rem;color:var(--ink-3);margin-top:2px;">In progress</div>
+                  <% } %>
+                </div>
+              </div>
+              <% }); %>
+
+              <% if (submission.status === 'rejected') { %>
+              <div style="margin-top:16px;padding:12px;background:var(--danger-soft);border:1px solid rgba(255,92,92,.22);border-radius:8px;font-size:.85rem;color:var(--danger);">
+                Submission was rejected. See reason on the left.
+              </div>
+              <% } %>
+            </div>
+          </div>
+
+          <% if (submission.status === 'approved') { %>
+          <div class="card">
+            <div class="card-title" style="margin-bottom:12px;color:var(--ok);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="display:inline;vertical-align:middle;margin-right:6px;"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Approved!
+            </div>
+            <p style="font-size:.875rem;color:var(--ink-2);margin-bottom:14px;line-height:1.6;">
+              Your game has been approved. Our team is adding the finishing touches before it goes live on PlayMist.
+            </p>
+            <% if (submission.game_slug) { %>
+            <a href="/games/<%= submission.game_slug %>" target="_blank" class="btn-success btn" style="width:100%;justify-content:center;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              View on PlayMist
+            </a>
+            <% } %>
+          </div>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Test game iframe -->
+      <% if (submission.status === 'draft' && submission.preview_play_url) { %>
+      <div id="test-game" style="margin-top:8px;">
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div class="section-h" style="gap:16px;">
+            <div>
+              <h3>Test Your Game</h3>
+              <div style="font-size:.8rem;color:var(--ink-3);margin-top:2px;font-weight:400;">Make sure gameplay, controls, and assets all work correctly before submitting.</div>
+            </div>
+            <a href="<%= submission.preview_play_url %>" target="_blank" class="btn ghost sm" style="flex-shrink:0;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Open in New Tab
+            </a>
+          </div>
+          <div style="position:relative;padding-bottom:56.25%;height:0;background:#000;">
+            <iframe
+              id="gameFrame"
+              src="<%= submission.preview_play_url %>"
+              style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;"
+              allow="fullscreen"
+              loading="lazy"
+            ></iframe>
+          </div>
+          <div style="padding:12px 20px;display:flex;justify-content:flex-end;border-top:1px solid var(--line);">
+            <form method="POST" action="/developer/submissions/<%= submission.id %>/submit-review" style="margin:0;">
+              <button type="submit" class="btn primary" onclick="return confirm('Submit this game for review? Make sure you have tested it first.')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg>
+                Submit for Review
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      <% } %>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  const scrollBtn = document.getElementById('scrollToTestBtn');
+  if (scrollBtn) {
+    scrollBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      document.getElementById('test-game').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+</script>
+</body>
+</html>

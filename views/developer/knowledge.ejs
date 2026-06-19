@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('partials/head', { title: 'Knowledge Sphere' }) %>
+  <!-- Quill rich-text editor -->
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+  <style>
+    .ks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+    .ks-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--border-radius);
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-card);
+      transition: border-color .15s, transform .1s;
+    }
+    .ks-card:hover { border-color: var(--line-strong); transform: translateY(-1px); }
+    .ks-card-head { padding: 16px 16px 10px; border-bottom: 1px solid var(--line); }
+    .ks-card-title { font-size: 14px; font-weight: 700; color: var(--ink); margin: 0 0 4px; line-height: 1.35; }
+    .ks-card-desc  { font-size: 12px; color: var(--ink-3); margin: 0; line-height: 1.4; }
+    .ks-card-preview {
+      flex: 1; padding: 12px 16px; font-size: 12px; color: var(--ink-3);
+      line-height: 1.6; overflow: hidden;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    }
+    .ks-card-footer {
+      padding: 10px 14px; border-top: 1px solid var(--line);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .ks-card-date { flex: 1; font-size: 11px; color: var(--ink-4); }
+
+    .share-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+    .share-toggle .sw-track {
+      width: 32px; height: 18px; border-radius: 9px; background: var(--surface-3);
+      position: relative; transition: background .2s; flex-shrink: 0;
+    }
+    .share-toggle.on .sw-track { background: var(--ok); }
+    .share-toggle .sw-thumb {
+      position: absolute; top: 2px; left: 2px;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #fff; transition: left .2s;
+    }
+    .share-toggle.on .sw-thumb { left: 16px; }
+    .share-toggle .sw-label { font-size: 11px; color: var(--ink-3); }
+    .share-toggle.on .sw-label { color: var(--ok); }
+
+    .icon-btn {
+      background: none; border: none; cursor: pointer; color: var(--ink-3);
+      padding: 5px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      transition: color .15s, background .15s;
+    }
+    .icon-btn:hover { color: var(--ink); background: var(--surface-2); }
+    .icon-btn.danger:hover { color: var(--danger); }
+
+    .ks-empty { grid-column: 1/-1; text-align: center; padding: 60px 24px; }
+    .ks-empty-icon {
+      width: 56px; height: 56px; margin: 0 auto 16px;
+      border-radius: 16px; background: var(--surface-2);
+      display: flex; align-items: center; justify-content: center; color: var(--ink-3);
+    }
+
+    /* Quill editor overrides */
+    .ql-toolbar.ql-snow { background: var(--surface) !important; border-color: var(--line) !important; border-radius: 8px 8px 0 0 !important; }
+    .ql-container.ql-snow { background: var(--surface-2) !important; border-color: var(--line) !important; border-radius: 0 0 8px 8px !important; }
+    .ql-editor { min-height: 240px; color: var(--ink) !important; font-size: 14px; line-height: 1.75; font-family: 'Inter', sans-serif !important; }
+    .ql-editor.ql-blank::before { color: var(--ink-3) !important; font-style: normal !important; }
+    .ql-snow .ql-stroke { stroke: var(--ink-2) !important; }
+    .ql-snow .ql-fill { fill: var(--ink-2) !important; }
+    .ql-snow .ql-picker { color: var(--ink-2) !important; }
+    .ql-snow .ql-picker-options { background: var(--surface) !important; border-color: var(--line) !important; }
+    .ql-snow.ql-toolbar button:hover .ql-stroke,
+    .ql-snow .ql-toolbar button:hover .ql-stroke { stroke: var(--accent) !important; }
+    .ql-snow .ql-picker-label:hover { color: var(--accent) !important; }
+    .ql-editor pre.ql-syntax { background: #282c34 !important; color: #abb2bf !important; border-radius: 8px !important; font-size: 13px !important; padding: 12px 16px !important; }
+
+    /* Read-only view area */
+    .ql-editor-readonly { padding: 0; font-size: 14px; line-height: 1.75; color: var(--ink-2); font-family: 'Inter', sans-serif; }
+    .ql-editor-readonly h1 { font-size: 22px; font-weight: 700; margin: 0 0 8px; }
+    .ql-editor-readonly h2 { font-size: 18px; font-weight: 600; margin: 16px 0 6px; }
+    .ql-editor-readonly h3 { font-size: 15px; font-weight: 600; margin: 14px 0 4px; }
+    .ql-editor-readonly p  { margin: 0 0 10px; }
+    .ql-editor-readonly ul, .ql-editor-readonly ol { padding-left: 22px; margin: 0 0 10px; }
+    .ql-editor-readonly blockquote {
+      border-left: 3px solid var(--accent); margin: 0 0 10px;
+      padding: 4px 14px; color: var(--ink-3);
+      background: var(--surface-2); border-radius: 0 6px 6px 0;
+    }
+
+    /* Community note item */
+    .comm-item { display: flex; gap: 14px; align-items: flex-start; padding: 14px 0; border-bottom: 1px solid var(--line); }
+    .comm-item:last-child { border-bottom: none; }
+    .comm-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: var(--accent); color: var(--accent-ink);
+      font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      overflow: hidden;
+    }
+    .comm-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .comm-meta { flex: 1; min-width: 0; }
+    .comm-author { font-size: 11px; color: var(--ink-3); margin-bottom: 3px; }
+    .comm-title  { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+    .comm-desc   { font-size: 12px; color: var(--ink-3); }
+    .comm-date   { font-size: 11px; color: var(--ink-4); margin-top: 5px; }
+    .comm-actions { display: flex; gap: 4px; flex-shrink: 0; margin-top: 2px; }
+
+    .shared-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10px; font-weight: 600; color: var(--ok);
+      background: var(--ok-soft); border-radius: 20px; padding: 2px 7px;
+    }
+
+    input.modal-search {
+      width: 100%; padding: 9px 12px 9px 36px;
+      border: 1px solid var(--line); border-radius: 8px;
+      background: var(--surface-2); color: var(--ink);
+      font-size: 13px; font-family: inherit; outline: none;
+      transition: border-color .15s; box-sizing: border-box;
+    }
+    input.modal-search:focus { border-color: var(--accent); box-shadow: none; }
+    .search-wrap { position: relative; }
+    .search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--ink-3); pointer-events: none; }
+
+    .ks-input {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px;
+      background: var(--surface-2); color: var(--ink); font-size: 13px;
+      font-family: inherit; outline: none; transition: border-color .15s; box-sizing: border-box;
+    }
+    .ks-input:focus { border-color: var(--accent); }
+    .ks-label { font-size: 12px; font-weight: 500; color: var(--ink-2); display: block; margin-bottom: 6px; }
+    .ks-field { margin-bottom: 16px; }
+    .ks-field:last-child { margin-bottom: 0; }
+  </style>
+  <link rel="icon" href="/favicon.ico" />
+</head>
+<body>
+<div class="container-app">
+  <%- include('partials/sidebar', { activePage: 'knowledge' }) %>
+
+  <main class="main-content">
+    <header class="topbar">
+      <button class="dev-menu-btn" id="devMenuBtn" aria-label="Open navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <span class="topbar-title">Knowledge Sphere</span>
+      <div class="top-actions">
+        <button class="btn ghost sm" onclick="openCommunity()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          Community
+        </button>
+        <button class="btn primary sm" onclick="openCreateNote()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Create Note
+        </button>
+      </div>
+    </header>
+
+    <div class="page-content scroll">
+      <%- include('partials/flash') %>
+
+      <div class="page-h" style="margin-bottom:20px;">
+        <div>
+          <h1 style="margin:0;font-size:20px;font-weight:700;color:var(--ink);">Knowledge Sphere</h1>
+          <div style="font-size:13px;color:var(--ink-3);margin-top:3px;">Capture notes, code snippets, and learnings. Share with the PlayMist developer community.</div>
+        </div>
+      </div>
+
+      <div class="search-wrap" style="margin-bottom:20px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="notes-search" class="modal-search" placeholder="Search your notes by title, description, or content…" oninput="onNotesSearch(this.value)" autocomplete="off" />
+      </div>
+
+      <div class="ks-grid" id="notes-grid">
+        <div class="ks-empty">
+          <div style="color:var(--ink-3);font-size:13px;">Loading…</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ── CREATE / EDIT NOTE MODAL ──────────────────────────────────────────────── -->
+<div id="note-modal" class="modal-scrim" style="display:none;">
+  <div class="modal" style="max-width:780px;width:95%;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:92vh;">
+    <div class="modal-head" style="padding:20px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <h2 id="note-modal-title" style="margin:0;font-size:17px;font-weight:700;color:var(--ink);">Create Note</h2>
+      <button onclick="closeNoteModal()" class="icon-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:22px 24px;">
+      <div class="ks-field">
+        <label class="ks-label" for="note-title-input">Title <span style="color:var(--accent);">*</span></label>
+        <input type="text" id="note-title-input" class="ks-input" placeholder="Give your note a clear title…" autocomplete="off" />
+      </div>
+      <div class="ks-field">
+        <label class="ks-label" for="note-desc-input">Short Description <span style="color:var(--ink-3);font-weight:400;">(optional)</span></label>
+        <input type="text" id="note-desc-input" class="ks-input" placeholder="One-line summary…" autocomplete="off" />
+      </div>
+      <div class="ks-field" style="margin-bottom:0;">
+        <label class="ks-label">Content</label>
+        <div id="note-editor"></div>
+      </div>
+    </div>
+    <div style="padding:14px 24px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-shrink:0;background:var(--surface);">
+      <span id="note-save-error" style="color:var(--danger);font-size:12px;flex:1;"></span>
+      <button class="btn ghost sm" onclick="closeNoteModal()">Cancel</button>
+      <button class="btn primary sm" id="note-save-btn" onclick="saveNote()">Save Note</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── BROWSE COMMUNITY MODAL ────────────────────────────────────────────────── -->
+<div id="community-modal" class="modal-scrim" style="display:none;">
+  <div class="modal" style="max-width:860px;width:95%;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:92vh;">
+    <div class="modal-head" style="padding:20px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <div>
+        <h2 style="margin:0;font-size:17px;font-weight:700;color:var(--ink);">Developer Community</h2>
+        <div style="font-size:12px;color:var(--ink-3);margin-top:3px;">Notes shared by PlayMist developers</div>
+      </div>
+      <button onclick="closeCommunityModal()" class="icon-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="padding:14px 24px;border-bottom:1px solid var(--line);flex-shrink:0;">
+      <div class="search-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="community-search" class="modal-search" placeholder="Search by title, description, or content…" oninput="onCommunitySearch(this.value)" autocomplete="off" />
+      </div>
+    </div>
+    <div id="community-list" style="flex:1;overflow-y:auto;padding:0 24px;">
+      <div style="text-align:center;padding:40px;color:var(--ink-3);">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── VIEW NOTE MODAL (read-only) ───────────────────────────────────────────── -->
+<div id="view-modal" class="modal-scrim" style="display:none;">
+  <div class="modal" style="max-width:780px;width:95%;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:92vh;">
+    <div style="padding:20px 24px 16px;border-bottom:1px solid var(--line);flex-shrink:0;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+        <div style="flex:1;min-width:0;">
+          <h2 id="view-title" style="margin:0 0 4px;font-size:18px;font-weight:700;color:var(--ink);line-height:1.3;"></h2>
+          <div id="view-desc" style="font-size:13px;color:var(--ink-3);margin-bottom:8px;"></div>
+          <div id="view-meta" style="font-size:12px;color:var(--ink-4);"></div>
+        </div>
+        <button onclick="closeViewModal()" class="icon-btn" style="flex-shrink:0;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:22px 24px;">
+      <div id="view-content" class="ql-editor-readonly ql-snow ql-editor"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<script>
+  let notesData = [];
+  let commNotes = [];
+  let editingNoteId = null;
+  let noteQuill = null;
+  let commSearchTimer = null;
+  let notesSearchVal = '';
+
+  function escHtml(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function stripHtml(html) { return (html || '').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim(); }
+  function fmtDate(dt) { return dt ? new Date(dt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : ''; }
+
+  // ── Quill init ──────────────────────────────────────────────────────────────
+  function initNoteEditor() {
+    if (noteQuill) return;
+    noteQuill = new Quill('#note-editor', {
+      theme: 'snow',
+      placeholder: 'Start writing… use the toolbar for headings, code blocks, lists and more.',
+      modules: {
+        syntax: true,
+        toolbar: [
+          [{ header: [1,2,3,false] }],
+          ['bold','italic','underline','strike'],
+          ['blockquote','code-block'],
+          [{ list:'ordered' },{ list:'bullet' }],
+          [{ indent:'-1' },{ indent:'+1' }],
+          ['link'],
+          [{ color:[] }],
+          ['clean']
+        ]
+      }
+    });
+  }
+
+  // ── Load own notes ──────────────────────────────────────────────────────────
+  async function loadNotes() {
+    try {
+      const res  = await fetch('/developer/knowledge/notes');
+      const data = await res.json();
+      notesData  = data.notes || [];
+      renderNotes();
+    } catch (e) {
+      document.getElementById('notes-grid').innerHTML =
+        '<div class="ks-empty"><div style="color:var(--danger);font-size:13px;">Failed to load notes.</div></div>';
+    }
+  }
+
+  function onNotesSearch(val) {
+    notesSearchVal = val.trim().toLowerCase();
+    renderNotes();
+  }
+
+  function renderNotes() {
+    const grid = document.getElementById('notes-grid');
+    const filtered = notesSearchVal
+      ? notesData.filter(n =>
+          (n.title || '').toLowerCase().includes(notesSearchVal) ||
+          (n.description || '').toLowerCase().includes(notesSearchVal) ||
+          stripHtml(n.content || '').toLowerCase().includes(notesSearchVal)
+        )
+      : notesData;
+
+    if (!notesData.length) {
+      grid.innerHTML = `
+        <div class="ks-empty">
+          <div class="ks-empty-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+          </div>
+          <h3 style="margin:0 0 6px;font-size:15px;font-weight:600;color:var(--ink);">No notes yet</h3>
+          <p style="margin:0 auto 20px;font-size:13px;color:var(--ink-3);max-width:320px;">
+            Start capturing game dev learnings, code snippets, and ideas.
+          </p>
+          <button class="btn primary sm" onclick="openCreateNote()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create your first note
+          </button>
+        </div>`;
+      return;
+    }
+    if (!filtered.length) {
+      grid.innerHTML = `
+        <div class="ks-empty" style="grid-column:1/-1;">
+          <div class="ks-empty-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+          <h3 style="margin:0 0 6px;font-size:15px;font-weight:600;color:var(--ink);">No results found</h3>
+          <p style="margin:0 auto;font-size:13px;color:var(--ink-3);max-width:280px;">Try a different search term.</p>
+        </div>`;
+      return;
+    }
+    grid.innerHTML = filtered.map(buildNoteCard).join('');
+  }
+
+  function buildNoteCard(note) {
+    const preview = stripHtml(note.content).substring(0,130);
+    const sharedBadge = note.is_shared
+      ? `<span class="shared-badge"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>Shared</span>`
+      : '';
+    return `
+      <div class="ks-card" id="note-card-${note.id}">
+        <div class="ks-card-head">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+            <h3 class="ks-card-title">${escHtml(note.title)}</h3>${sharedBadge}
+          </div>
+          ${note.description ? `<p class="ks-card-desc">${escHtml(note.description)}</p>` : ''}
+        </div>
+        <div class="ks-card-preview">
+          ${preview ? escHtml(preview)+(preview.length>=130?'…':'') : '<em style="color:var(--ink-4);">No content yet</em>'}
+        </div>
+        <div class="ks-card-footer">
+          <span class="ks-card-date">${fmtDate(note.created_at)}</span>
+          <div class="share-toggle ${note.is_shared?'on':''}" onclick="toggleShare(${note.id})" title="${note.is_shared?'Unshare':'Share with community'}">
+            <div class="sw-track"><div class="sw-thumb"></div></div>
+            <span class="sw-label">${note.is_shared?'Shared':'Share'}</span>
+          </div>
+          <button class="icon-btn" onclick="viewOwnNote(${note.id})" title="Read">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <button class="icon-btn" onclick="openEditNote(${note.id})" title="Edit">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="icon-btn danger" onclick="deleteNote(${note.id})" title="Delete">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
+        </div>
+      </div>`;
+  }
+
+  // ── Create / Edit ───────────────────────────────────────────────────────────
+  function openCreateNote() {
+    editingNoteId = null;
+    document.getElementById('note-modal-title').textContent = 'Create Note';
+    document.getElementById('note-save-btn').textContent    = 'Save Note';
+    document.getElementById('note-title-input').value = '';
+    document.getElementById('note-desc-input').value  = '';
+    document.getElementById('note-save-error').textContent = '';
+    document.getElementById('note-modal').style.display = '';
+    initNoteEditor();
+    noteQuill.setContents([]);
+    setTimeout(() => document.getElementById('note-title-input').focus(), 80);
+  }
+
+  function openEditNote(id) {
+    const note = notesData.find(n => n.id == id);
+    if (!note) return;
+    editingNoteId = id;
+    document.getElementById('note-modal-title').textContent = 'Edit Note';
+    document.getElementById('note-save-btn').textContent    = 'Save Changes';
+    document.getElementById('note-title-input').value = note.title;
+    document.getElementById('note-desc-input').value  = note.description || '';
+    document.getElementById('note-save-error').textContent = '';
+    document.getElementById('note-modal').style.display = '';
+    initNoteEditor();
+    noteQuill.root.innerHTML = note.content || '';
+    setTimeout(() => document.getElementById('note-title-input').focus(), 80);
+  }
+
+  function closeNoteModal() { document.getElementById('note-modal').style.display = 'none'; }
+
+  async function saveNote() {
+    const title   = document.getElementById('note-title-input').value.trim();
+    const description = document.getElementById('note-desc-input').value.trim();
+    const content = noteQuill ? noteQuill.root.innerHTML : '';
+    const errorEl = document.getElementById('note-save-error');
+    if (!title) { errorEl.textContent = 'Title is required.'; document.getElementById('note-title-input').focus(); return; }
+    errorEl.textContent = '';
+    const btn = document.getElementById('note-save-btn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      let res, data;
+      if (editingNoteId) {
+        res = await fetch(`/developer/knowledge/notes/${editingNoteId}`, {
+          method:'PUT', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ title, description, content })
+        });
+      } else {
+        res = await fetch('/developer/knowledge/notes', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ title, description, content })
+        });
+      }
+      data = await res.json();
+      if (!res.ok) { errorEl.textContent = data.error || 'Failed to save note.'; return; }
+      closeNoteModal();
+      await loadNotes();
+    } catch (e) {
+      errorEl.textContent = 'Something went wrong. Please try again.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = editingNoteId ? 'Save Changes' : 'Save Note';
+    }
+  }
+
+  async function deleteNote(id) {
+    const note = notesData.find(n => n.id == id);
+    if (!note || !confirm(`Delete "${note.title}"? This cannot be undone.`)) return;
+    try {
+      await fetch(`/developer/knowledge/notes/${id}`, { method:'DELETE' });
+      notesData = notesData.filter(n => n.id != id);
+      renderNotes();
+    } catch (e) { alert('Failed to delete note.'); }
+  }
+
+  async function toggleShare(id) {
+    const note = notesData.find(n => n.id == id);
+    if (!note) return;
+    try {
+      const res  = await fetch(`/developer/knowledge/notes/${id}`, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ is_shared: !note.is_shared })
+      });
+      const data = await res.json();
+      if (res.ok && data.note) {
+        const i = notesData.findIndex(n => n.id == id);
+        if (i !== -1) notesData[i] = data.note;
+        renderNotes();
+      }
+    } catch (e) {}
+  }
+
+  // ── Community ───────────────────────────────────────────────────────────────
+  function openCommunity() {
+    document.getElementById('community-modal').style.display = '';
+    document.getElementById('community-search').value = '';
+    loadCommunityNotes('');
+  }
+  function closeCommunityModal() { document.getElementById('community-modal').style.display = 'none'; }
+  function onCommunitySearch(val) {
+    clearTimeout(commSearchTimer);
+    commSearchTimer = setTimeout(() => loadCommunityNotes(val), 350);
+  }
+
+  async function loadCommunityNotes(search) {
+    const container = document.getElementById('community-list');
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--ink-3);">Loading…</div>';
+    try {
+      const url  = '/developer/knowledge/community' + (search ? '?search='+encodeURIComponent(search) : '');
+      const res  = await fetch(url);
+      const data = await res.json();
+      const notes = data.notes || [];
+      commNotes   = notes;
+      const me    = data.currentUserId;
+      if (!notes.length) {
+        container.innerHTML = `
+          <div style="text-align:center;padding:50px 24px;color:var(--ink-3);">
+            <div style="font-size:14px;font-weight:600;color:var(--ink-2);margin-bottom:6px;">${search?'No results':'No shared notes yet'}</div>
+            <div style="font-size:12px;">${search?'Try a different search term.':'Be the first to share a note!'}</div>
+          </div>`;
+        return;
+      }
+      container.innerHTML = notes.map(n => buildCommunityItem(n, me)).join('');
+    } catch (e) {
+      container.innerHTML = '<div style="padding:32px;color:var(--danger);text-align:center;">Failed to load community notes.</div>';
+    }
+  }
+
+  function buildCommunityItem(note, me) {
+    const isOwner    = note.user_id == me;
+    const initial    = (note.developer_name || '?').charAt(0).toUpperCase();
+    const avatarHtml = note.avatar_url
+      ? `<img src="${escHtml(note.avatar_url)}" alt="${escHtml(initial)}">`
+      : escHtml(initial);
+    const ownerActions = isOwner ? `
+      <button class="icon-btn" onclick="openEditNoteFromComm(${note.id})" title="Edit">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </button>
+      <button class="icon-btn danger" onclick="deleteNoteFromComm(${note.id})" title="Delete">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+      </button>` : '';
+    return `
+      <div class="comm-item">
+        <div class="comm-avatar">${avatarHtml}</div>
+        <div class="comm-meta">
+          <div class="comm-author">${escHtml(note.developer_name)} · ${escHtml(note.studio_name)}${isOwner?' <span style="color:var(--accent);font-weight:600;">(you)</span>':''}</div>
+          <div class="comm-title">${escHtml(note.title)}</div>
+          ${note.description?`<div class="comm-desc">${escHtml(note.description)}</div>`:''}
+          <div class="comm-date">${fmtDate(note.created_at)}</div>
+        </div>
+        <div class="comm-actions">
+          <button class="btn ghost sm" onclick="viewCommNote(${note.id})">Read</button>
+          ${ownerActions}
+        </div>
+      </div>`;
+  }
+
+  function viewOwnNote(id) {
+    const note = notesData.find(n => n.id == id);
+    if (note) viewNote(note);
+  }
+
+  function viewCommNote(id) {
+    const note = commNotes.find(n => n.id == id);
+    if (note) viewNote(note);
+  }
+
+  function viewNote(note) {
+    document.getElementById('view-title').textContent = note.title;
+    document.getElementById('view-desc').textContent  = note.description || '';
+    document.getElementById('view-meta').textContent  = `By ${note.developer_name} (${note.studio_name}) · ${fmtDate(note.created_at)}`;
+    document.getElementById('view-content').innerHTML = note.content || '<p style="color:var(--ink-3);">No content.</p>';
+    document.querySelectorAll('#view-content pre code').forEach(el => { if (window.hljs) hljs.highlightElement(el); });
+    document.getElementById('view-modal').style.display = '';
+  }
+  function closeViewModal() { document.getElementById('view-modal').style.display = 'none'; }
+
+  async function openEditNoteFromComm(id) {
+    if (!notesData.find(n => n.id == id)) await loadNotes();
+    closeCommunityModal();
+    openEditNote(id);
+  }
+  async function deleteNoteFromComm(id) {
+    const note = commNotes.find(n => n.id == id);
+    const title = note?.title || 'this note';
+    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    try {
+      await fetch(`/developer/knowledge/notes/${id}`, { method:'DELETE' });
+      notesData = notesData.filter(n => n.id != id);
+      renderNotes();
+      loadCommunityNotes(document.getElementById('community-search').value);
+    } catch (e) { alert('Failed to delete note.'); }
+  }
+
+  // ── Keyboard + click-outside ────────────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (document.getElementById('view-modal').style.display !== 'none')      { closeViewModal(); return; }
+    if (document.getElementById('note-modal').style.display !== 'none')      { closeNoteModal(); return; }
+    if (document.getElementById('community-modal').style.display !== 'none') { closeCommunityModal(); }
+  });
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey||e.metaKey) && e.key === 'Enter' && document.getElementById('note-modal').style.display !== 'none') saveNote();
+  });
+  ['note-modal','community-modal','view-modal'].forEach(id => {
+    document.getElementById(id).addEventListener('click', function(e) {
+      if (e.target === this) {
+        if (id === 'note-modal') closeNoteModal();
+        else if (id === 'community-modal') closeCommunityModal();
+        else closeViewModal();
+      }
+    });
+  });
+
+  document.addEventListener('DOMContentLoaded', loadNotes);
+</script>
+</body>
+</html>

@@ -3,16 +3,19 @@ const router     = express.Router();
 const { isAdmin } = require('../middleware/auth');
 const { upload, uploadImage, uploadScreenshots } = require('../config/upload');
 
-const authController      = require('../controllers/sitehandler/authController');
-const dashboardController = require('../controllers/sitehandler/dashboardController');
-const analyticsController = require('../controllers/sitehandler/analyticsController');
-const gamesController     = require('../controllers/sitehandler/gamesController');
-const ticketsController   = require('../controllers/sitehandler/ticketsController');
-const adminsController    = require('../controllers/sitehandler/adminsController');
-const settingsController  = require('../controllers/sitehandler/settingsController');
-const genresController    = require('../controllers/sitehandler/genresController');
-const tagsController      = require('../controllers/sitehandler/tagsController');
-const usersController     = require('../controllers/sitehandler/usersController');
+const authController                  = require('../controllers/sitehandler/authController');
+const dashboardController             = require('../controllers/sitehandler/dashboardController');
+const analyticsController             = require('../controllers/sitehandler/analyticsController');
+const gamesController                 = require('../controllers/sitehandler/gamesController');
+const ticketsController               = require('../controllers/sitehandler/ticketsController');
+const adminsController                = require('../controllers/sitehandler/adminsController');
+const settingsController              = require('../controllers/sitehandler/settingsController');
+const genresController                = require('../controllers/sitehandler/genresController');
+const tagsController                  = require('../controllers/sitehandler/tagsController');
+const usersController                 = require('../controllers/sitehandler/usersController');
+const developerSubmissionsController  = require('../controllers/sitehandler/developerSubmissionsController');
+const developersController            = require('../controllers/sitehandler/developersController');
+const guidelinesController            = require('../controllers/sitehandler/guidelinesController');
 
 
 // ─── Auth (public within /sitehandler) ────────────────────────────────────────
@@ -82,5 +85,24 @@ router.post('/tags/create',          tagsController.postCreate);
 router.get ('/tags/:id/edit',        tagsController.getEdit);
 router.post('/tags/:id/update',      tagsController.postUpdate);
 router.post('/tags/:id/delete',      tagsController.postDelete);
+
+// Developer Submissions
+router.get ('/developer-submissions',                              developerSubmissionsController.getIndex);
+router.get ('/developer-submissions/:id',                          developerSubmissionsController.getDetail);
+router.get ('/developer-submissions/:id/download',                 developerSubmissionsController.getDownload);
+router.post('/developer-submissions/:id/mark-reviewing',           developerSubmissionsController.postMarkReviewing);
+router.post('/developer-submissions/:id/approve',                  developerSubmissionsController.postApprove);
+router.post('/developer-submissions/:id/reject',                   developerSubmissionsController.postReject);
+
+// Developers Management
+router.get ('/developers',           developersController.getIndex);
+router.get ('/developers/:id',       developersController.getDetail);
+router.post('/developers/:id/ban',   developersController.postBan);
+router.post('/developers/:id/unban', developersController.postUnban);
+
+// Guidelines Editor
+router.get ('/guidelines',                    guidelinesController.getEdit);
+router.post('/guidelines',                    guidelinesController.postSave);
+router.post('/guidelines/image-upload',       uploadImage.single('image'), guidelinesController.postImageUpload);
 
 module.exports = router;

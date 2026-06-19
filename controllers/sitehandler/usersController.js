@@ -27,10 +27,10 @@ exports.getTransactions = async (req, res) => {
     user = userRows[0];
 
     [transactions] = await db.query(
-      `SELECT t.id, t.credits_used, t.created_at, g.title AS gamename 
-       FROM credit_transactions t 
-       LEFT JOIN games g ON t.game_id = g.id 
-       WHERE t.user_id = ? 
+      `SELECT t.id, t.credits_used, t.created_at, t.source, g.title AS gamename
+       FROM credit_transactions t
+       LEFT JOIN games g ON t.game_id = g.id
+       WHERE t.user_id = ?
        ORDER BY t.created_at DESC`,
       [userId]
     );
