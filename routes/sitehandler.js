@@ -50,10 +50,11 @@ router.post('/games/:id/toggle',     gamesController.postToggle);
 router.post('/games/:id/delete',     gamesController.postDelete);
 
 // Users
-router.get ('/users',                usersController.getIndex);
+router.get ('/users',                  usersController.getIndex);
+router.post('/users/bulk',             usersController.postBulk);
 router.get ('/users/:id/transactions', usersController.getTransactions);
-router.post('/users/:id/toggle',     usersController.postToggle);
-router.post('/users/:id/delete',     usersController.postDelete);
+router.post('/users/:id/toggle',       usersController.postToggle);
+router.post('/users/:id/delete',       usersController.postDelete);
 
 // Tickets
 router.get ('/tickets',              ticketsController.getIndex);
@@ -107,7 +108,8 @@ router.post('/guidelines',                    guidelinesController.postSave);
 router.post('/guidelines/image-upload',       uploadImage.single('image'), guidelinesController.postImageUpload);
 
 // Notifications
-router.get ('/notifications',       notificationsController.getIndex);
-router.post('/notifications/send',  notificationsController.postSend);
+router.get ('/notifications',              notificationsController.getIndex);
+router.post('/notifications/send',         notificationsController.postSend);
+router.post('/notifications/:id/delete',   notificationsController.postDelete);
 
 module.exports = router;

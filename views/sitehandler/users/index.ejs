@@ -16,47 +16,78 @@
       </div>
     </div>
 
-    <!-- Players Table -->
     <% if (users.length > 0) { %>
-      <div class="data-table-wrapper">
-        <table class="data-table">
-          <thead>
-            <tr><th>Player</th><th>Email Address</th><th>Credits</th><th>Status</th><th>Registered At</th><th>Actions</th></tr>
-          </thead>
-          <tbody>
-            <% users.forEach(u => { %>
+      <form id="bulkForm" action="/sitehandler/users/bulk" method="POST">
+
+        <!-- Bulk Action Toolbar -->
+        <div id="bulkToolbar" style="display:none;align-items:center;gap:12px;margin-bottom:14px;padding:10px 16px;background:var(--card-bg);border:1px solid var(--border-color);border-radius:10px;">
+          <span id="bulkCount" style="font-size:.85rem;font-weight:600;opacity:.8;"></span>
+          <button type="submit" name="action" value="ban" class="action-btn"
+            data-confirm="Ban the selected players? They will be deactivated and unable to log in."
+            style="background:rgba(255,180,50,.12);color:#FFB432;border-color:rgba(255,180,50,.3);">
+            Ban Selected
+          </button>
+          <button type="submit" name="action" value="delete" class="action-btn action-btn--danger"
+            data-confirm="Permanently delete the selected players? This cannot be undone.">
+            Delete Selected
+          </button>
+        </div>
+
+        <div class="data-table-wrapper">
+          <table class="data-table">
+            <thead>
               <tr>
-                <td>
-                  <div class="game-title-cell">
-                    <div class="admin-avatar-sm" style="background:linear-gradient(135deg, #B5FF6B, #9B7DFF);color:#0B0911"><%= u.username.charAt(0).toUpperCase() %></div>
-                    <div>
-                      <div class="fw-600">@<%= u.username %></div>
-                    </div>
-                  </div>
-                </td>
-                <td class="text-sm"><%= u.email %></td>
-                <td><strong style="color: var(--accent-color);"><%= u.credits !== null ? u.credits : 1000 %></strong></td>
-                <td>
-                  <span class="badge <%= u.is_active ? 'badge--active' : 'badge--inactive' %>"><%= u.is_active ? 'Active' : 'Inactive' %></span>
-                </td>
-                <td class="text-sm text-dim"><%= new Date(u.created_at).toLocaleDateString() %> <%= new Date(u.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) %></td>
-                <td>
-                  <div class="action-btns">
-                    <a href="/sitehandler/users/<%= u.id %>/transactions" class="action-btn">Transactions</a>
-                    <form action="/sitehandler/users/<%= u.id %>/toggle" method="POST" style="display:inline">
-                      <button type="submit" class="action-btn"><%= u.is_active ? 'Deactivate' : 'Activate' %></button>
-                    </form>
-                    <form action="/sitehandler/users/<%= u.id %>/delete" method="POST" style="display:inline">
-                      <button type="submit" class="action-btn action-btn--danger"
-                        data-confirm="Delete player '<%= u.username %>'? This cannot be undone.">Delete</button>
-                    </form>
-                  </div>
-                </td>
+                <th style="width:38px;">
+                  <input type="checkbox" id="selectAll" title="Select all"
+                    style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent-color);" />
+                </th>
+                <th>Player</th>
+                <th>Email Address</th>
+                <th>Credits</th>
+                <th>Status</th>
+                <th>Registered At</th>
+                <th>Actions</th>
               </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              <% users.forEach(u => { %>
+                <tr>
+                  <td>
+                    <input type="checkbox" name="ids" value="<%= u.id %>" class="row-check"
+                      style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent-color);" />
+                  </td>
+                  <td>
+                    <div class="game-title-cell">
+                      <div class="admin-avatar-sm" style="background:linear-gradient(135deg, #B5FF6B, #9B7DFF);color:#0B0911"><%= u.username.charAt(0).toUpperCase() %></div>
+                      <div>
+                        <div class="fw-600">@<%= u.username %></div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="text-sm"><%= u.email %></td>
+                  <td><strong style="color: var(--accent-color);"><%= u.credits !== null ? u.credits : 1000 %></strong></td>
+                  <td>
+                    <span class="badge <%= u.is_active ? 'badge--active' : 'badge--inactive' %>"><%= u.is_active ? 'Active' : 'Inactive' %></span>
+                  </td>
+                  <td class="text-sm text-dim"><%= new Date(u.created_at).toLocaleDateString() %> <%= new Date(u.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) %></td>
+                  <td>
+                    <div class="action-btns">
+                      <a href="/sitehandler/users/<%= u.id %>/transactions" class="action-btn">Transactions</a>
+                      <form action="/sitehandler/users/<%= u.id %>/toggle" method="POST" style="display:inline">
+                        <button type="submit" class="action-btn"><%= u.is_active ? 'Deactivate' : 'Activate' %></button>
+                      </form>
+                      <form action="/sitehandler/users/<%= u.id %>/delete" method="POST" style="display:inline">
+                        <button type="submit" class="action-btn action-btn--danger"
+                          data-confirm="Delete player '<%= u.username %>'? This cannot be undone.">Delete</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </form>
     <% } else { %>
       <div style="text-align:center;padding:48px;background:var(--card-bg);border-radius:12px;border:1px solid var(--border-color);color:var(--text-muted)">
         <span style="font-size:36px;display:block;margin-bottom:12px">👥</span>
@@ -68,5 +99,35 @@
   </main>
 </div>
 <script src="/sitehandler/js/admin.js"></script>
+<script>
+(function () {
+  const selectAll = document.getElementById('selectAll');
+  const toolbar   = document.getElementById('bulkToolbar');
+  const countEl   = document.getElementById('bulkCount');
+  if (!selectAll) return;
+
+  function updateToolbar() {
+    const checked = document.querySelectorAll('.row-check:checked');
+    const total   = document.querySelectorAll('.row-check').length;
+    if (checked.length > 0) {
+      toolbar.style.display = 'flex';
+      countEl.textContent   = checked.length + ' of ' + total + ' selected';
+    } else {
+      toolbar.style.display = 'none';
+    }
+    selectAll.indeterminate = checked.length > 0 && checked.length < total;
+    selectAll.checked       = checked.length === total;
+  }
+
+  selectAll.addEventListener('change', () => {
+    document.querySelectorAll('.row-check').forEach(cb => cb.checked = selectAll.checked);
+    updateToolbar();
+  });
+
+  document.querySelectorAll('.row-check').forEach(cb => {
+    cb.addEventListener('change', updateToolbar);
+  });
+})();
+</script>
 </body>
 </html>

@@ -68,3 +68,27 @@ exports.postDelete = async (req, res) => {
     res.redirect('/sitehandler/users');
   }
 };
+
+exports.postBulk = async (req, res) => {
+  const { action, ids } = req.body;
+  const idList = Array.isArray(ids) ? ids : ids ? [ids] : [];
+  if (!idList.length) {
+    req.flash('error_msg', 'No players selected.');
+    return res.redirect('/sitehandler/users');
+  }
+  const placeholders = idList.map(() => '?').join(',');
+  try {
+    if (action === 'ban') {
+      await db.query(`UPDATE users SET is_active = 0 WHERE id IN (${placeholders})`, idList);
+      req.flash('success_msg', `${idList.length} player(s) banned.`);
+    } else if (action === 'delete') {
+      await db.query(`DELETE FROM users WHERE id IN (${placeholders})`, idList);
+      req.flash('success_msg', `${idList.length} player(s) deleted.`);
+    } else {
+      req.flash('error_msg', 'Unknown action.');
+    }
+  } catch (err) {
+    req.flash('error_msg', err.message);
+  }
+  res.redirect('/sitehandler/users');
+};

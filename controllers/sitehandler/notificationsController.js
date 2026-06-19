@@ -27,6 +27,17 @@ exports.getIndex = async (req, res) => {
   });
 };
 
+// ── POST /sitehandler/notifications/:id/delete ───────────────────────────────
+exports.postDelete = async (req, res) => {
+  try {
+    await db.query('DELETE FROM notifications WHERE id = ?', [req.params.id]);
+    req.flash('success_msg', 'Notification deleted.');
+  } catch (err) {
+    req.flash('error_msg', 'Failed to delete: ' + err.message);
+  }
+  res.redirect('/sitehandler/notifications');
+};
+
 // ── POST /sitehandler/notifications/send ─────────────────────────────────────
 exports.postSend = async (req, res) => {
   const { title, body, image_url } = req.body;
