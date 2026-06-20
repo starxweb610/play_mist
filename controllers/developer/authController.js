@@ -1,5 +1,13 @@
-const bcrypt = require('bcryptjs');
-const db     = require('../../config/database');
+const bcrypt    = require('bcryptjs');
+const db        = require('../../config/database');
+const mailer    = require('../../utils/mailer');
+const templates = require('../../utils/emailTemplates');
+
+function generateCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+// ── Signup ─────────────────────────────────────────────────────────────────────
 
 exports.getSignup = (req, res) => {
   if (req.session.developer) return res.redirect('/developer/dashboard');
@@ -28,8 +36,10 @@ exports.postSignup = async (req, res) => {
     return res.render('developer/signup', { title: 'Developer Signup', errors, form });
   }
 
+  const normalEmail = email.trim().toLowerCase();
+
   try {
-    const [existing] = await db.query('SELECT id FROM developers WHERE email = ?', [email.trim().toLowerCase()]);
+    const [existing] = await db.query('SELECT id FROM developers WHERE email = ?', [normalEmail]);
     if (existing.length) {
       return res.render('developer/signup', {
         title: 'Developer Signup',
@@ -38,30 +48,37 @@ exports.postSignup = async (req, res) => {
       });
     }
 
-    const hash = await bcrypt.hash(password, 12);
-    const [result] = await db.query(
-      `INSERT INTO developers (name, email, phone, country, studio_name, password_hash)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        name.trim(),
-        email.trim().toLowerCase(),
-        phone?.trim() || null,
-        country.trim(),
-        studio_name.trim(),
-        hash,
-      ]
+    const hash     = await bcrypt.hash(password, 12);
+    const code     = generateCode();
+    const formData = JSON.stringify({
+      name: name.trim(),
+      email: normalEmail,
+      phone: phone?.trim() || null,
+      country: country.trim(),
+      studio_name: studio_name.trim(),
+      password_hash: hash,
+    });
+
+    // Clear any previous pending verifications for this email
+    await db.query('DELETE FROM developer_email_verifications WHERE email = ?', [normalEmail]);
+
+    await db.query(
+      `INSERT INTO developer_email_verifications (email, code, form_data, expires_at)
+       VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 15 MINUTE))`,
+      [normalEmail, code, formData]
     );
 
-    req.session.developer = {
-      id:          result.insertId,
-      name:        name.trim(),
-      email:       email.trim().toLowerCase(),
-      studio_name: studio_name.trim(),
-      avatar_url:  null,
-    };
-    req.flash('success_msg', `Welcome, ${name.trim()}! Your developer account is ready.`);
-    res.redirect('/developer/dashboard');
+    // Send verification email (fire-and-forget; don't block on failure)
+    mailer.sendMail({
+      to:      normalEmail,
+      subject: `${process.env.APP_NAME || 'PlayMist'} — Verify your developer account`,
+      html:    templates.verificationCode({ name: name.trim(), code }),
+    }).catch(err => console.error('Verification email failed:', err.message));
+
+    req.session.pendingVerification = { email: normalEmail, name: name.trim() };
+    res.redirect('/developer/verify-email');
   } catch (err) {
+    console.error('postSignup error:', err);
     res.render('developer/signup', {
       title: 'Developer Signup',
       errors: ['Registration failed. Please try again.'],
@@ -69,6 +86,146 @@ exports.postSignup = async (req, res) => {
     });
   }
 };
+
+// ── Email Verification ─────────────────────────────────────────────────────────
+
+exports.getVerifyEmail = (req, res) => {
+  if (req.session.developer) return res.redirect('/developer/dashboard');
+  if (!req.session.pendingVerification) return res.redirect('/developer/signup');
+
+  res.render('developer/verify-email', {
+    title: 'Verify Email',
+    email: req.session.pendingVerification.email,
+    errors: [],
+    success: null,
+  });
+};
+
+exports.postVerifyEmail = async (req, res) => {
+  if (req.session.developer) return res.redirect('/developer/dashboard');
+  if (!req.session.pendingVerification) return res.redirect('/developer/signup');
+
+  const { email } = req.session.pendingVerification;
+  const code = (req.body.code || '').trim().replace(/\s/g, '');
+
+  const renderError = (msg) => res.render('developer/verify-email', {
+    title: 'Verify Email',
+    email,
+    errors: [msg],
+    success: null,
+  });
+
+  if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+    return renderError('Please enter the 6-digit code sent to your email.');
+  }
+
+  try {
+    const [rows] = await db.query(
+      `SELECT * FROM developer_email_verifications
+       WHERE email = ? AND code = ? AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+      [email, code]
+    );
+
+    if (!rows.length) {
+      // Check if an unexpired row exists (wrong code)
+      const [anyRows] = await db.query(
+        'SELECT id FROM developer_email_verifications WHERE email = ? AND expires_at > NOW()',
+        [email]
+      );
+      return renderError(anyRows.length
+        ? 'Incorrect code. Please try again.'
+        : 'This code has expired. Please request a new one.');
+    }
+
+    const { form_data, id: verificationId } = rows[0];
+    const { name, email: devEmail, phone, country, studio_name, password_hash } = JSON.parse(form_data);
+
+    // Double-check email not taken (race condition guard)
+    const [dupCheck] = await db.query('SELECT id FROM developers WHERE email = ?', [devEmail]);
+    if (dupCheck.length) {
+      await db.query('DELETE FROM developer_email_verifications WHERE id = ?', [verificationId]);
+      delete req.session.pendingVerification;
+      return res.redirect('/developer/login');
+    }
+
+    const [result] = await db.query(
+      `INSERT INTO developers (name, email, phone, country, studio_name, password_hash)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [name, devEmail, phone, country, studio_name, password_hash]
+    );
+
+    await db.query('DELETE FROM developer_email_verifications WHERE email = ?', [devEmail]);
+
+    req.session.pendingVerification = null;
+    req.session.developer = {
+      id:          result.insertId,
+      name,
+      email:       devEmail,
+      studio_name,
+      avatar_url:  null,
+    };
+
+    req.flash('success_msg', `Welcome, ${name}! Your developer account is ready.`);
+    res.redirect('/developer/dashboard');
+  } catch (err) {
+    console.error('postVerifyEmail error:', err);
+    renderError('Verification failed. Please try again.');
+  }
+};
+
+exports.postResendVerification = async (req, res) => {
+  if (!req.session.pendingVerification) {
+    return res.json({ ok: false, error: 'No pending verification found.' });
+  }
+
+  const { email, name } = req.session.pendingVerification;
+
+  try {
+    const [rows] = await db.query(
+      'SELECT created_at FROM developer_email_verifications WHERE email = ? ORDER BY created_at DESC LIMIT 1',
+      [email]
+    );
+
+    // Rate-limit: 60 seconds between resends
+    if (rows.length) {
+      const secondsAgo = (Date.now() - new Date(rows[0].created_at).getTime()) / 1000;
+      if (secondsAgo < 60) {
+        return res.json({ ok: false, error: `Please wait ${Math.ceil(60 - secondsAgo)} seconds before requesting a new code.` });
+      }
+    }
+
+    // Need the form data from most recent pending row
+    const [pendingRows] = await db.query(
+      'SELECT form_data FROM developer_email_verifications WHERE email = ? ORDER BY created_at DESC LIMIT 1',
+      [email]
+    );
+    if (!pendingRows.length) {
+      return res.json({ ok: false, error: 'Signup session expired. Please sign up again.' });
+    }
+
+    const code = generateCode();
+    await db.query('DELETE FROM developer_email_verifications WHERE email = ?', [email]);
+    await db.query(
+      `INSERT INTO developer_email_verifications (email, code, form_data, expires_at)
+       VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 15 MINUTE))`,
+      [email, code, pendingRows[0].form_data]
+    );
+
+    mailer.sendMail({
+      to:      email,
+      subject: `${process.env.APP_NAME || 'PlayMist'} — New verification code`,
+      html:    templates.verificationCode({ name, code }),
+    }).catch(err => console.error('Resend email failed:', err.message));
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('postResendVerification error:', err);
+    res.json({ ok: false, error: 'Failed to resend code. Please try again.' });
+  }
+};
+
+// ── Login ──────────────────────────────────────────────────────────────────────
 
 exports.getLogin = (req, res) => {
   if (req.session.developer) return res.redirect('/developer/dashboard');
@@ -106,11 +263,11 @@ exports.postLogin = async (req, res) => {
     await db.query('UPDATE developers SET last_login = NOW() WHERE id = ?', [dev.id]);
 
     req.session.developer = {
-      id:         dev.id,
-      name:       dev.name,
-      email:      dev.email,
+      id:          dev.id,
+      name:        dev.name,
+      email:       dev.email,
       studio_name: dev.studio_name,
-      avatar_url: dev.avatar_url || null,
+      avatar_url:  dev.avatar_url || null,
     };
     res.redirect('/developer/dashboard');
   } catch (err) {

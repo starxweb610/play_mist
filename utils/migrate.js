@@ -359,6 +359,34 @@ exports.runMigrations = async () => {
       )
     `);
 
+    // ── developer_email_verifications ─────────────────────────────────────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS developer_email_verifications (
+        id          INT PRIMARY KEY AUTO_INCREMENT,
+        email       VARCHAR(255) NOT NULL,
+        code        VARCHAR(6)   NOT NULL,
+        form_data   TEXT         NOT NULL,
+        expires_at  DATETIME     NOT NULL,
+        created_at  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_email (email)
+      )
+    `);
+
+    // ── developer_notes: share_status ─────────────────────────────────────────
+    await migrateColumn(
+      'developer_notes', 'share_status',
+      "ENUM('private','pending_review','approved','rejected') DEFAULT 'private'"
+    );
+    await migrateColumn('developer_notes', 'share_reviewed_by',      'INT DEFAULT NULL');
+    await migrateColumn('developer_notes', 'share_reviewed_at',      'DATETIME DEFAULT NULL');
+    await migrateColumn('developer_notes', 'share_rejection_reason', 'TEXT DEFAULT NULL');
+
+    // Sync existing is_shared=1 rows that predate share_status
+    await db.query(
+      `UPDATE developer_notes SET share_status = 'approved'
+       WHERE is_shared = 1 AND share_status = 'private'`
+    );
+
     console.log('✅ DB migrations complete');
   } catch (err) {
     console.error('❌ Migration error:', err.message);

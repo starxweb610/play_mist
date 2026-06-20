@@ -73,6 +73,9 @@ const docUploadLimiter = rateLimit({
 router.get ('/',        (req, res) => req.session.developer ? res.redirect('/developer/dashboard') : res.redirect('/developer/login'));
 router.get ('/signup',  authController.getSignup);
 router.post('/signup',  signupLimiter, authController.postSignup);
+router.get ('/verify-email',        authController.getVerifyEmail);
+router.post('/verify-email',        authController.postVerifyEmail);
+router.post('/resend-verification', authController.postResendVerification);
 router.get ('/login',   authController.getLogin);
 router.post('/login',   authLimiter,   authController.postLogin);
 router.get ('/logout',  authController.logout);

@@ -1,10 +1,12 @@
-const db     = require('../../config/database');
-const AdmZip = require('adm-zip');
-const fse    = require('fs-extra');
-const path   = require('path');
-const fs     = require('fs');
-const PATHS  = require('../../config/paths');
-const r2     = require('../../config/r2');
+const db        = require('../../config/database');
+const AdmZip    = require('adm-zip');
+const fse       = require('fs-extra');
+const path      = require('path');
+const fs        = require('fs');
+const PATHS     = require('../../config/paths');
+const r2        = require('../../config/r2');
+const mailer    = require('../../utils/mailer');
+const templates = require('../../utils/emailTemplates');
 
 function walkFiles(dir) {
   const results = [];
@@ -107,17 +109,39 @@ exports.getDownload = async (req, res) => {
 
 // ── POST /sitehandler/developer-submissions/:id/mark-reviewing ───────────────
 exports.postMarkReviewing = async (req, res) => {
+  const { id } = req.params;
   try {
+    const [subRows] = await db.query(
+      `SELECT s.title, d.name AS developer_name, d.email AS developer_email
+       FROM developer_submissions s JOIN developers d ON s.developer_id = d.id
+       WHERE s.id = ? AND s.status = 'pending'`,
+      [id]
+    );
+
     await db.query(
       `UPDATE developer_submissions SET status = 'under_review', reviewed_by = ?, reviewed_at = NOW()
        WHERE id = ? AND status = 'pending'`,
-      [req.session.admin.id, req.params.id]
+      [req.session.admin.id, id]
     );
+
+    if (subRows.length) {
+      const { title, developer_name, developer_email } = subRows[0];
+      mailer.sendMail({
+        to:      developer_email,
+        subject: `Your game is under review — ${process.env.APP_NAME || 'PlayMist'}`,
+        html:    templates.submissionStatusChanged({
+          name: developer_name,
+          gameTitle: title,
+          status: 'under_review',
+        }),
+      }).catch(err => console.error('under_review email failed:', err.message));
+    }
+
     req.flash('success_msg', 'Submission marked as under review.');
   } catch (err) {
     req.flash('error_msg', err.message);
   }
-  res.redirect(`/sitehandler/developer-submissions/${req.params.id}`);
+  res.redirect(`/sitehandler/developer-submissions/${id}`);
 };
 
 // ── POST /sitehandler/developer-submissions/:id/approve ──────────────────────
@@ -203,6 +227,26 @@ exports.postApprove = async (req, res) => {
       [result.insertId, req.session.admin.id, id]
     );
 
+    // Fetch developer email for notification
+    const [devRows] = await db.query(
+      `SELECT d.name AS developer_name, d.email AS developer_email
+       FROM developer_submissions s JOIN developers d ON s.developer_id = d.id
+       WHERE s.id = ?`,
+      [id]
+    );
+    if (devRows.length) {
+      const { developer_name, developer_email } = devRows[0];
+      mailer.sendMail({
+        to:      developer_email,
+        subject: `Your game "${sub.title}" has been approved! — ${process.env.APP_NAME || 'PlayMist'}`,
+        html:    templates.submissionStatusChanged({
+          name: developer_name,
+          gameTitle: sub.title,
+          status: 'approved',
+        }),
+      }).catch(err => console.error('approved email failed:', err.message));
+    }
+
     req.flash('success_msg', `"${sub.title}" approved. Game created as draft (ID: ${result.insertId}). Add thumbnails and publish it from the Games panel.`);
     res.redirect(`/sitehandler/developer-submissions/${id}`);
   } catch (err) {
@@ -216,21 +260,45 @@ exports.postApprove = async (req, res) => {
 
 // ── POST /sitehandler/developer-submissions/:id/reject ───────────────────────
 exports.postReject = async (req, res) => {
+  const { id } = req.params;
   const { rejection_reason } = req.body;
+
   if (!rejection_reason?.trim()) {
     req.flash('error_msg', 'A rejection reason is required.');
-    return res.redirect(`/sitehandler/developer-submissions/${req.params.id}`);
+    return res.redirect(`/sitehandler/developer-submissions/${id}`);
   }
   try {
+    const [subRows] = await db.query(
+      `SELECT s.title, d.name AS developer_name, d.email AS developer_email
+       FROM developer_submissions s JOIN developers d ON s.developer_id = d.id
+       WHERE s.id = ?`,
+      [id]
+    );
+
     await db.query(
       `UPDATE developer_submissions
        SET status = 'rejected', rejection_reason = ?, reviewed_by = ?, reviewed_at = NOW()
        WHERE id = ?`,
-      [rejection_reason.trim(), req.session.admin.id, req.params.id]
+      [rejection_reason.trim(), req.session.admin.id, id]
     );
-    req.flash('success_msg', 'Submission rejected.');
+
+    if (subRows.length) {
+      const { title, developer_name, developer_email } = subRows[0];
+      mailer.sendMail({
+        to:      developer_email,
+        subject: `Update on your submission "${title}" — ${process.env.APP_NAME || 'PlayMist'}`,
+        html:    templates.submissionStatusChanged({
+          name: developer_name,
+          gameTitle: title,
+          status: 'rejected',
+          rejectionReason: rejection_reason.trim(),
+        }),
+      }).catch(err => console.error('rejected email failed:', err.message));
+    }
+
+    req.flash('success_msg', 'Submission rejected and developer notified.');
   } catch (err) {
     req.flash('error_msg', err.message);
   }
-  res.redirect(`/sitehandler/developer-submissions/${req.params.id}`);
+  res.redirect(`/sitehandler/developer-submissions/${id}`);
 };

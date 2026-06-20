@@ -1,6 +1,8 @@
-const bcrypt = require('bcryptjs');
-const db     = require('../../config/database');
-const r2     = require('../../config/r2');
+const bcrypt    = require('bcryptjs');
+const db        = require('../../config/database');
+const r2        = require('../../config/r2');
+const mailer    = require('../../utils/mailer');
+const templates = require('../../utils/emailTemplates');
 
 const DEV_SELECT = 'SELECT id, name, email, phone, country, studio_name, bio, avatar_url, created_at FROM developers WHERE id = ?';
 
@@ -98,6 +100,14 @@ exports.postPassword = async (req, res) => {
 
     const hash = await bcrypt.hash(new_password, 12);
     await db.query('UPDATE developers SET password_hash = ? WHERE id = ?', [hash, req.session.developer.id]);
+
+    const { name, email } = req.session.developer;
+    mailer.sendMail({
+      to:      email,
+      subject: `Your ${process.env.APP_NAME || 'PlayMist'} developer password was changed`,
+      html:    templates.passwordChanged({ name }),
+    }).catch(err => console.error('passwordChanged email failed:', err.message));
+
     req.flash('success_msg', 'Password changed successfully.');
     res.redirect('/developer/profile');
   } catch (err) {

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %>  <link rel="icon" href="/favicon.ico" />
+</head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage: 'community-notes', admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Knowledge Sphere Moderation</h2>
+        <p class="page-subheading">Review and approve notes before they appear in the developer community.</p>
+      </div>
+    </div>
+
+    <!-- Filter tabs -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;">
+      <%
+        const tabs = [
+          { key: 'pending_review', label: 'Pending Review' },
+          { key: 'approved',       label: 'Approved' },
+          { key: 'rejected',       label: 'Rejected' },
+          { key: 'all',            label: 'All' },
+        ];
+      %>
+      <% tabs.forEach(tab => { %>
+        <a href="/sitehandler/community-notes?filter=<%= tab.key %>"
+           style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;font-size:.85rem;font-weight:500;text-decoration:none;border:1px solid <%= activeFilter === tab.key ? 'rgba(124,58,237,.5)' : 'rgba(255,255,255,.08)' %>;background:<%= activeFilter === tab.key ? 'rgba(124,58,237,.15)' : 'rgba(255,255,255,.03)' %>;color:<%= activeFilter === tab.key ? '#a78bfa' : '#9ca3af' %>;">
+          <%= tab.label %>
+          <% if (counts[tab.key]) { %>
+            <span style="background:rgba(255,255,255,.1);color:#d1d5db;font-size:.75rem;padding:1px 7px;border-radius:20px;"><%= counts[tab.key] %></span>
+          <% } %>
+        </a>
+      <% }); %>
+    </div>
+
+    <!-- Reject modal -->
+    <div id="rejectModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;">
+      <div style="background:#1a1a27;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:28px;width:100%;max-width:440px;margin:16px;">
+        <h3 style="margin:0 0 6px;font-size:17px;color:#f9fafb;">Reject Note</h3>
+        <p style="margin:0 0 16px;font-size:13px;color:#9ca3af;">Provide a reason — the developer will receive it by email so they can improve and resubmit.</p>
+        <form id="rejectForm" method="POST">
+          <textarea name="reason" placeholder="Explain why this note cannot be shared…" required
+            style="width:100%;background:#0d0d14;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#e5e7eb;font-size:14px;padding:10px 12px;min-height:90px;resize:vertical;box-sizing:border-box;outline:none;font-family:inherit;"></textarea>
+          <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end;">
+            <button type="button" onclick="closeRejectModal()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#9ca3af;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px;">Cancel</button>
+            <button type="submit" style="background:#dc2626;border:none;color:#fff;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">Reject &amp; Notify</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Notes list -->
+    <% if (notes.length === 0) { %>
+      <div style="text-align:center;padding:60px 20px;color:#6b7280;">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block;margin:0 auto 16px;opacity:.4;"><path d="M9 12h6M9 16h6M7 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2h-2M9 3h6a2 2 0 010 4H9a2 2 0 010-4z"/></svg>
+        <p style="margin:0;font-size:15px;">No notes in this category.</p>
+      </div>
+    <% } else { %>
+    <div style="display:grid;gap:14px;">
+      <% notes.forEach(note => { %>
+      <div style="background:#16161f;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:20px 22px;">
+        <div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px;justify-content:space-between;">
+          <div style="flex:1;min-width:0;">
+            <!-- Status badge -->
+            <%
+              const badge = {
+                pending_review: { label: 'Pending Review', bg: '#2d2a1a', color: '#fbbf24' },
+                approved:       { label: 'Approved',       bg: '#14421f', color: '#4ade80' },
+                rejected:       { label: 'Rejected',       bg: '#4a1020', color: '#f87171' },
+              }[note.share_status] || { label: note.share_status, bg: '#1f2937', color: '#9ca3af' };
+            %>
+            <span style="display:inline-block;background:<%= badge.bg %>;color:<%= badge.color %>;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;letter-spacing:.5px;margin-bottom:8px;"><%= badge.label %></span>
+
+            <h3 style="margin:0 0 4px;font-size:16px;color:#f9fafb;font-weight:600;word-break:break-word;"><%= note.title %></h3>
+            <% if (note.description) { %>
+              <p style="margin:0 0 10px;font-size:13px;color:#9ca3af;line-height:1.5;"><%= note.description %></p>
+            <% } %>
+
+            <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:#6b7280;">
+              <span>By <strong style="color:#9ca3af"><%= note.developer_name %></strong> · <%= note.studio_name %></span>
+              <span><%= note.developer_email %></span>
+              <span>Updated <%= new Date(note.updated_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) %></span>
+            </div>
+
+            <% if (note.share_rejection_reason) { %>
+              <div style="margin-top:10px;background:#1e1414;border:1px solid rgba(248,113,113,.15);border-radius:6px;padding:10px 14px;font-size:13px;color:#f87171;">
+                <strong>Rejection reason:</strong> <%= note.share_rejection_reason %>
+              </div>
+            <% } %>
+          </div>
+
+          <!-- Content preview toggle + actions -->
+          <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;flex-shrink:0;">
+            <button onclick="toggleContent(this)" data-id="<%= note.id %>"
+              style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:#9ca3af;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:12px;white-space:nowrap;">
+              Preview
+            </button>
+
+            <% if (note.share_status === 'pending_review') { %>
+              <form method="POST" action="/sitehandler/community-notes/<%= note.id %>/approve" style="margin:0;">
+                <button type="submit" style="background:#14421f;border:1px solid rgba(74,222,128,.2);color:#4ade80;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;">✓ Approve</button>
+              </form>
+              <button onclick="openRejectModal(<%= note.id %>)" style="background:#4a1020;border:1px solid rgba(248,113,113,.2);color:#f87171;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;">✕ Reject</button>
+            <% } %>
+
+            <% if (note.share_status === 'approved') { %>
+              <button onclick="openRejectModal(<%= note.id %>)" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#9ca3af;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:12px;white-space:nowrap;">Revoke</button>
+            <% } %>
+
+            <% if (note.share_status === 'rejected') { %>
+              <form method="POST" action="/sitehandler/community-notes/<%= note.id %>/approve" style="margin:0;">
+                <button type="submit" style="background:#14421f;border:1px solid rgba(74,222,128,.2);color:#4ade80;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;">Re-approve</button>
+              </form>
+            <% } %>
+          </div>
+        </div>
+
+        <!-- Content preview (hidden by default) -->
+        <div id="content-<%= note.id %>" style="display:none;margin-top:16px;border-top:1px solid rgba(255,255,255,.06);padding-top:16px;">
+          <p style="margin:0 0 6px;font-size:11px;color:#4b5563;text-transform:uppercase;letter-spacing:.5px;">Note Content</p>
+          <div style="font-size:13px;color:#d1d5db;line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;"><%- note.content ? note.content.replace(/<[^>]*>/g, '') : '<em style="color:#4b5563">No content</em>' %></div>
+        </div>
+      </div>
+      <% }); %>
+    </div>
+    <% } %>
+
+  </main>
+</div>
+
+<script>
+function toggleContent(btn) {
+  const id  = btn.dataset.id;
+  const box = document.getElementById('content-' + id);
+  const open = box.style.display === 'none';
+  box.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? 'Hide' : 'Preview';
+}
+
+function openRejectModal(noteId) {
+  const modal = document.getElementById('rejectModal');
+  const form  = document.getElementById('rejectForm');
+  form.action = '/sitehandler/community-notes/' + noteId + '/reject';
+  modal.style.display = 'flex';
+  modal.querySelector('textarea').focus();
+}
+
+function closeRejectModal() {
+  document.getElementById('rejectModal').style.display = 'none';
+}
+
+document.getElementById('rejectModal').addEventListener('click', function(e) {
+  if (e.target === this) closeRejectModal();
+});
+</script>
+</body>
+</html>

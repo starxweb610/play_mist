@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/favicon.ico" />
+  <title>Verify Email — <%= appName %> Developers</title>
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/developer.css" />
+  <style>
+    .otp-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin: 24px 0 8px;
+    }
+    .otp-input {
+      width: 48px;
+      height: 56px;
+      text-align: center;
+      font-size: 22px;
+      font-weight: 700;
+      border-radius: 10px;
+      border: 1.5px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      color: #f9fafb;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      caret-color: transparent;
+    }
+    .otp-input:focus {
+      border-color: #B5FF6B;
+      box-shadow: 0 0 0 3px rgba(181,255,107,.15);
+    }
+    .otp-input.filled {
+      border-color: rgba(181,255,107,.35);
+    }
+    .resend-row {
+      text-align: center;
+      margin-top: 20px;
+      font-size: .875rem;
+      color: #6b7280;
+    }
+    .resend-btn {
+      background: none;
+      border: none;
+      color: #B5FF6B;
+      cursor: pointer;
+      font-size: .875rem;
+      padding: 0;
+      text-decoration: underline;
+    }
+    .resend-btn:disabled {
+      color: #4b5563;
+      cursor: default;
+      text-decoration: none;
+    }
+    .email-highlight {
+      color: #a78bfa;
+      font-weight: 600;
+      word-break: break-all;
+    }
+    #resendMsg { margin-top: 8px; font-size: .8rem; min-height: 16px; }
+    #resendMsg.ok   { color: #4ade80; }
+    #resendMsg.err  { color: #f87171; }
+    #countdown { color: #6b7280; }
+  </style>
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card" style="max-width:460px;">
+    <div class="auth-logo">
+      <a href="/"><img src="/images/play_logo.png" alt="<%= appName %>" class="auth-logo-img" /></a>
+      <p class="auth-sub">Developer Portal</p>
+    </div>
+
+    <!-- Icon -->
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:16px;background:rgba(181,255,107,.1);border:1px solid rgba(181,255,107,.2);">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#B5FF6B" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </div>
+    </div>
+
+    <h2 style="text-align:center;">Check your email</h2>
+    <p class="auth-desc" style="text-align:center;">
+      We sent a 6-digit verification code to<br/>
+      <span class="email-highlight"><%= email %></span>
+    </p>
+
+    <% if (errors && errors.length > 0) { %>
+      <div class="flash flash-error">
+        <%= errors[0] %>
+      </div>
+    <% } %>
+
+    <form method="POST" action="/developer/verify-email" id="verifyForm" novalidate>
+      <!-- Hidden combined code field (populated by JS) -->
+      <input type="hidden" name="code" id="codeHidden" />
+
+      <div class="otp-row">
+        <% for (let i = 0; i < 6; i++) { %>
+          <input
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]"
+            maxlength="1"
+            class="otp-input"
+            id="otp<%= i %>"
+            autocomplete="<%= i === 0 ? 'one-time-code' : 'off' %>"
+            aria-label="Digit <%= i + 1 %>"
+          />
+        <% } %>
+      </div>
+
+      <p style="text-align:center;font-size:.8rem;color:#6b7280;margin:0 0 20px;">Enter the 6-digit code · expires in 15 min</p>
+
+      <button type="submit" class="btn primary btn-full" id="submitBtn">Verify &amp; Create Account</button>
+    </form>
+
+    <div class="resend-row">
+      Didn't receive it?
+      <button class="resend-btn" id="resendBtn" type="button">Resend code</button>
+      <span id="countdown"></span>
+      <div id="resendMsg"></div>
+    </div>
+
+    <div class="auth-link" style="margin-top:24px;text-align:center;">
+      <a href="/developer/signup">← Start over</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const inputs   = Array.from(document.querySelectorAll('.otp-input'));
+  const hidden   = document.getElementById('codeHidden');
+  const form     = document.getElementById('verifyForm');
+  const resendBtn = document.getElementById('resendBtn');
+  const countdown = document.getElementById('countdown');
+  const resendMsg = document.getElementById('resendMsg');
+
+  function syncHidden() {
+    hidden.value = inputs.map(i => i.value).join('');
+    inputs.forEach(i => i.classList.toggle('filled', i.value !== ''));
+  }
+
+  inputs.forEach((input, idx) => {
+    input.addEventListener('input', e => {
+      const val = e.target.value.replace(/\D/g, '');
+      // Handle paste of full code into first box
+      if (val.length > 1 && idx === 0) {
+        val.slice(0, 6).split('').forEach((ch, i) => {
+          if (inputs[i]) inputs[i].value = ch;
+        });
+        (inputs[Math.min(5, val.length - 1)] || inputs[5]).focus();
+        syncHidden();
+        return;
+      }
+      input.value = val.slice(-1);
+      syncHidden();
+      if (val && idx < 5) inputs[idx + 1].focus();
+    });
+
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Backspace' && !input.value && idx > 0) {
+        inputs[idx - 1].focus();
+        inputs[idx - 1].value = '';
+        syncHidden();
+      }
+      if (e.key === 'ArrowLeft' && idx > 0)  inputs[idx - 1].focus();
+      if (e.key === 'ArrowRight' && idx < 5) inputs[idx + 1].focus();
+    });
+  });
+
+  form.addEventListener('submit', e => {
+    syncHidden();
+    if (hidden.value.length !== 6) {
+      e.preventDefault();
+      inputs[0].focus();
+    }
+  });
+
+  // Auto-focus first box
+  inputs[0].focus();
+
+  // ── Resend ────────────────────────────────────────────────────────────────
+  let cooldown = 0;
+  let timer    = null;
+
+  function startCooldown(secs) {
+    cooldown = secs;
+    resendBtn.disabled = true;
+    tick();
+    timer = setInterval(tick, 1000);
+  }
+
+  function tick() {
+    if (cooldown <= 0) {
+      clearInterval(timer);
+      resendBtn.disabled = false;
+      countdown.textContent = '';
+      return;
+    }
+    countdown.textContent = `(${cooldown}s)`;
+    cooldown--;
+  }
+
+  resendBtn.addEventListener('click', async () => {
+    resendMsg.textContent = '';
+    resendMsg.className = '';
+    resendBtn.disabled = true;
+
+    try {
+      const resp = await fetch('/developer/resend-verification', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      const data = await resp.json();
+      if (data.ok) {
+        resendMsg.textContent = 'New code sent! Check your inbox.';
+        resendMsg.className = 'ok';
+        startCooldown(60);
+      } else {
+        resendMsg.textContent = data.error || 'Failed to resend.';
+        resendMsg.className = 'err';
+        resendBtn.disabled = false;
+      }
+    } catch (_) {
+      resendMsg.textContent = 'Network error. Try again.';
+      resendMsg.className = 'err';
+      resendBtn.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>

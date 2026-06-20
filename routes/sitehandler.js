@@ -17,6 +17,7 @@ const developerSubmissionsController  = require('../controllers/sitehandler/deve
 const developersController            = require('../controllers/sitehandler/developersController');
 const guidelinesController            = require('../controllers/sitehandler/guidelinesController');
 const notificationsController         = require('../controllers/sitehandler/notificationsController');
+const communityNotesController        = require('../controllers/sitehandler/communityNotesController');
 
 
 // ─── Auth (public within /sitehandler) ────────────────────────────────────────
@@ -111,5 +112,10 @@ router.post('/guidelines/image-upload',       uploadImage.single('image'), guide
 router.get ('/notifications',              notificationsController.getIndex);
 router.post('/notifications/send',         notificationsController.postSend);
 router.post('/notifications/:id/delete',   notificationsController.postDelete);
+
+// Community Notes (Knowledge Sphere moderation)
+router.get ('/community-notes',                    communityNotesController.getIndex);
+router.post('/community-notes/:id/approve',        communityNotesController.postApprove);
+router.post('/community-notes/:id/reject',         communityNotesController.postReject);
 
 module.exports = router;
