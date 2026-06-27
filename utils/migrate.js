@@ -314,6 +314,38 @@ exports.runMigrations = async () => {
       )
     `);
 
+    // ── developer_storyboards ─────────────────────────────────────────────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS developer_storyboards (
+        id           INT PRIMARY KEY AUTO_INCREMENT,
+        project_id   INT          NOT NULL,
+        developer_id INT          NOT NULL,
+        title        VARCHAR(300) NOT NULL,
+        position     INT          DEFAULT 0,
+        created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        updated_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id)   REFERENCES developer_projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (developer_id) REFERENCES developers(id)         ON DELETE CASCADE
+      )
+    `);
+
+    // ── developer_storyboard_frames ───────────────────────────────────────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS developer_storyboard_frames (
+        id            INT PRIMARY KEY AUTO_INCREMENT,
+        storyboard_id INT          NOT NULL,
+        title         VARCHAR(300) DEFAULT NULL,
+        description   TEXT         DEFAULT NULL,
+        image_url     VARCHAR(500) DEFAULT NULL,
+        thumb_url     VARCHAR(500) DEFAULT NULL,
+        bg_color      VARCHAR(20)  DEFAULT '#ffffff',
+        position      INT          DEFAULT 0,
+        created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        updated_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (storyboard_id) REFERENCES developer_storyboards(id) ON DELETE CASCADE
+      )
+    `);
+
     // ── push_tokens ───────────────────────────────────────────────────────────
     await db.query(`
       CREATE TABLE IF NOT EXISTS push_tokens (

@@ -2,7 +2,7 @@ const express      = require('express');
 const router       = express.Router();
 const rateLimit    = require('express-rate-limit');
 const { isDeveloper, checkBanned } = require('../middleware/developerAuth');
-const { developerUpload, developerThumbnail, developerDoc } = require('../config/upload');
+const { developerUpload, developerThumbnail, developerDoc, developerSketch } = require('../config/upload');
 
 const authController        = require('../controllers/developer/authController');
 const dashboardController   = require('../controllers/developer/dashboardController');
@@ -12,6 +12,7 @@ const knowledgeController   = require('../controllers/developer/knowledgeControl
 const projectsController    = require('../controllers/developer/projectsController');
 const profileController     = require('../controllers/developer/profileController');
 const projectDocsController = require('../controllers/developer/projectDocsController');
+const storyboardController  = require('../controllers/developer/storyboardController');
 
 // ── Rate limiters ─────────────────────────────────────────────────────────────
 
@@ -124,6 +125,20 @@ router.delete('/projects/:id/tasks/:taskId/comments/:commentId',  projectsContro
 router.get   ('/projects/:id/docs',           projectDocsController.listDocs);
 router.post  ('/projects/:id/docs',           projectMutateLimiter, projectDocsController.createDoc);
 router.post  ('/projects/:id/docs/upload',    docUploadLimiter, developerDoc.single('doc'), projectDocsController.uploadDoc);
+
+// Projects — storyboard JSON API
+const sketchFields = developerSketch.fields([{ name: 'image', maxCount: 1 }, { name: 'thumb', maxCount: 1 }]);
+router.get   ('/projects/:id/storyboards',            storyboardController.listStoryboards);
+router.post  ('/projects/:id/storyboards',            projectMutateLimiter, storyboardController.createStoryboard);
+router.put   ('/storyboards/:sbId',                   projectMutateLimiter, storyboardController.updateStoryboard);
+router.delete('/storyboards/:sbId',                   storyboardController.deleteStoryboard);
+router.get   ('/storyboards/:sbId/frames',            storyboardController.listFrames);
+router.post  ('/storyboards/:sbId/frames',            projectMutateLimiter, sketchFields, storyboardController.createFrame);
+router.put   ('/storyboards/:sbId/frames/reorder',    projectMutateLimiter, storyboardController.reorderFrames);
+router.get   ('/frames/:frameId',                     storyboardController.getFrame);
+router.get   ('/frames/:frameId/image',               storyboardController.streamFrameImage);
+router.put   ('/frames/:frameId',                     projectMutateLimiter, sketchFields, storyboardController.updateFrame);
+router.delete('/frames/:frameId',                     storyboardController.deleteFrame);
 
 // Docs — by docId (no project prefix needed, ownership verified via JOIN)
 router.get   ('/docs/:docId',                 projectDocsController.getDoc);

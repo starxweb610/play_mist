@@ -86,4 +86,11 @@ const developerDoc = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
 
-module.exports = { upload, uploadImage, uploadScreenshots, developerUpload, developerThumbnail, developerDoc };
+// ── Storyboard sketch upload — PNG layers (in-memory, 15 MB each) ────────────
+const developerSketch = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: imageFilter,
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB
+});
+
+module.exports = { upload, uploadImage, uploadScreenshots, developerUpload, developerThumbnail, developerDoc, developerSketch };
