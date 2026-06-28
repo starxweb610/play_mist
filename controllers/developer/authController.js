@@ -278,3 +278,187 @@ exports.postLogin = async (req, res) => {
 exports.logout = (req, res) => {
   req.session.destroy(() => res.redirect('/developer/login'));
 };
+
+// ── Password Reset ───────────────────────────────────────────────────────────
+
+exports.getForgotPassword = (req, res) => {
+  if (req.session.developer) return res.redirect('/developer/dashboard');
+  res.render('developer/forgot-password', { title: 'Reset Password', errors: [], form: {} });
+};
+
+exports.postForgotPassword = async (req, res) => {
+  if (req.session.developer) return res.redirect('/developer/dashboard');
+
+  const email = (req.body.email || '').trim().toLowerCase();
+  if (!email) {
+    return res.render('developer/forgot-password', {
+      title: 'Reset Password',
+      errors: ['Email address is required.'],
+      form: { email },
+    });
+  }
+
+  try {
+    const [rows] = await db.query('SELECT id, name FROM developers WHERE email = ?', [email]);
+
+    // Only generate + send a code if an account actually exists. We respond the
+    // same way either way to avoid leaking which emails are registered.
+    if (rows.length) {
+      const code = generateCode();
+      await db.query('DELETE FROM developer_password_resets WHERE email = ?', [email]);
+      await db.query(
+        `INSERT INTO developer_password_resets (email, code, expires_at)
+         VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 15 MINUTE))`,
+        [email, code]
+      );
+
+      mailer.sendMail({
+        to:      email,
+        subject: `${process.env.APP_NAME || 'PlayMist'} — Reset your password`,
+        html:    templates.resetPasswordCode({ name: rows[0].name, code }),
+      }).catch(err => console.error('Reset email failed:', err.message));
+    }
+
+    req.session.pendingReset = { email };
+    res.redirect('/developer/reset-password');
+  } catch (err) {
+    console.error('postForgotPassword error:', err);
+    res.render('developer/forgot-password', {
+      title: 'Reset Password',
+      errors: ['Something went wrong. Please try again.'],
+      form: { email },
+    });
+  }
+};
+
+exports.getResetPassword = (req, res) => {
+  if (req.session.developer) return res.redirect('/developer/dashboard');
+  if (!req.session.pendingReset) return res.redirect('/developer/forgot-password');
+
+  res.render('developer/reset-password', {
+    title: 'Reset Password',
+    email: req.session.pendingReset.email,
+    errors: [],
+  });
+};
+
+exports.postResetPassword = async (req, res) => {
+  if (req.session.developer) return res.redirect('/developer/dashboard');
+  if (!req.session.pendingReset) return res.redirect('/developer/forgot-password');
+
+  const { email } = req.session.pendingReset;
+  const code = (req.body.code || '').trim().replace(/\s/g, '');
+  const { new_password, confirm_password } = req.body;
+
+  const renderError = (msg) => res.render('developer/reset-password', {
+    title: 'Reset Password',
+    email,
+    errors: Array.isArray(msg) ? msg : [msg],
+  });
+
+  const errors = [];
+  if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) errors.push('Please enter the 6-digit code sent to your email.');
+  if (!new_password)                    errors.push('New password is required.');
+  else if (new_password.length < 8)     errors.push('Password must be at least 8 characters.');
+  if (new_password !== confirm_password) errors.push('Passwords do not match.');
+  if (errors.length) return renderError(errors);
+
+  try {
+    const [rows] = await db.query(
+      `SELECT * FROM developer_password_resets
+       WHERE email = ? AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+      [email]
+    );
+
+    if (!rows.length) {
+      return renderError('This code has expired. Please request a new one.');
+    }
+
+    const reset = rows[0];
+
+    // Too many wrong attempts — invalidate the code.
+    if (reset.attempts >= 5) {
+      await db.query('DELETE FROM developer_password_resets WHERE email = ?', [email]);
+      return renderError('Too many incorrect attempts. Please request a new code.');
+    }
+
+    if (reset.code !== code) {
+      await db.query('UPDATE developer_password_resets SET attempts = attempts + 1 WHERE id = ?', [reset.id]);
+      return renderError('Incorrect code. Please try again.');
+    }
+
+    const [devRows] = await db.query('SELECT id, name, email FROM developers WHERE email = ?', [email]);
+    if (!devRows.length) {
+      await db.query('DELETE FROM developer_password_resets WHERE email = ?', [email]);
+      delete req.session.pendingReset;
+      return res.redirect('/developer/login');
+    }
+
+    const dev  = devRows[0];
+    const hash = await bcrypt.hash(new_password, 12);
+    await db.query('UPDATE developers SET password_hash = ? WHERE id = ?', [hash, dev.id]);
+    await db.query('DELETE FROM developer_password_resets WHERE email = ?', [email]);
+
+    // Confirmation email (fire-and-forget)
+    mailer.sendMail({
+      to:      dev.email,
+      subject: `Your ${process.env.APP_NAME || 'PlayMist'} developer password was changed`,
+      html:    templates.passwordChanged({ name: dev.name }),
+    }).catch(err => console.error('passwordChanged email failed:', err.message));
+
+    delete req.session.pendingReset;
+    req.flash('success_msg', 'Your password has been reset. Please log in with your new password.');
+    res.redirect('/developer/login');
+  } catch (err) {
+    console.error('postResetPassword error:', err);
+    renderError('Password reset failed. Please try again.');
+  }
+};
+
+exports.postResendResetCode = async (req, res) => {
+  if (!req.session.pendingReset) {
+    return res.json({ ok: false, error: 'No password reset in progress.' });
+  }
+
+  const { email } = req.session.pendingReset;
+
+  try {
+    const [rows] = await db.query(
+      'SELECT created_at FROM developer_password_resets WHERE email = ? ORDER BY created_at DESC LIMIT 1',
+      [email]
+    );
+
+    // Rate-limit: 60 seconds between resends
+    if (rows.length) {
+      const secondsAgo = (Date.now() - new Date(rows[0].created_at).getTime()) / 1000;
+      if (secondsAgo < 60) {
+        return res.json({ ok: false, error: `Please wait ${Math.ceil(60 - secondsAgo)} seconds before requesting a new code.` });
+      }
+    }
+
+    const [devRows] = await db.query('SELECT name FROM developers WHERE email = ?', [email]);
+
+    // Always reply ok to avoid account enumeration; only send if account exists.
+    if (devRows.length) {
+      const code = generateCode();
+      await db.query('DELETE FROM developer_password_resets WHERE email = ?', [email]);
+      await db.query(
+        `INSERT INTO developer_password_resets (email, code, expires_at)
+         VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 15 MINUTE))`,
+        [email, code]
+      );
+
+      mailer.sendMail({
+        to:      email,
+        subject: `${process.env.APP_NAME || 'PlayMist'} — New password reset code`,
+        html:    templates.resetPasswordCode({ name: devRows[0].name, code }),
+      }).catch(err => console.error('Resend reset email failed:', err.message));
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('postResendResetCode error:', err);
+    res.json({ ok: false, error: 'Failed to resend code. Please try again.' });
+  }
+};

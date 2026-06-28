@@ -1,7 +1,12 @@
 /* developer-docs.js — Document management for PlayMist developer projects */
 
-let _docsProjId   = null;
-let _docsQuill    = null;
+let _docsProjId       = null;
+let _docsQuill        = null;
+let _docsCurrentDocId = null;   // tracks the doc id once created (for autosave PUTs)
+let _docsDirty        = false;  // true when content/title changed since last save
+let _docsAutosaveTimer = null;  // setInterval handle for autosave
+let _docsSaving       = false;  // guards against overlapping saves
+let _docsTouched      = false;  // true once anything was persisted this session
 
 function _escD(str) {
   if (!str) return '';
@@ -118,30 +123,51 @@ function openNewDocModal() {
 
 // ── Rich text editor ──────────────────────────────────────────────────────────
 
+// Background highlight palette — leading 'transparent' acts as a "remove
+// highlight" swatch (handled by docBackgroundHandler below).
+const DOC_BG_COLORS = [
+  'transparent',
+  '#000000', '#e60000', '#ff9900', '#ffff00', '#008a00', '#0066cc', '#9933ff', '#ffffff',
+  '#facccc', '#ffebcc', '#ffffcc', '#cce8cc', '#cce0f5', '#ebd6ff', '#bbbbbb', '#f06666',
+  '#ffc266', '#ffff66', '#66b966', '#66a3e0', '#c285ff', '#888888', '#a10000', '#b26b00',
+  '#b2b200', '#006100', '#0047b2', '#6b24b2',
+];
+
 function openRichTextEditor(existingDoc = null) {
   document.querySelector('.modal-scrim:not(#edit-project-modal)')?.remove();
-  const scrim = _docScrim(s => { _docsQuill = null; s.remove(); });
+  const scrim = _docScrim(closeRichTextEditor);
+
+  _docsCurrentDocId = existingDoc ? existingDoc.id : null;
+  _docsDirty        = false;
+  _docsTouched      = false;
+
   scrim.innerHTML = `
     <div class="modal" style="width:min(780px,94vw);max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden;">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--line);">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--line);gap:12px;">
         <h2 style="margin:0;font-size:16px;font-weight:700;color:var(--ink);">${existingDoc ? 'Edit Document' : 'Rich Text Document'}</h2>
-        <button onclick="this.closest('.modal-scrim').remove()" style="background:none;border:none;cursor:pointer;color:var(--ink-3);">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
+        <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+          <span id="rt-autosave-status" style="font-size:12px;color:var(--ink-3);white-space:nowrap;"></span>
+          <button type="button" id="rt-fullscreen-btn" onclick="toggleDocFullscreen(this)" title="Toggle full screen" style="background:none;border:none;cursor:pointer;color:var(--ink-3);display:flex;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          </button>
+          <button type="button" onclick="closeRichTextEditor(this.closest('.modal-scrim'))" style="background:none;border:none;cursor:pointer;color:var(--ink-3);display:flex;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
       </div>
-      <div style="padding:16px 22px;flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;">
+      <div style="padding:16px 22px;flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;min-height:0;">
         <div>
           <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-4);display:block;margin-bottom:6px;">Title *</label>
           <input type="text" id="rt-doc-title" class="kanban-field-input" placeholder="e.g. Game Design Document v1" value="${existingDoc ? _escD(existingDoc.title) : ''}" />
         </div>
-        <div style="flex:1;">
+        <div style="flex:1;display:flex;flex-direction:column;min-height:0;">
           <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-4);display:block;margin-bottom:6px;">Content</label>
-          <div id="doc-quill-editor" style="border:1px solid var(--line);border-radius:8px;background:var(--surface-2);min-height:280px;"></div>
+          <div id="doc-quill-editor" style="border:1px solid var(--line);border-radius:8px;background:var(--surface-2);min-height:280px;flex:1;"></div>
         </div>
       </div>
       <div style="padding:12px 22px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;">
-        <button class="btn ghost sm" onclick="this.closest('.modal-scrim').remove()">Cancel</button>
-        <button class="btn primary sm" onclick="saveRichTextDoc(${existingDoc ? existingDoc.id : 'null'})">Save Document</button>
+        <button class="btn ghost sm" onclick="closeRichTextEditor(this.closest('.modal-scrim'))">Close</button>
+        <button class="btn primary sm" onclick="saveRichTextDoc()">Save Document</button>
       </div>
     </div>`;
   document.body.appendChild(scrim);
@@ -150,28 +176,82 @@ function openRichTextEditor(existingDoc = null) {
     _docsQuill = new Quill('#doc-quill-editor', {
       theme:   'snow',
       modules: {
-        toolbar: [
-          [{ header: [1, 2, 3, false] }],
-          ['bold', 'italic', 'underline', 'strike'],
-          [{ list: 'ordered' }, { list: 'bullet' }],
-          ['blockquote', 'code-block'],
-          [{ color: [] }, { background: [] }],
-          ['link'], ['clean'],
-        ],
+        toolbar: {
+          container: [
+            [{ header: [1, 2, 3, false] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ list: 'ordered' }, { list: 'bullet' }],
+            ['blockquote', 'code-block'],
+            [{ color: [] }, { background: DOC_BG_COLORS }],
+            [{ align: ['', 'center', 'right'] }],
+            ['link', 'image'], ['clean'],
+          ],
+          handlers: { image: docImageHandler, background: docBackgroundHandler },
+        },
       },
     });
     if (existingDoc?.content) _docsQuill.root.innerHTML = existingDoc.content;
+
+    // Mark dirty on any content change (only user edits, not the initial load).
+    _docsQuill.on('text-change', (_d, _o, source) => { if (source === 'user') _docsDirty = true; });
+
+    // Route pasted / dropped images through R2 instead of leaving them as inline
+    // base64 (which bloats the saved content). Quill inserts the base64 first;
+    // we then swap each data-URL <img> for an uploaded R2 URL.
+    _docsQuill.root.addEventListener('paste', () => setTimeout(_replaceInlineDataImages, 0));
+    _docsQuill.root.addEventListener('drop',  () => setTimeout(_replaceInlineDataImages, 50));
   }
+
+  document.getElementById('rt-doc-title')?.addEventListener('input', () => { _docsDirty = true; });
+
+  // ── Autosave: every 10s, persist silently only if something changed. ────────
+  _docsAutosaveTimer = setInterval(() => {
+    if (!_docsDirty || _docsSaving) return;
+    const title = document.getElementById('rt-doc-title')?.value.trim();
+    if (!title) { _setAutosaveStatus('Add a title to enable autosave'); return; }
+    _persistRichTextDoc({ silent: true });
+  }, 10000);
 }
 
-async function saveRichTextDoc(existingDocId) {
+// Removes highlight when 'transparent' is picked, otherwise applies the color.
+function docBackgroundHandler(value) {
+  if (!_docsQuill) return;
+  if (!value || value === 'transparent') _docsQuill.format('background', false, 'user');
+  else _docsQuill.format('background', value, 'user');
+}
+
+// Toggle the editor modal between windowed and full-screen.
+function toggleDocFullscreen(btn) {
+  const modal = btn.closest('.modal');
+  if (!modal) return;
+  const isFull = modal.classList.toggle('doc-fullscreen');
+  btn.title = isFull ? 'Exit full screen' : 'Toggle full screen';
+  btn.innerHTML = isFull
+    ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`
+    : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
+}
+
+function _setAutosaveStatus(text) {
+  const el = document.getElementById('rt-autosave-status');
+  if (el) el.textContent = text;
+}
+
+// Shared persistence used by both manual save and autosave.
+// Returns true on success. In silent mode it never alerts or closes the modal.
+async function _persistRichTextDoc({ silent }) {
   const titleEl = document.getElementById('rt-doc-title');
   const title   = titleEl?.value.trim();
-  if (!title) { titleEl.style.borderColor = 'var(--danger)'; return; }
+  if (!title) {
+    if (!silent) titleEl.style.borderColor = 'var(--danger)';
+    return false;
+  }
   const content = _docsQuill ? _docsQuill.root.innerHTML : '';
+
+  _docsSaving = true;
+  if (silent) _setAutosaveStatus('Saving…');
   try {
-    const res = existingDocId
-      ? await fetch(`/developer/docs/${existingDocId}`, {
+    const res = _docsCurrentDocId
+      ? await fetch(`/developer/docs/${_docsCurrentDocId}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title, content }),
         })
@@ -179,11 +259,122 @@ async function saveRichTextDoc(existingDocId) {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title, doc_type: 'rich_text', content }),
         });
-    if (!res.ok) { const e = await res.json(); alert(e.error || 'Failed to save'); return; }
-    _docsQuill = null;
-    document.querySelector('.modal-scrim:not(#edit-project-modal)')?.remove();
-    loadDocs();
-  } catch (e) { alert('Error: ' + e.message); }
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      if (silent) _setAutosaveStatus('Autosave failed'); else alert(e.error || 'Failed to save');
+      return false;
+    }
+    // Capture the new id so subsequent saves update instead of duplicating.
+    if (!_docsCurrentDocId) {
+      const data = await res.json().catch(() => ({}));
+      if (data.doc && data.doc.id) _docsCurrentDocId = data.doc.id;
+    }
+    _docsDirty   = false;
+    _docsTouched = true;
+    const t = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    _setAutosaveStatus(`Saved ${t}`);
+    return true;
+  } catch (e) {
+    if (silent) _setAutosaveStatus('Autosave failed'); else alert('Error: ' + e.message);
+    return false;
+  } finally {
+    _docsSaving = false;
+  }
+}
+
+// Cleanly tear down the editor (stop autosave, drop Quill ref) and close.
+function closeRichTextEditor(scrim) {
+  if (_docsAutosaveTimer) { clearInterval(_docsAutosaveTimer); _docsAutosaveTimer = null; }
+  const touched = _docsTouched;
+  _docsQuill = null;
+  _docsCurrentDocId = null;
+  _docsDirty = false;
+  _docsTouched = false;
+  (scrim || document.querySelector('.modal-scrim:not(#edit-project-modal)'))?.remove();
+  if (touched) loadDocs();
+}
+
+// Uploads a single image File/Blob to R2; returns its public URL or null.
+async function _uploadDocImageFile(file) {
+  const fd = new FormData();
+  fd.append('image', file);
+  const res  = await fetch(`/developer/projects/${_docsProjId}/docs/image`, { method: 'POST', body: fd });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.url) { alert(data.error || 'Image upload failed'); return null; }
+  return data.url;
+}
+
+// Custom image handler: upload to R2, then embed the returned URL. After
+// inserting, the image sits on its own line so the align buttons (left/center/
+// right) apply to it cleanly.
+function docImageHandler() {
+  if (!_docsQuill) return;
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/png,image/jpeg,image/webp';
+  input.onchange = async () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { alert('Image must be 10 MB or smaller.'); return; }
+
+    const range = _docsQuill.getSelection(true);
+    // Temporary loading placeholder so the user sees feedback during upload.
+    _docsQuill.insertText(range.index, 'Uploading image…', { italic: true, color: '#888' }, 'user');
+
+    try {
+      const url = await _uploadDocImageFile(file);
+      // Remove the placeholder text first.
+      _docsQuill.deleteText(range.index, 'Uploading image…'.length, 'user');
+      if (!url) return;
+      _docsQuill.insertEmbed(range.index, 'image', url, 'user');
+      // Move cursor past the image and onto a new line so alignment targets it.
+      _docsQuill.insertText(range.index + 1, '\n', 'user');
+      _docsQuill.setSelection(range.index + 2, 0, 'user');
+    } catch (e) {
+      _docsQuill.deleteText(range.index, 'Uploading image…'.length, 'user');
+      alert('Image upload failed: ' + e.message);
+    }
+  };
+  input.click();
+}
+
+// Scans the editor for inline base64 <img> tags (from paste / drag-drop) and
+// replaces each with an uploaded R2 URL, so saved content never holds base64.
+let _replacingImages = false;
+async function _replaceInlineDataImages() {
+  if (!_docsQuill || _replacingImages) return;
+  const imgs = Array.from(_docsQuill.root.querySelectorAll('img'))
+    .filter(img => /^data:image\//i.test(img.getAttribute('src') || ''));
+  if (!imgs.length) return;
+
+  _replacingImages = true;
+  try {
+    for (const img of imgs) {
+      const dataUrl = img.getAttribute('src');
+      try {
+        const blob = await (await fetch(dataUrl)).blob();
+        if (blob.size > 10 * 1024 * 1024) {
+          alert('A pasted image exceeds 10 MB and was removed.');
+          img.remove();
+          continue;
+        }
+        const ext  = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+        const file = new File([blob], `pasted-${Date.now()}.${ext}`, { type: blob.type || 'image/png' });
+        const url  = await _uploadDocImageFile(file);
+        // On success swap the src to the R2 URL; on failure leave the base64 in
+        // place rather than silently losing the user's image.
+        if (url) { img.setAttribute('src', url); _docsDirty = true; }
+      } catch (_) { /* leave this image as-is */ }
+    }
+  } finally {
+    _replacingImages = false;
+  }
+}
+
+async function saveRichTextDoc() {
+  const ok = await _persistRichTextDoc({ silent: false });
+  if (!ok) return;
+  closeRichTextEditor();
 }
 
 // ── HTML editor ───────────────────────────────────────────────────────────────
@@ -324,9 +515,14 @@ async function viewDoc(docId) {
       <div class="modal" style="width:min(760px,94vw);max-height:88vh;display:flex;flex-direction:column;padding:0;overflow:hidden;">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--line);flex-shrink:0;">
           <h2 style="margin:0;font-size:16px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_escD(doc.title)}</h2>
-          <button onclick="this.closest('.modal-scrim').remove()" style="background:none;border:none;cursor:pointer;color:var(--ink-3);flex-shrink:0;margin-left:12px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+          <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;margin-left:12px;">
+            <button type="button" onclick="toggleDocFullscreen(this)" title="Toggle full screen" style="background:none;border:none;cursor:pointer;color:var(--ink-3);display:flex;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            </button>
+            <button type="button" onclick="this.closest('.modal-scrim').remove()" style="background:none;border:none;cursor:pointer;color:var(--ink-3);display:flex;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
         </div>
         <div style="flex:1;overflow-y:auto;padding:22px;">${body}</div>
       </div>`;

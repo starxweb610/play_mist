@@ -2,7 +2,7 @@ const express      = require('express');
 const router       = express.Router();
 const rateLimit    = require('express-rate-limit');
 const { isDeveloper, checkBanned } = require('../middleware/developerAuth');
-const { developerUpload, developerThumbnail, developerDoc, developerSketch } = require('../config/upload');
+const { developerUpload, developerThumbnail, developerDoc, developerSketch, developerDocImage } = require('../config/upload');
 
 const authController        = require('../controllers/developer/authController');
 const dashboardController   = require('../controllers/developer/dashboardController');
@@ -70,6 +70,18 @@ const docUploadLimiter = rateLimit({
   standardHeaders: true, legacyHeaders: false,
 });
 
+const docImageLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, max: 100,
+  message: 'Too many image uploads. Please try again later.',
+  standardHeaders: true, legacyHeaders: false,
+});
+
+const passwordResetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, max: 10,
+  message: 'Too many password reset attempts. Please try again later.',
+  standardHeaders: true, legacyHeaders: false,
+});
+
 // ── Public ────────────────────────────────────────────────────────────────────
 router.get ('/',        (req, res) => req.session.developer ? res.redirect('/developer/dashboard') : res.redirect('/developer/login'));
 router.get ('/signup',  authController.getSignup);
@@ -80,6 +92,13 @@ router.post('/resend-verification', authController.postResendVerification);
 router.get ('/login',   authController.getLogin);
 router.post('/login',   authLimiter,   authController.postLogin);
 router.get ('/logout',  authController.logout);
+
+// Password reset
+router.get ('/forgot-password',  authController.getForgotPassword);
+router.post('/forgot-password',  passwordResetLimiter, authController.postForgotPassword);
+router.get ('/reset-password',   authController.getResetPassword);
+router.post('/reset-password',   passwordResetLimiter, authController.postResetPassword);
+router.post('/resend-reset',     passwordResetLimiter, authController.postResendResetCode);
 
 // ── Protected (requires developer session + ban check) ────────────────────────
 router.use(isDeveloper, checkBanned);
@@ -125,6 +144,7 @@ router.delete('/projects/:id/tasks/:taskId/comments/:commentId',  projectsContro
 router.get   ('/projects/:id/docs',           projectDocsController.listDocs);
 router.post  ('/projects/:id/docs',           projectMutateLimiter, projectDocsController.createDoc);
 router.post  ('/projects/:id/docs/upload',    docUploadLimiter, developerDoc.single('doc'), projectDocsController.uploadDoc);
+router.post  ('/projects/:id/docs/image',     docImageLimiter, developerDocImage.single('image'), projectDocsController.uploadDocImage);
 
 // Projects — storyboard JSON API
 const sketchFields = developerSketch.fields([{ name: 'image', maxCount: 1 }, { name: 'thumb', maxCount: 1 }]);

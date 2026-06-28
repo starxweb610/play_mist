@@ -131,6 +131,51 @@
       color: var(--ink); font-size: 14px;
     }
     .ql-editor { min-height: 100px; }
+    /* Inline images in rich-text docs: keep responsive; alignment via Quill's
+       ql-align-* classes on the containing block. */
+    .ql-editor img { max-width: 100%; height: auto; border-radius: 6px; }
+
+    /* ── Rich-text doc editor: keep long content scrolling INSIDE the editor.
+       Quill's default `.ql-editor { height:100% }` doesn't resolve against a
+       flex-sized parent, so content overflows past the border. Make the
+       container a flex column and let the editor flex-fill + scroll. ───────── */
+    #doc-quill-editor.ql-container {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #doc-quill-editor .ql-editor {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    /* ── Rich-text doc editor: full-screen mode ───────────────────────────── */
+    .modal.doc-fullscreen {
+      width: 100vw !important;
+      height: 100vh !important;
+      max-width: none !important;
+      max-height: none !important;
+      border-radius: 0 !important;
+    }
+
+    /* ── Background highlight picker: render the 'transparent' swatch as a
+          clear "remove highlight" tile (diagonal red slash on white). ─────── */
+    .ql-snow .ql-picker.ql-background .ql-picker-item[data-value="transparent"] {
+      background: #fff !important;
+      position: relative;
+      border: 1px solid #ccc;
+    }
+    .ql-snow .ql-picker.ql-background .ql-picker-item[data-value="transparent"]::after {
+      content: '';
+      position: absolute;
+      top: 50%; left: -1px; right: -1px;
+      height: 1px;
+      background: #e60000;
+      transform: rotate(-45deg);
+    }
+    .ql-editor .ql-align-center { text-align: center; }
+    .ql-editor .ql-align-right  { text-align: right; }
     .ql-snow .ql-stroke { stroke: var(--ink-3); }
     .ql-snow .ql-fill  { fill:   var(--ink-3); }
     .ql-snow .ql-picker-label { color: var(--ink-3); }

@@ -93,4 +93,11 @@ const developerSketch = multer({
   limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB
 });
 
-module.exports = { upload, uploadImage, uploadScreenshots, developerUpload, developerThumbnail, developerDoc, developerSketch };
+// ── Rich-text doc inline images (in-memory, 10 MB) ───────────────────────────
+const developerDocImage = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: imageFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+});
+
+module.exports = { upload, uploadImage, uploadScreenshots, developerUpload, developerThumbnail, developerDoc, developerSketch, developerDocImage };

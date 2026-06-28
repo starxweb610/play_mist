@@ -404,6 +404,19 @@ exports.runMigrations = async () => {
       )
     `);
 
+    // ── developer_password_resets ─────────────────────────────────────────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS developer_password_resets (
+        id          INT PRIMARY KEY AUTO_INCREMENT,
+        email       VARCHAR(255) NOT NULL,
+        code        VARCHAR(6)   NOT NULL,
+        attempts    INT          NOT NULL DEFAULT 0,
+        expires_at  DATETIME     NOT NULL,
+        created_at  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_email (email)
+      )
+    `);
+
     // ── developer_notes: share_status ─────────────────────────────────────────
     await migrateColumn(
       'developer_notes', 'share_status',
