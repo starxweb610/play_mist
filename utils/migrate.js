@@ -432,6 +432,35 @@ exports.runMigrations = async () => {
        WHERE is_shared = 1 AND share_status = 'private'`
     );
 
+    // ── users: Google Play Games Services durable identity anchor ──────────────
+    // A user's PGS player ID survives cache-clears/reinstalls, so identity (and
+    // credits) can be recovered instead of spawning a fresh anonymous account.
+    await migrateColumn('users', 'gpgs_player_id', 'VARCHAR(255) DEFAULT NULL AFTER email');
+    const [gpgsIdx] = await db.query(
+      `SELECT COUNT(*) AS c FROM information_schema.STATISTICS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'
+         AND INDEX_NAME = 'uniq_gpgs_player_id'`
+    );
+    if (gpgsIdx[0].c === 0) {
+      try {
+        await db.query('ALTER TABLE users ADD UNIQUE INDEX uniq_gpgs_player_id (gpgs_player_id)');
+      } catch (e) { console.warn('  ⚠️  gpgs unique index skipped:', e.message); }
+    }
+
+    // ── web_link_sessions: QR pairing so the web build can claim the phone's
+    // PGS-anchored identity (device-authorization / "WhatsApp Web" pattern). ───
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS web_link_sessions (
+        id         INT PRIMARY KEY AUTO_INCREMENT,
+        code       VARCHAR(64) NOT NULL UNIQUE,
+        status     ENUM('pending','approved','consumed') NOT NULL DEFAULT 'pending',
+        user_id    INT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at DATETIME NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
     console.log('✅ DB migrations complete');
   } catch (err) {
     console.error('❌ Migration error:', err.message);

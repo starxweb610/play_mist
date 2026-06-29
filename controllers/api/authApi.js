@@ -1,5 +1,7 @@
 const db = require('../../config/database');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { verifyServerAuthCode, GpgsError } = require('../../utils/gpgs');
 const { grantAchievement } = require('../../utils/achievements');
 const { isTodaysDailyPick, handleDailyPickPlay } = require('./dailyPickApi');
 const { toLocalDateStr } = require('../../utils/dates');
@@ -104,6 +106,202 @@ exports.refresh = async (req, res) => {
     });
   } catch (err) {
     console.error('refresh token error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+// Build a unique username, preferring the PGS gamer tag. Identity uniqueness is
+// guaranteed by gpgs_player_id, so on a display-name collision we disambiguate
+// rather than reject.
+async function resolveUniqueUsername(desired, playerId, excludeUserId = null) {
+  const base = (desired || '').trim().slice(0, 60) || 'Player';
+  const pid = String(playerId);
+  const candidates = [
+    base,
+    `${base.slice(0, 50)} #${pid.slice(-4)}`,
+    `${base.slice(0, 40)} #${pid.slice(-8)}`,
+  ];
+  for (const name of candidates) {
+    const [rows] = await db.query(
+      excludeUserId
+        ? 'SELECT id FROM users WHERE username = ? AND id <> ?'
+        : 'SELECT id FROM users WHERE username = ?',
+      excludeUserId ? [name, excludeUserId] : [name]
+    );
+    if (rows.length === 0) return name;
+  }
+  // Last resort: guaranteed-unique fallback.
+  return `${base.slice(0, 40)} #${Date.now().toString(36)}`;
+}
+
+// POST /api/v1/auth/gpgs — durable identity via Google Play Games Services.
+// The client sends a one-time PGS server auth code; we verify it with Google,
+// then recover the existing account bound to that player ID (so credits survive
+// cache-clears/reinstalls) or create a fresh durable account. Either way the
+// username is synced to the PGS gamer tag.
+exports.gpgsAuth = async (req, res) => {
+  try {
+    const { authCode } = req.body;
+    if (!authCode) {
+      return res.status(400).json({ error: 'authCode is required' });
+    }
+
+    // Verify with Google → authoritative player identity (never trust the client).
+    let playerId, displayName;
+    try {
+      ({ playerId, displayName } = await verifyServerAuthCode(authCode));
+    } catch (err) {
+      if (err instanceof GpgsError) {
+        const status = err.reason === 'config'  ? 503
+                     : err.reason === 'network' ? 502
+                     : 401;
+        return res.status(status).json({ error: err.message, reason: err.reason });
+      }
+      throw err;
+    }
+
+    const [existing] = await db.query(
+      'SELECT id, username FROM users WHERE gpgs_player_id = ?',
+      [playerId]
+    );
+
+    let userId, username;
+    if (existing.length) {
+      // Recovery: a durable account already exists for this player.
+      userId = existing[0].id;
+      username = existing[0].username;
+      if (displayName) {
+        const synced = await resolveUniqueUsername(displayName, playerId, userId);
+        if (synced !== existing[0].username) {
+          await db.query('UPDATE users SET username = ? WHERE id = ?', [synced, userId]);
+          username = synced;
+        }
+      }
+    } else {
+      // New durable account — still zero friction for the player.
+      username = await resolveUniqueUsername(displayName, playerId);
+      const email = `gpgs_${playerId}@playmist.local`;
+      const [result] = await db.query(
+        'INSERT INTO users (username, email, gpgs_player_id) VALUES (?, ?, ?)',
+        [username, email, playerId]
+      );
+      userId = result.insertId;
+    }
+
+    const [urows] = await db.query('SELECT credits FROM users WHERE id = ?', [userId]);
+    const credits = urows.length ? urows[0].credits : 1000;
+
+    const accessToken  = jwt.sign({ id: userId, username }, accessSecret,  { expiresIn: '1h' });
+    const refreshToken = jwt.sign({ id: userId, username }, refreshSecret, { expiresIn: '7d' });
+
+    return res.json({
+      success: true,
+      recovered: existing.length > 0,
+      user: { id: userId, username, credits },
+      accessToken,
+      refreshToken,
+    });
+  } catch (err) {
+    console.error('gpgsAuth error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+// ── Web QR pairing ──────────────────────────────────────────────────────────
+// The web build is an anonymous guest until it claims the phone's PGS-anchored
+// identity. Web asks for a short-lived link code (rendered as a QR); the phone
+// app (already authenticated) scans it and approves; web then redeems the code
+// for the same user's tokens. Codes are single-use and expire in ~2 minutes.
+const LINK_TTL_MS = 2 * 60 * 1000;
+
+exports.webLinkStart = async (req, res) => {
+  try {
+    const code = crypto.randomBytes(24).toString('base64url'); // ~32 chars
+    const expiresAt = new Date(Date.now() + LINK_TTL_MS);
+    await db.query(
+      'INSERT INTO web_link_sessions (code, status, expires_at) VALUES (?, ?, ?)',
+      [code, 'pending', expiresAt]
+    );
+    return res.json({
+      code,
+      qrPayload: `PMLINK:${code}`,
+      expiresIn: Math.floor(LINK_TTL_MS / 1000),
+    });
+  } catch (err) {
+    console.error('webLinkStart error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+exports.webLinkStatus = async (req, res) => {
+  try {
+    const { code } = req.query;
+    if (!code) return res.status(400).json({ error: 'code is required' });
+
+    const [rows] = await db.query(
+      'SELECT id, status, user_id, expires_at FROM web_link_sessions WHERE code = ?',
+      [code]
+    );
+    if (!rows.length) return res.json({ status: 'expired' });
+
+    const session = rows[0];
+    if (session.status === 'consumed') return res.json({ status: 'consumed' });
+    if (new Date(session.expires_at) < new Date()) return res.json({ status: 'expired' });
+    if (session.status !== 'approved' || !session.user_id) return res.json({ status: 'pending' });
+
+    // Approved → mint tokens once, then consume the code.
+    const [urows] = await db.query(
+      'SELECT id, username, credits FROM users WHERE id = ?',
+      [session.user_id]
+    );
+    if (!urows.length) {
+      await db.query('UPDATE web_link_sessions SET status = ? WHERE id = ?', ['consumed', session.id]);
+      return res.json({ status: 'expired' });
+    }
+    const user = urows[0];
+    const accessToken  = jwt.sign({ id: user.id, username: user.username }, accessSecret,  { expiresIn: '1h' });
+    const refreshToken = jwt.sign({ id: user.id, username: user.username }, refreshSecret, { expiresIn: '7d' });
+    await db.query('UPDATE web_link_sessions SET status = ? WHERE id = ?', ['consumed', session.id]);
+
+    return res.json({
+      status: 'approved',
+      user: { id: user.id, username: user.username, credits: user.credits },
+      accessToken,
+      refreshToken,
+    });
+  } catch (err) {
+    console.error('webLinkStatus error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+exports.webLinkApprove = async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: 'code is required' });
+
+    const [rows] = await db.query(
+      'SELECT id, status, expires_at FROM web_link_sessions WHERE code = ?',
+      [code]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Invalid link code' });
+
+    const session = rows[0];
+    if (new Date(session.expires_at) < new Date()) {
+      return res.status(410).json({ error: 'Link code expired' });
+    }
+    if (session.status !== 'pending') {
+      return res.status(409).json({ error: 'Link code already used' });
+    }
+
+    // The authenticated phone vouches for the web session with its own user id.
+    await db.query(
+      'UPDATE web_link_sessions SET status = ?, user_id = ? WHERE id = ?',
+      ['approved', req.user.id, session.id]
+    );
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('webLinkApprove error:', err);
     return res.status(500).json({ error: err.message });
   }
 };

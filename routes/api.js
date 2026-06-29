@@ -29,6 +29,10 @@ const { verifyJwt }     = require('../middleware/auth');
 v1Router.post('/auth/check-username', authApi.checkUsername);
 v1Router.post('/auth/register', authApi.register);
 v1Router.post('/auth/refresh', authApi.refresh);
+v1Router.post('/auth/gpgs', authApi.gpgsAuth);
+v1Router.post('/auth/web-link/start',   authApi.webLinkStart);
+v1Router.get ('/auth/web-link/status',  authApi.webLinkStatus);
+v1Router.post('/auth/web-link/approve', verifyJwt, authApi.webLinkApprove);
 
 // Image/file proxy to bypass Nginx regex interception
 v1Router.get('/image-proxy', gamesApi.imageProxy);
