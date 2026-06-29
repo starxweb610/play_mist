@@ -44,10 +44,13 @@
     try {
       var res = await fetch(API + '/auth/web-link/start', { method: 'POST' });
       var data = await res.json();
-      if (window.QRCode && window.QRCode.toCanvas) {
-        var canvas = document.createElement('canvas');
-        qrBox.appendChild(canvas);
-        window.QRCode.toCanvas(canvas, data.qrPayload, { width: 220, margin: 1 }, function () {});
+      if (window.QRCode) {
+        new window.QRCode(qrBox, {
+          text: data.qrPayload,
+          width: 220,
+          height: 220,
+          correctLevel: window.QRCode.CorrectLevel.M
+        });
       } else {
         qrBox.textContent = data.qrPayload; // fallback if the QR lib didn't load
       }
