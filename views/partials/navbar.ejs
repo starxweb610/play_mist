@@ -11,6 +11,7 @@
       <a href="/#download" class="nav-link">Get App</a>
     </div>
 
+    <button type="button" class="nav-resume" id="resumeWebBtn">Resume on web</button>
     <a href="/developer" class="nav-cta" id="navCta">Developer Login</a>
 
     <button class="hamburger" id="hamburger" aria-label="Toggle menu" aria-expanded="false">
@@ -18,3 +19,32 @@
     </button>
   </div>
 </nav>
+
+<!-- Web QR pairing: resume a PlayMist app account in the browser -->
+<div class="weblink-modal" id="weblinkModal" role="dialog" aria-modal="true" aria-label="Resume with PlayMist app">
+  <div class="weblink-scrim" id="weblinkScrim"></div>
+  <div class="weblink-sheet">
+    <div class="weblink-title">Resume with your PlayMist app</div>
+    <div class="weblink-sub">Scan this code with the PlayMist app to bring your credits &amp; saved games here.</div>
+    <div class="weblink-qr" id="weblinkQr"></div>
+    <div class="weblink-status" id="weblinkStatus"></div>
+    <button type="button" class="weblink-cancel" id="weblinkClose">Cancel</button>
+  </div>
+</div>
+
+<style>
+  .nav-resume { background: transparent; color: var(--pm-text, #ECEAF4); border: 1px solid rgba(255,255,255,0.18); border-radius: 999px; padding: 8px 16px; font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; margin-left: 8px; }
+  .nav-resume.is-linked { background: rgba(181,255,107,0.14); color: #B5FF6B; border-color: rgba(181,255,107,0.3); cursor: default; }
+  .weblink-modal { display: none; position: fixed; inset: 0; z-index: 2000; align-items: center; justify-content: center; }
+  .weblink-scrim { position: absolute; inset: 0; background: rgba(8,7,14,0.74); backdrop-filter: blur(4px); }
+  .weblink-sheet { position: relative; width: min(360px, 90vw); background: #15131D; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 26px; text-align: center; color: #ECEAF4; }
+  .weblink-title { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
+  .weblink-sub { font-size: 13px; color: #A39FB5; line-height: 1.5; margin-bottom: 18px; }
+  .weblink-qr { min-height: 220px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .weblink-qr canvas { border-radius: 12px; background: #fff; padding: 8px; }
+  .weblink-status { font-size: 13px; color: #B5FF6B; min-height: 18px; margin-bottom: 16px; }
+  .weblink-cancel, .weblink-retry { background: transparent; color: #A39FB5; border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; padding: 11px 16px; font: inherit; font-weight: 600; cursor: pointer; }
+  .weblink-cancel { width: 100%; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js" defer></script>
+<script src="/js/weblink.js" defer></script>
