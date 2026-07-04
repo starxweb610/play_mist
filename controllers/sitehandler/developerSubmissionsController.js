@@ -7,6 +7,7 @@ const PATHS     = require('../../config/paths');
 const r2        = require('../../config/r2');
 const mailer    = require('../../utils/mailer');
 const templates = require('../../utils/emailTemplates');
+const { formatBytes } = require('../../utils/format');
 
 function walkFiles(dir) {
   const results = [];
@@ -19,12 +20,6 @@ function walkFiles(dir) {
     }
   })(dir);
   return results;
-}
-
-function formatBytes(bytes) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 // ── GET /sitehandler/developer-submissions ───────────────────────────────────
@@ -210,12 +205,13 @@ exports.postApprove = async (req, res) => {
     const [result] = await db.query(
       `INSERT INTO games
          (title, slug, short_description, long_description, genre, type, orientation,
-          version, file_path, play_url, zip_url, studio, is_active, created_by)
-       VALUES (?, ?, ?, ?, ?, 'webgl', ?, ?, ?, ?, ?, ?, 0, ?)`,
+          version, file_path, play_url, zip_url, size_bytes, size, studio, is_active, created_by)
+       VALUES (?, ?, ?, ?, ?, 'webgl', ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
       [
         sub.title, sub.slug, shortDesc, sub.description,
         sub.genre, sub.orientation, sub.version,
         r2Prefix, playUrl, zipUrl,
+        sub.zip_size || null, sub.zip_size ? formatBytes(sub.zip_size) : null,
         sub.studio_name, req.session.admin.id,
       ]
     );

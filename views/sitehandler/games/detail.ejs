@@ -84,19 +84,19 @@
                 <input type="text" name="studio" class="form-input" value="<%= game.studio || '' %>" placeholder="e.g. Tiny Bear" />
               </div>
               <div class="form-group">
-                <label class="form-label">Game Size</label>
-                <input type="text" name="size" class="form-input" value="<%= game.size || '' %>" placeholder="e.g. 24MB" />
+                <label class="form-label">Build Size <span style="font-size:0.7rem;color:var(--a-text-dim);text-transform:none;letter-spacing:0;font-weight:400">auto — from uploaded ZIP</span></label>
+                <input type="text" class="form-input" value="<%= game.size || 'Upload a build to capture' %>" readonly disabled style="opacity:0.65;cursor:not-allowed" />
               </div>
             </div>
 
             <div class="form-row-2">
               <div class="form-group">
-                <label class="form-label">Plays Counter</label>
-                <input type="text" name="plays" class="form-input" value="<%= game.plays || '' %>" placeholder="e.g. 1.2M" />
+                <label class="form-label">Plays <span style="font-size:0.7rem;color:var(--a-text-dim);text-transform:none;letter-spacing:0;font-weight:400">auto — from analytics</span></label>
+                <input type="text" class="form-input" value="<%= liveStats.playCount %>" readonly disabled style="opacity:0.65;cursor:not-allowed" />
               </div>
               <div class="form-group">
-                <label class="form-label">Rating</label>
-                <input type="text" name="rating" class="form-input" value="<%= game.rating || '' %>" placeholder="e.g. 4.8" />
+                <label class="form-label">Rating <span style="font-size:0.7rem;color:var(--a-text-dim);text-transform:none;letter-spacing:0;font-weight:400">auto — from user ratings</span></label>
+                <input type="text" class="form-input" value="<%= liveStats.avgRating ? `${liveStats.avgRating} ★ (${liveStats.ratingCount} rating${liveStats.ratingCount === 1 ? '' : 's'})` : 'Not rated yet' %>" readonly disabled style="opacity:0.65;cursor:not-allowed" />
               </div>
             </div>
 

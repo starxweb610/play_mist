@@ -45,6 +45,9 @@ exports.runMigrations = async () => {
     await migrateColumn('games', 'secondary_thumbnail',   'VARCHAR(500) DEFAULT NULL AFTER thumbnail_url');
     await migrateColumn('games', 'promotional_thumbnail', 'VARCHAR(500) DEFAULT NULL AFTER secondary_thumbnail');
     await migrateColumn('games', 'is_featured',           'TINYINT(1) DEFAULT 0 AFTER is_active');
+    // Exact build (zip) size captured automatically at upload time; the legacy
+    // varchar `size` column keeps the human-readable form for old clients.
+    await migrateColumn('games', 'size_bytes',            'BIGINT DEFAULT NULL AFTER size');
 
     // ── users columns ─────────────────────────────────────────────────────────
     await migrateColumn('users', 'credits',         'INT DEFAULT 1000 AFTER avatar');
@@ -446,6 +449,22 @@ exports.runMigrations = async () => {
         await db.query('ALTER TABLE users ADD UNIQUE INDEX uniq_gpgs_player_id (gpgs_player_id)');
       } catch (e) { console.warn('  ⚠️  gpgs unique index skipped:', e.message); }
     }
+
+    // ── game_ratings: one star rating (1–5) per user per game. The app prompts
+    // after repeat launches; games.rating is now computed as AVG() over these. ──
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS game_ratings (
+        id         INT PRIMARY KEY AUTO_INCREMENT,
+        game_id    INT NOT NULL,
+        user_id    INT NOT NULL,
+        rating     TINYINT UNSIGNED NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_game_user (game_id, user_id),
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
 
     // ── web_link_sessions: QR pairing so the web build can claim the phone's
     // PGS-anchored identity (device-authorization / "WhatsApp Web" pattern). ───

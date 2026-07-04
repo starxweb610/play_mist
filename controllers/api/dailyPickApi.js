@@ -1,5 +1,6 @@
 const db = require('../../config/database');
 const { formatImagePath } = require('../../utils/images');
+const { formatBytes, formatCount, formatRating } = require('../../utils/format');
 const { grantAchievement } = require('../../utils/achievements');
 const { toLocalDateStr } = require('../../utils/dates');
 
@@ -16,7 +17,9 @@ exports.getDailyPick = async (req, res) => {
       `SELECT g.id, g.title, g.short_description, g.long_description,
               g.play_url, g.thumbnail_url, g.promotional_thumbnail,
               g.orientation, g.version, g.type, g.zip_url,
-              g.genre, g.studio, g.size, g.plays, g.rating, g.credits_cost, g.flag
+              g.genre, g.studio, g.size, g.size_bytes, g.credits_cost, g.flag,
+              (SELECT COUNT(*)        FROM analytics_games ag WHERE ag.game_id = g.id) AS play_count,
+              (SELECT AVG(gr.rating)  FROM game_ratings    gr WHERE gr.game_id = g.id) AS avg_rating
        FROM daily_picks dp
        JOIN games g ON dp.game_id = g.id
        WHERE dp.pick_date = ? AND g.is_active = 1`,
@@ -42,9 +45,9 @@ exports.getDailyPick = async (req, res) => {
         gametype:             g.type,
         genre:                g.genre  || '',
         studio:               g.studio || '',
-        size:                 g.size   || '',
-        plays:                g.plays  || '',
-        rating:               g.rating || '',
+        size:                 g.size_bytes ? formatBytes(g.size_bytes) : (g.size || ''),
+        plays:                formatCount(g.play_count),
+        rating:               formatRating(g.avg_rating),
         creditsCost:          0,
         isFreeToday:          true,
         flag:                 g.flag   || null,

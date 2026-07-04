@@ -5,6 +5,7 @@ const fs     = require('fs');
 const path   = require('path');
 const PATHS  = require('../../config/paths');
 const r2     = require('../../config/r2');
+const { formatBytes } = require('../../utils/format');
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 /**
@@ -124,6 +125,19 @@ exports.getDetail = async (req, res) => {
     const selectedTagIds = gameTags.map(gt => gt.tag_id);
     const [screenshots] = await db.query('SELECT * FROM game_screenshots WHERE game_id = ?', [req.params.id]);
 
+    // Live stats replacing the old manually-entered size/plays/rating fields
+    const [[playStats]] = await db.query(
+      'SELECT COUNT(*) AS playCount FROM analytics_games WHERE game_id = ?', [req.params.id]
+    );
+    let ratingStats = { avgRating: null, ratingCount: 0 };
+    try {
+      const [[r]] = await db.query(
+        'SELECT AVG(rating) AS avgRating, COUNT(*) AS ratingCount FROM game_ratings WHERE game_id = ?',
+        [req.params.id]
+      );
+      ratingStats = r;
+    } catch (_) {}
+
     const game = rows[0];
     const formatAdminImagePath = (pathStr) => {
       if (!pathStr) return '';
@@ -144,7 +158,12 @@ exports.getDetail = async (req, res) => {
 
     res.render('sitehandler/games/detail', {
       title: game.title, activePage: 'games',
-      game, genres, tags, selectedTagIds, screenshots: mappedScreenshots
+      game, genres, tags, selectedTagIds, screenshots: mappedScreenshots,
+      liveStats: {
+        playCount:   playStats.playCount,
+        avgRating:   ratingStats.avgRating ? Number(ratingStats.avgRating).toFixed(1) : null,
+        ratingCount: ratingStats.ratingCount,
+      },
     });
   } catch (err) {
     req.flash('error_msg', err.message);
@@ -155,11 +174,13 @@ exports.getDetail = async (req, res) => {
 // ── POST /sitehandler/games/:id/update ──────────────────────────────────────
 exports.postUpdate = async (req, res) => {
   const { id } = req.params;
+  // size, plays and rating are intentionally absent: size is captured from the
+  // uploaded zip, plays comes from analytics_games, rating from game_ratings.
   const {
     title, genre, orientation, type,
     short_description, long_description, trailer_url,
     version, is_active, is_featured,
-    studio, size, plays, rating, credits_cost, flag,
+    studio, credits_cost, flag,
     tags
   } = req.body;
   try {
@@ -169,7 +190,7 @@ exports.postUpdate = async (req, res) => {
       `UPDATE games SET title=?, slug=?, genre=?, orientation=?, type=?,
        short_description=?, long_description=?, trailer_url=?,
        version=?, is_active=?, is_featured=?,
-       studio=?, size=?, plays=?, rating=?, credits_cost=?, flag=? WHERE id=?`,
+       studio=?, credits_cost=?, flag=? WHERE id=?`,
       [
         title, slug, genre, orientation, type,
         short_description, long_description || null, trailer_url?.trim() || null,
@@ -177,9 +198,6 @@ exports.postUpdate = async (req, res) => {
         is_active === 'on' ? 1 : 0,
         is_featured === 'on' ? 1 : 0,
         studio || null,
-        size || null,
-        plays || null,
-        rating || null,
         credits_cost ? parseInt(credits_cost) : null,
         flag || null,
         id,
@@ -269,7 +287,13 @@ exports.postUpload = async (req, res) => {
       const playUrl = r2.getPublicUrl(`${r2Prefix}/index.html`);
       const zipUrl  = r2.getPublicUrl(`${r2Prefix}/game.zip`);
 
-      await db.query('UPDATE games SET file_path=?, play_url=?, zip_url=? WHERE id=?', [r2Prefix, playUrl, zipUrl, id]);
+      // Build size is captured from the uploaded zip — never entered manually
+      const sizeBytes = fs.statSync(zipFile.path).size;
+
+      await db.query(
+        'UPDATE games SET file_path=?, play_url=?, zip_url=?, size_bytes=?, size=? WHERE id=?',
+        [r2Prefix, playUrl, zipUrl, sizeBytes, formatBytes(sizeBytes), id]
+      );
       req.flash('success_msg', `✅ ${game.type === 'premium' ? 'Premium' : 'WebGL'} game uploaded to R2! Test it at: ${playUrl}`);
     }
 

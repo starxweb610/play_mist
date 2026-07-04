@@ -4,6 +4,7 @@ const path = require('path');
 const PATHS = require('../../config/paths');
 const r2   = require('../../config/r2');
 const { formatImagePath } = require('../../utils/images');
+const { formatBytes, formatCount, formatRating } = require('../../utils/format');
 
 /**
  * GET /api/v1/all-games
@@ -72,71 +73,90 @@ async function collectAdFiles(filePath, type) {
   return results;
 }
 
+/**
+ * Columns shared by every game-list query. `plays` and `rating` are no longer
+ * read from the manual varchar columns — plays is the real count of rows in
+ * analytics_games and rating is the live average of user-submitted ratings.
+ */
+const GAME_LIST_COLUMNS = `
+       g.id, g.title, g.short_description, g.long_description,
+       g.play_url, g.thumbnail_url, g.secondary_thumbnail, g.promotional_thumbnail, g.trailer_url,
+       g.orientation, g.version, g.type, g.is_active, g.is_featured, g.created_at,
+       g.file_path, g.zip_url,
+       g.genre, g.studio, g.size, g.size_bytes, g.credits_cost, g.flag,
+       (SELECT COUNT(*)       FROM analytics_games ag WHERE ag.game_id = g.id) AS play_count,
+       (SELECT AVG(gr.rating) FROM game_ratings    gr WHERE gr.game_id = g.id) AS avg_rating,
+       (SELECT COUNT(*)       FROM game_ratings    gr WHERE gr.game_id = g.id) AS rating_count`;
+
+async function fetchTagsAndScreenshotsMaps() {
+  const [tagsRows] = await db.query(
+    `SELECT gt.game_id, t.name
+     FROM game_tags gt
+     JOIN tags t ON gt.tag_id = t.id`
+  );
+  const [screenshotsRows] = await db.query(
+    `SELECT game_id, image_url FROM game_screenshots`
+  );
+
+  const tagsMap = {};
+  for (const r of tagsRows) {
+    if (!tagsMap[r.game_id]) tagsMap[r.game_id] = [];
+    tagsMap[r.game_id].push(r.name);
+  }
+
+  const screenshotsMap = {};
+  for (const r of screenshotsRows) {
+    if (!screenshotsMap[r.game_id]) screenshotsMap[r.game_id] = [];
+    screenshotsMap[r.game_id].push(r.image_url);
+  }
+
+  return { tagsMap, screenshotsMap };
+}
+
+// Field names mirror the GameInfo.cs model in Unity exactly (see header note)
+async function mapGameRow(g, tagsMap, screenshotsMap) {
+  return {
+    id:                   String(g.id),
+    gamename:             g.title,
+    gameurl:              g.play_url  || '',
+    description:          g.long_description || g.short_description || '',
+    imageurl:             formatImagePath(g.thumbnail_url),
+    secondaryThumbnail:   formatImagePath(g.secondary_thumbnail),
+    promotionalThumbnail: formatImagePath(g.promotional_thumbnail),
+    trailerurl:           g.trailer_url      || '',
+    uploadedat:           g.created_at ? g.created_at.toISOString() : '',
+    gameorientation:      g.orientation || 'landscape',
+    gameversion:          g.version    || '1.0.0',
+    gametype:             g.type,
+    gamestatus:           g.is_active ? 'active' : 'inactive',
+    isFeatured:           g.is_featured === 1,
+    zipurl:               g.zip_url    || '',
+    adFiles:              g.type === 'premium' ? await collectAdFiles(g.file_path, g.type) : [],
+    genre:                g.genre || '',
+    studio:               g.studio || '',
+    // size_bytes (auto-captured at upload) wins; legacy manual `size` is the fallback
+    size:                 g.size_bytes ? formatBytes(g.size_bytes) : (g.size || ''),
+    plays:                formatCount(g.play_count),
+    rating:               formatRating(g.avg_rating),
+    ratingCount:          Number(g.rating_count) || 0,
+    creditsCost:          g.credits_cost || 0,
+    flag:                 g.flag || null,
+    tags:                 tagsMap[g.id] || [],
+    screenshots:          (screenshotsMap[g.id] || []).map(formatImagePath),
+  };
+}
+
 exports.getAllGames = async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT id, title, short_description, long_description,
-              play_url, thumbnail_url, secondary_thumbnail, promotional_thumbnail, trailer_url,
-              orientation, version, type, is_active, is_featured, created_at,
-              file_path, zip_url,
-              genre, studio, size, plays, rating, credits_cost, flag
-       FROM games
-       WHERE is_active = 1
-       ORDER BY is_featured DESC, created_at DESC`
+      `SELECT ${GAME_LIST_COLUMNS}
+       FROM games g
+       WHERE g.is_active = 1
+       ORDER BY g.is_featured DESC, g.created_at DESC`
     );
 
-    // Fetch all active game tags
-    const [tagsRows] = await db.query(
-      `SELECT gt.game_id, t.name
-       FROM game_tags gt
-       JOIN tags t ON gt.tag_id = t.id`
-    );
-
-    // Fetch all game screenshots
-    const [screenshotsRows] = await db.query(
-      `SELECT game_id, image_url FROM game_screenshots`
-    );
-
-    // Map tags and screenshots in memory
-    const tagsMap = {};
-    for (const r of tagsRows) {
-      if (!tagsMap[r.game_id]) tagsMap[r.game_id] = [];
-      tagsMap[r.game_id].push(r.name);
-    }
-
-    const screenshotsMap = {};
-    for (const r of screenshotsRows) {
-      if (!screenshotsMap[r.game_id]) screenshotsMap[r.game_id] = [];
-      screenshotsMap[r.game_id].push(r.image_url);
-    }
-
-    const games = await Promise.all(rows.map(async g => ({
-      id:                   String(g.id),
-      gamename:             g.title,
-      gameurl:              g.play_url  || '',
-      description:          g.long_description || g.short_description || '',
-      imageurl:             formatImagePath(g.thumbnail_url),
-      secondaryThumbnail:   formatImagePath(g.secondary_thumbnail),
-      promotionalThumbnail: formatImagePath(g.promotional_thumbnail),
-      trailerurl:           g.trailer_url      || '',
-      uploadedat:           g.created_at ? g.created_at.toISOString() : '',
-      gameorientation:      g.orientation || 'landscape',
-      gameversion:          g.version    || '1.0.0',
-      gametype:             g.type,
-      gamestatus:           g.is_active ? 'active' : 'inactive',
-      isFeatured:           g.is_featured === 1,
-      zipurl:               g.zip_url    || '',
-      adFiles:              g.type === 'premium' ? await collectAdFiles(g.file_path, g.type) : [],
-      genre:                g.genre || '',
-      studio:               g.studio || '',
-      size:                 g.size || '',
-      plays:                g.plays || '',
-      rating:               g.rating || '',
-      creditsCost:          g.credits_cost || 0,
-      flag:                 g.flag || null,
-      tags:                 tagsMap[g.id] || [],
-      screenshots:          (screenshotsMap[g.id] || []).map(formatImagePath),
-    })));
+    const { tagsMap, screenshotsMap } = await fetchTagsAndScreenshotsMaps();
+    const games = await Promise.all(rows.map(g => mapGameRow(g, tagsMap, screenshotsMap)));
 
     // Unity's JsonUtility expects a plain JSON array at the root
     res.json(games);
@@ -149,66 +169,15 @@ exports.getAllGames = async (req, res) => {
 exports.getLatestGames = async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT id, title, short_description, long_description,
-              play_url, thumbnail_url, secondary_thumbnail, promotional_thumbnail, trailer_url,
-              orientation, version, type, is_active, is_featured, created_at,
-              file_path, zip_url,
-              genre, studio, size, plays, rating, credits_cost, flag
-       FROM games
-       WHERE is_active = 1
-       ORDER BY created_at DESC, id DESC
+      `SELECT ${GAME_LIST_COLUMNS}
+       FROM games g
+       WHERE g.is_active = 1
+       ORDER BY g.created_at DESC, g.id DESC
        LIMIT 8`
     );
 
-    const [tagsRows] = await db.query(
-      `SELECT gt.game_id, t.name
-       FROM game_tags gt
-       JOIN tags t ON gt.tag_id = t.id`
-    );
-
-    const [screenshotsRows] = await db.query(
-      `SELECT game_id, image_url FROM game_screenshots`
-    );
-
-    const tagsMap = {};
-    for (const r of tagsRows) {
-      if (!tagsMap[r.game_id]) tagsMap[r.game_id] = [];
-      tagsMap[r.game_id].push(r.name);
-    }
-
-    const screenshotsMap = {};
-    for (const r of screenshotsRows) {
-      if (!screenshotsMap[r.game_id]) screenshotsMap[r.game_id] = [];
-      screenshotsMap[r.game_id].push(r.image_url);
-    }
-
-    const games = await Promise.all(rows.map(async g => ({
-      id:                   String(g.id),
-      gamename:             g.title,
-      gameurl:              g.play_url  || '',
-      description:          g.long_description || g.short_description || '',
-      imageurl:             formatImagePath(g.thumbnail_url),
-      secondaryThumbnail:   formatImagePath(g.secondary_thumbnail),
-      promotionalThumbnail: formatImagePath(g.promotional_thumbnail),
-      trailerurl:           g.trailer_url      || '',
-      uploadedat:           g.created_at ? g.created_at.toISOString() : '',
-      gameorientation:      g.orientation || 'landscape',
-      gameversion:          g.version    || '1.0.0',
-      gametype:             g.type,
-      gamestatus:           g.is_active ? 'active' : 'inactive',
-      isFeatured:           g.is_featured === 1,
-      zipurl:               g.zip_url    || '',
-      adFiles:              g.type === 'premium' ? await collectAdFiles(g.file_path, g.type) : [],
-      genre:                g.genre || '',
-      studio:               g.studio || '',
-      size:                 g.size || '',
-      plays:                g.plays || '',
-      rating:               g.rating || '',
-      creditsCost:          g.credits_cost || 0,
-      flag:                 g.flag || null,
-      tags:                 tagsMap[g.id] || [],
-      screenshots:          (screenshotsMap[g.id] || []).map(formatImagePath),
-    })));
+    const { tagsMap, screenshotsMap } = await fetchTagsAndScreenshotsMaps();
+    const games = await Promise.all(rows.map(g => mapGameRow(g, tagsMap, screenshotsMap)));
 
     res.json(games);
   } catch (err) {
@@ -219,75 +188,70 @@ exports.getLatestGames = async (req, res) => {
 
 exports.getPopularGames = async (req, res) => {
   try {
+    // Popularity ranks by last-7-days plays; displayed `plays` stays all-time
     const [rows] = await db.query(
-      `SELECT g.id, g.title, g.short_description, g.long_description,
-              g.play_url, g.thumbnail_url, g.secondary_thumbnail, g.promotional_thumbnail, g.trailer_url,
-              g.orientation, g.version, g.type, g.is_active, g.is_featured, g.created_at,
-              g.file_path, g.zip_url,
-              g.genre, g.studio, g.size, g.plays, g.rating, g.credits_cost, g.flag,
-              COUNT(CASE WHEN a.event_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN a.id END) as play_count
+      `SELECT ${GAME_LIST_COLUMNS},
+              (SELECT COUNT(*) FROM analytics_games a
+               WHERE a.game_id = g.id
+                 AND a.event_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)) AS recent_play_count
        FROM games g
-       LEFT JOIN analytics_games a ON g.id = a.game_id
        WHERE g.is_active = 1
-       GROUP BY g.id
-       ORDER BY play_count DESC, g.id DESC
+       ORDER BY recent_play_count DESC, g.id DESC
        LIMIT 5`
     );
 
-    const [tagsRows] = await db.query(
-      `SELECT gt.game_id, t.name
-       FROM game_tags gt
-       JOIN tags t ON gt.tag_id = t.id`
-    );
-
-    const [screenshotsRows] = await db.query(
-      `SELECT game_id, image_url FROM game_screenshots`
-    );
-
-    const tagsMap = {};
-    for (const r of tagsRows) {
-      if (!tagsMap[r.game_id]) tagsMap[r.game_id] = [];
-      tagsMap[r.game_id].push(r.name);
-    }
-
-    const screenshotsMap = {};
-    for (const r of screenshotsRows) {
-      if (!screenshotsMap[r.game_id]) screenshotsMap[r.game_id] = [];
-      screenshotsMap[r.game_id].push(r.image_url);
-    }
-
-    const games = await Promise.all(rows.map(async g => ({
-      id:                   String(g.id),
-      gamename:             g.title,
-      gameurl:              g.play_url  || '',
-      description:          g.long_description || g.short_description || '',
-      imageurl:             formatImagePath(g.thumbnail_url),
-      secondaryThumbnail:   formatImagePath(g.secondary_thumbnail),
-      promotionalThumbnail: formatImagePath(g.promotional_thumbnail),
-      trailerurl:           g.trailer_url      || '',
-      uploadedat:           g.created_at ? g.created_at.toISOString() : '',
-      gameorientation:      g.orientation || 'landscape',
-      gameversion:          g.version    || '1.0.0',
-      gametype:             g.type,
-      gamestatus:           g.is_active ? 'active' : 'inactive',
-      isFeatured:           g.is_featured === 1,
-      zipurl:               g.zip_url    || '',
-      adFiles:              g.type === 'premium' ? await collectAdFiles(g.file_path, g.type) : [],
-      genre:                g.genre || '',
-      studio:               g.studio || '',
-      size:                 g.size || '',
-      plays:                g.plays || '',
-      rating:               g.rating || '',
-      creditsCost:          g.credits_cost || 0,
-      flag:                 g.flag || null,
-      tags:                 tagsMap[g.id] || [],
-      screenshots:          (screenshotsMap[g.id] || []).map(formatImagePath),
-    })));
+    const { tagsMap, screenshotsMap } = await fetchTagsAndScreenshotsMaps();
+    const games = await Promise.all(rows.map(g => mapGameRow(g, tagsMap, screenshotsMap)));
 
     res.json(games);
   } catch (err) {
     console.error('GET /api/v1/popular-games error:', err.message);
     res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * POST /api/v1/games/:id/rate   (JWT-protected)
+ * Body: { rating: 1..5 }
+ * Upserts the calling user's rating for the game (one rating per user per
+ * game — re-rating overwrites). Returns the new live average.
+ */
+exports.rateGame = async (req, res) => {
+  const gameId = parseInt(req.params.id, 10);
+  const userId = req.user?.id;
+  const rating = parseInt(req.body?.rating, 10);
+
+  if (!gameId)  return res.status(400).json({ success: false, error: 'Invalid game id' });
+  if (!userId)  return res.status(401).json({ success: false, error: 'Unauthorized' });
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return res.status(400).json({ success: false, error: 'rating must be an integer 1–5' });
+  }
+
+  try {
+    const [gameRows] = await db.query('SELECT id FROM games WHERE id = ? AND is_active = 1', [gameId]);
+    if (!gameRows.length) return res.status(404).json({ success: false, error: 'Game not found' });
+
+    await db.query(
+      `INSERT INTO game_ratings (game_id, user_id, rating)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE rating = VALUES(rating)`,
+      [gameId, userId, rating]
+    );
+
+    const [[stats]] = await db.query(
+      'SELECT AVG(rating) AS avg_rating, COUNT(*) AS rating_count FROM game_ratings WHERE game_id = ?',
+      [gameId]
+    );
+
+    res.json({
+      success:     true,
+      rating:      formatRating(stats.avg_rating),
+      ratingCount: Number(stats.rating_count) || 0,
+      userRating:  rating,
+    });
+  } catch (err) {
+    console.error('POST /api/v1/games/:id/rate error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
   }
 };
 

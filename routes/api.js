@@ -47,6 +47,9 @@ v1Router.get('/latest-games', verifyJwt, gamesApi.getLatestGames);
 v1Router.get('/popular-games', verifyJwt, gamesApi.getPopularGames);
 v1Router.get('/genres', verifyJwt, gamesApi.getGenres);
 
+// Star ratings — user-submitted, prompted by the app after repeat launches
+v1Router.post('/games/:id/rate', verifyJwt, gamesApi.rateGame);
+
 // User profile and credits
 v1Router.get('/user/profile',       verifyJwt, authApi.getProfile);
 v1Router.get('/user/transactions',  verifyJwt, authApi.getTransactions);
