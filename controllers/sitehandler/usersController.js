@@ -3,7 +3,14 @@ const db = require('../../config/database');
 exports.getIndex = async (req, res) => {
   let users = [];
   try {
-    [users] = await db.query('SELECT id, username, email, credits, is_active, created_at FROM users ORDER BY created_at DESC');
+    [users] = await db.query(
+      `SELECT u.id, u.username, u.email, u.credits, u.is_active, u.created_at,
+              COUNT(t.id) AS tx_count
+       FROM users u
+       LEFT JOIN credit_transactions t ON t.user_id = u.id
+       GROUP BY u.id, u.username, u.email, u.credits, u.is_active, u.created_at
+       ORDER BY u.created_at DESC`
+    );
   } catch (err) {
     console.error('Failed to query users:', err.message);
   }

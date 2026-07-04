@@ -1042,6 +1042,107 @@ input, select, textarea { font: inherit; }
 .fw-600 { font-weight: 600; }
 .text-dim { color: var(--a-text-dim); }
 .text-sm  { font-size: 0.8rem; }
+
+/* ─── Data-table Enhancements (filters, sort, pagination) ────────────────────── */
+.filter-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--a-card);
+  border: 1px solid var(--a-border);
+  border-radius: 8px;
+}
+.filter-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--a-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.filter-group .filter-select {
+  border: none;
+  background: transparent;
+  padding: 4px 4px;
+}
+.filter-num { width: 68px; }
+
+.filter-chip {
+  padding: 8px 14px;
+  background: var(--a-card);
+  border: 1px solid var(--a-border);
+  border-radius: 8px;
+  color: var(--a-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.filter-chip:hover { border-color: rgba(124,58,237,0.4); }
+.filter-chip--active {
+  background: rgba(124,58,237,0.16);
+  border-color: rgba(124,58,237,0.5);
+  color: #a78bfa;
+}
+.filter-chip--ghost { color: var(--a-text-dim); }
+
+/* Sortable headers */
+.data-table th.sortable { cursor: pointer; user-select: none; }
+.data-table th.sortable:hover { color: var(--a-text); }
+.data-table th.sortable::after {
+  content: '\2195';           /* up-down arrow, dim by default */
+  margin-left: 6px;
+  opacity: 0.3;
+  font-size: 0.85em;
+}
+.data-table th.sort-asc::after  { content: '\2191'; opacity: 0.9; }
+.data-table th.sort-desc::after { content: '\2193'; opacity: 0.9; }
+
+/* Transaction count badge */
+.badge--count {
+  background: rgba(124,58,237,0.15);
+  color: #a78bfa;
+  border: 1px solid rgba(124,58,237,0.25);
+  text-decoration: none;
+  cursor: pointer;
+}
+.badge--count:hover { background: rgba(124,58,237,0.25); }
+
+/* Filtered / paged rows */
+.user-row.filtered-out,
+.user-row.paged-out { display: none; }
+
+.table-empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--a-text-dim);
+  font-size: 0.9rem;
+}
+
+/* Pagination footer */
+.table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+.table-summary { font-size: 0.8rem; color: var(--a-text-dim); white-space: nowrap; }
+.pager-controls { display: flex; align-items: center; gap: 8px; }
+.pager-btn {
+  padding: 7px 14px;
+  background: var(--a-card);
+  border: 1px solid var(--a-border);
+  border-radius: 8px;
+  color: var(--a-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pager-btn:hover:not(:disabled) { border-color: rgba(124,58,237,0.4); }
+.pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .link-sm  { font-size: 0.75rem; color: var(--a-primary-2); margin-left: 6px; }
 .link-sm:hover { text-decoration: underline; }
 

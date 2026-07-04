@@ -17,6 +17,34 @@
     </div>
 
     <% if (users.length > 0) { %>
+      <!-- Filter Bar -->
+      <div class="filter-bar" id="userFilters">
+        <input type="text" id="filterSearch" class="filter-input" placeholder="Search username or email…" autocomplete="off" />
+
+        <select id="filterStatus" class="filter-select">
+          <option value="">All statuses</option>
+          <option value="1">Active</option>
+          <option value="0">Inactive</option>
+        </select>
+
+        <div class="filter-group">
+          <label class="filter-label">Registered</label>
+          <input type="date" id="filterDateFrom" class="filter-select" title="Registered from" />
+          <span class="filter-label">→</span>
+          <input type="date" id="filterDateTo" class="filter-select" title="Registered to" />
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Transactions</label>
+          <input type="number" id="filterTxMin" class="filter-select filter-num" placeholder="min" min="0" />
+          <span class="filter-label">–</span>
+          <input type="number" id="filterTxMax" class="filter-select filter-num" placeholder="max" min="0" />
+        </div>
+
+        <button type="button" id="filterToday" class="filter-chip">Registered today</button>
+        <button type="button" id="filterReset" class="filter-chip filter-chip--ghost">Reset</button>
+      </div>
+
       <form id="bulkForm" action="/sitehandler/users/bulk" method="POST">
 
         <!-- Bulk Action Toolbar -->
@@ -34,24 +62,35 @@
         </div>
 
         <div class="data-table-wrapper">
-          <table class="data-table">
+          <table class="data-table" id="usersTable">
             <thead>
               <tr>
                 <th style="width:38px;">
                   <input type="checkbox" id="selectAll" title="Select all"
                     style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent-color);" />
                 </th>
-                <th>Player</th>
-                <th>Email Address</th>
-                <th>Credits</th>
-                <th>Status</th>
-                <th>Registered At</th>
+                <th class="sortable" data-sort="username" data-type="text">Player</th>
+                <th class="sortable" data-sort="email" data-type="text">Email Address</th>
+                <th class="sortable" data-sort="credits" data-type="num">Credits</th>
+                <th class="sortable" data-sort="tx" data-type="num">Transactions</th>
+                <th class="sortable" data-sort="status" data-type="num">Status</th>
+                <th class="sortable sort-desc" data-sort="created" data-type="num">Registered At</th>
                 <th>Actions</th>
               </tr>
             </thead>
-            <tbody>
-              <% users.forEach(u => { %>
-                <tr>
+            <tbody id="usersTbody">
+              <% users.forEach(u => {
+                   const created = new Date(u.created_at);
+                   const txCount = Number(u.tx_count) || 0;
+              %>
+                <tr class="user-row"
+                    data-username="<%= u.username.toLowerCase() %>"
+                    data-email="<%= (u.email || '').toLowerCase() %>"
+                    data-credits="<%= u.credits !== null ? u.credits : 1000 %>"
+                    data-tx="<%= txCount %>"
+                    data-status="<%= u.is_active ? 1 : 0 %>"
+                    data-created="<%= created.getTime() %>"
+                    data-date="<%= created.toISOString().slice(0,10) %>">
                   <td>
                     <input type="checkbox" name="ids" value="<%= u.id %>" class="row-check"
                       style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent-color);" />
@@ -67,9 +106,16 @@
                   <td class="text-sm"><%= u.email %></td>
                   <td><strong style="color: var(--accent-color);"><%= u.credits !== null ? u.credits : 1000 %></strong></td>
                   <td>
+                    <% if (txCount > 0) { %>
+                      <a href="/sitehandler/users/<%= u.id %>/transactions" class="badge badge--count"><%= txCount %></a>
+                    <% } else { %>
+                      <span class="text-dim">0</span>
+                    <% } %>
+                  </td>
+                  <td>
                     <span class="badge <%= u.is_active ? 'badge--active' : 'badge--inactive' %>"><%= u.is_active ? 'Active' : 'Inactive' %></span>
                   </td>
-                  <td class="text-sm text-dim"><%= new Date(u.created_at).toLocaleDateString() %> <%= new Date(u.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) %></td>
+                  <td class="text-sm text-dim"><%= created.toLocaleDateString() %> <%= created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) %></td>
                   <td>
                     <div class="action-btns">
                       <a href="/sitehandler/users/<%= u.id %>/transactions" class="action-btn">Transactions</a>
@@ -86,6 +132,28 @@
               <% }) %>
             </tbody>
           </table>
+
+          <!-- No-results (filtered) placeholder -->
+          <div id="usersEmpty" class="table-empty" style="display:none;">
+            No players match the current filters.
+          </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="table-footer" id="usersPager">
+          <div class="table-summary" id="usersSummary"></div>
+          <div class="pager-controls">
+            <label class="filter-label">Rows</label>
+            <select id="pageSize" class="filter-select">
+              <option value="10">10</option>
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+            <button type="button" id="pagePrev" class="pager-btn">Prev</button>
+            <span id="pageInfo" class="table-summary"></span>
+            <button type="button" id="pageNext" class="pager-btn">Next</button>
+          </div>
         </div>
       </form>
     <% } else { %>
@@ -99,6 +167,7 @@
   </main>
 </div>
 <script src="/sitehandler/js/admin.js"></script>
+<script src="/sitehandler/js/users-table.js"></script>
 <script>
 (function () {
   const selectAll = document.getElementById('selectAll');
@@ -119,14 +188,19 @@
     selectAll.checked       = checked.length === total;
   }
 
+  // Only (de)select rows currently visible after filtering/pagination.
   selectAll.addEventListener('change', () => {
-    document.querySelectorAll('.row-check').forEach(cb => cb.checked = selectAll.checked);
+    document.querySelectorAll('.user-row:not(.filtered-out):not(.paged-out) .row-check')
+      .forEach(cb => cb.checked = selectAll.checked);
     updateToolbar();
   });
 
   document.querySelectorAll('.row-check').forEach(cb => {
     cb.addEventListener('change', updateToolbar);
   });
+
+  // Expose so the datatable can refresh the toolbar after re-paging.
+  window.__updateBulkToolbar = updateToolbar;
 })();
 </script>
 </body>
