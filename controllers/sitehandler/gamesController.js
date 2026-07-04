@@ -184,6 +184,9 @@ exports.postUpdate = async (req, res) => {
     tags
   } = req.body;
   try {
+    const [prevRows] = await db.query('SELECT is_active FROM games WHERE id = ?', [id]);
+    const wasActive  = prevRows.length ? !!prevRows[0].is_active : false;
+
     const base = slugify(title);
     const slug = await uniqueSlug(base, parseInt(id));
     await db.query(
@@ -213,6 +216,13 @@ exports.postUpdate = async (req, res) => {
     if (tagIds.length > 0) {
       const values = tagIds.map(tId => [id, tId]);
       await db.query('INSERT INTO game_tags (game_id, tag_id) VALUES ?', [values]);
+    }
+
+    // Game published via the edit form (inactive → active): push to all users
+    // + "your game is live" email to the submitting developer
+    if (!wasActive && is_active === 'on') {
+      const { announceGameLive } = require('../../utils/gameLive');
+      announceGameLive(parseInt(id), req.session.admin?.id || null);
     }
 
     req.flash('success_msg', 'Game details updated.');
@@ -392,24 +402,16 @@ exports.postUploadPromotionalImage = async (req, res) => {
 // ── POST /sitehandler/games/:id/toggle ──────────────────────────────────────
 exports.postToggle = async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT title, thumbnail_url, is_active FROM games WHERE id = ?', [req.params.id]);
+    const [rows] = await db.query('SELECT is_active FROM games WHERE id = ?', [req.params.id]);
     if (!rows.length) { req.flash('error_msg', 'Game not found.'); return res.redirect('/sitehandler/games'); }
 
     await db.query('UPDATE games SET is_active = NOT is_active WHERE id = ?', [req.params.id]);
 
-    // When a game goes from inactive → active (published), send a push to all users
+    // When a game goes from inactive → active (published), push to all users
+    // + "your game is live" email to the submitting developer
     if (!rows[0].is_active) {
-      const { sendAndSaveNotification } = require('../../utils/fcm');
-      const gameTitle = rows[0].title;
-      sendAndSaveNotification({
-        type:     'new_game',
-        title:    '🎮 New game on Play Mist!',
-        body:     `"${gameTitle}" is now available. Tap to play!`,
-        imageUrl: rows[0].thumbnail_url || null,
-        gameId:   parseInt(req.params.id),
-        sentBy:   req.session.admin?.id || null,
-        data:     { type: 'new_game', game_id: req.params.id },
-      }).catch(e => console.error('FCM push error:', e));
+      const { announceGameLive } = require('../../utils/gameLive');
+      announceGameLive(parseInt(req.params.id), req.session.admin?.id || null);
     }
 
     res.redirect('/sitehandler/games');

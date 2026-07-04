@@ -31,10 +31,22 @@ function getMessaging() {
   }
 }
 
+// FCM can only fetch absolute http(s) URLs. Legacy rows store local paths
+// like /images/foo.png — resolve those against BASE_URL, drop anything else.
+function normalizeImageUrl(url) {
+  if (!url) return null;
+  const u = String(url).trim();
+  if (/^https?:\/\//i.test(u)) return u;
+  const base = (process.env.BASE_URL || '').replace(/\/+$/, '');
+  if (u.startsWith('/') && base) return base + u;
+  return null;
+}
+
 // Send to all stored device tokens (multicast, max 500 per batch)
 // Returns the number of tokens targeted.
 exports.sendBroadcast = async ({ title, body, imageUrl, data = {} }) => {
   const m = getMessaging();
+  imageUrl = normalizeImageUrl(imageUrl);
 
   // Always fetch the real token count from DB
   let tokenRows = [];
@@ -75,8 +87,22 @@ exports.sendBroadcast = async ({ title, body, imageUrl, data = {} }) => {
           ...(imageUrl ? { imageUrl } : {}),
         },
         data: stringData,
-        android: { priority: 'high' },
-        apns:    { payload: { aps: { sound: 'default', badge: 1 } } },
+        android: {
+          priority: 'high',
+          // Image must also be set here for Android to render BigPicture
+          notification: imageUrl ? { imageUrl } : {},
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+              badge: 1,
+              // Required so the iOS notification service extension can attach the image
+              ...(imageUrl ? { 'mutable-content': 1 } : {}),
+            },
+          },
+          ...(imageUrl ? { fcmOptions: { imageUrl } } : {}),
+        },
       });
 
       sent += result.successCount;
@@ -105,6 +131,38 @@ exports.sendBroadcast = async ({ title, body, imageUrl, data = {} }) => {
 
   console.log(`FCM: sent ${sent}/${tokens.length} successfully`);
   return tokens.length;
+};
+
+// Push to all users when a game goes live (inactive → active).
+// Uses the secondary thumbnail as the notification image (falls back to primary).
+exports.sendGameLiveNotification = async (gameId, sentBy = null) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT id, title, genre, short_description, secondary_thumbnail, thumbnail_url
+       FROM games WHERE id = ?`,
+      [gameId]
+    );
+    if (!rows.length) return null;
+
+    const g    = rows[0];
+    const desc = (g.short_description || '').trim();
+    const body = desc
+      ? `${desc.slice(0, 140)}${desc.length > 140 ? '…' : ''} Tap to play now!`
+      : `"${g.title}"${g.genre ? ` — a new ${g.genre} game` : ''} just landed on Play Mist. Tap to play now!`;
+
+    return await exports.sendAndSaveNotification({
+      type:     'new_game',
+      title:    `🎮 ${g.title} is now live!`,
+      body,
+      imageUrl: g.secondary_thumbnail || g.thumbnail_url || null,
+      gameId:   g.id,
+      sentBy,
+      data:     { type: 'new_game', game_id: g.id },
+    });
+  } catch (err) {
+    console.error('sendGameLiveNotification error:', err.message);
+    return null;
+  }
 };
 
 // Save a notification record to DB and fire the broadcast

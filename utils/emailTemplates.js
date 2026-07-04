@@ -112,6 +112,43 @@ exports.verificationCode = ({ name, code }) => wrap(`
   </tr>
 `);
 
+exports.gameLive = ({ name, gameTitle, gameUrl }) => wrap(`
+  <tr>
+    <td style="padding:32px 40px 16px;">
+      <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#f9fafb;">🎉 Your game is live!</h1>
+      <p style="margin:0;font-size:15px;color:#9ca3af;line-height:1.6;">Hi <strong style="color:#e5e7eb">${name}</strong>, great news — <strong style="color:#B5FF6B">${gameTitle}</strong> has just gone live on ${APP_NAME()} and is now ready to play.</p>
+    </td>
+  </tr>
+
+  <!-- Game link block -->
+  <tr>
+    <td align="center" style="padding:24px 40px;">
+      <table cellpadding="0" cellspacing="0" role="presentation" style="background:#1e1e2e;border:1px solid rgba(181,255,107,.3);border-radius:12px;width:100%;">
+        <tr>
+          <td align="center" style="padding:28px 24px;">
+            <p style="margin:0 0 16px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">Your game's page</p>
+            <a href="${gameUrl}" style="display:inline-block;background:#B5FF6B;color:#1a1d24;text-decoration:none;font-size:14px;font-weight:700;padding:12px 28px;border-radius:8px;">Play ${gameTitle}</a>
+            <p style="margin:16px 0 0;font-size:13px;line-height:1.6;word-break:break-all;">
+              <a href="${gameUrl}" style="color:#B5FF6B;text-decoration:none;">${gameUrl}</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:0 40px 32px;">
+      <p style="margin:0 0 12px;font-size:14px;color:#6b7280;line-height:1.6;">
+        Share this link with your community and players — anyone can open it to see your game's page and start playing right away.
+      </p>
+      <p style="margin:0;font-size:13px;color:#4b5563;">
+        Thank you for building with ${APP_NAME()}. We can't wait to see how players enjoy it!
+      </p>
+    </td>
+  </tr>
+`);
+
 exports.resetPasswordCode = ({ name, code }) => wrap(`
   <tr>
     <td style="padding:32px 40px 16px;">
