@@ -9,8 +9,9 @@
 #   4. tag           — bookmark the currently-running commit (deploy-YYYYMMDD-HHMMSS)
 #   5. update        — git reset --hard origin/main (+ npm install if the lockfile changed)
 #   6. restart       — pm2 restart playmist
-#   7. health check  — poll /api/health (200 = app up AND database reachable)
-#   8. auto-rollback — if the health check fails, return to the tagged commit and re-verify
+#   7. verify        — poll /api/health until the app is up, then run the full
+#                      smoke test (scripts/smoke-test.js) across every critical path
+#   8. auto-rollback — if verification fails, return to the tagged commit and re-verify
 #
 # Usage (from anywhere):  ssh cgpixels-vps 'bash /var/www/play_mist/scripts/deploy.sh'
 # Everything is logged to /var/www/play_mist/deploy.log
@@ -51,6 +52,12 @@ health_ok() {
     log "   health check $i/$HEALTH_TRIES: got ${code:-no-response}, retrying…"
   done
   return 1
+}
+
+verify_app() {
+  health_ok || { log "   app never came up on $HEALTH_URL"; return 1; }
+  log "App is up — running smoke test across critical paths…"
+  node "$APP_DIR/scripts/smoke-test.js"
 }
 
 main() {
@@ -99,28 +106,28 @@ main() {
   log "Restarting pm2 app '$PM2_APP'…"
   pm2 restart "$PM2_APP" --update-env >/dev/null
 
-  # 7) Health check.
-  log "Waiting for $HEALTH_URL to return 200…"
-  if health_ok; then
-    log "✅ DEPLOY SUCCEEDED — ${NEW_SHA:0:7} is live and healthy (rollback tag: $TAG)"
+  # 7) Verify: health check + full smoke test.
+  log "Waiting for $HEALTH_URL to come up…"
+  if verify_app; then
+    log "✅ DEPLOY SUCCEEDED — ${NEW_SHA:0:7} is live, healthy, and passed the smoke test (rollback tag: $TAG)"
     exit 0
   fi
 
   # 8) Auto-rollback.
-  log "❌ Health check failed — ROLLING BACK to ${OLD_SHA:0:7} ($TAG)"
+  log "❌ Verification failed — ROLLING BACK to ${OLD_SHA:0:7} ($TAG)"
   git reset --hard "$OLD_SHA"
   if [ "$LOCK_CHANGED" = "1" ]; then
     npm install --omit=dev --no-audit --no-fund || log "⚠️ npm install failed during rollback — continuing anyway"
   fi
   pm2 restart "$PM2_APP" --update-env >/dev/null
 
-  if health_ok; then
-    log "✅ ROLLBACK SUCCEEDED — previous version ${OLD_SHA:0:7} is live again."
+  if verify_app; then
+    log "✅ ROLLBACK SUCCEEDED — previous version ${OLD_SHA:0:7} is live again and passed the smoke test."
     log "   The new code was NOT deployed. Debug it with: pm2 logs $PM2_APP --lines 100"
     exit 1
   fi
 
-  log "🚨 EMERGENCY: rollback ALSO failed its health check. The app may be down."
+  log "🚨 EMERGENCY: rollback ALSO failed verification. The app may be down or degraded."
   log "   1. Check logs:      pm2 logs $PM2_APP --lines 200"
   log "   2. Check process:   pm2 status"
   log "   3. DB backups live in R2 under playmist_data_backup/ (one was taken at the start of this deploy)"
