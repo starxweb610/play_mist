@@ -141,3 +141,4 @@ firebase-service-account.json
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+.smoke-state
