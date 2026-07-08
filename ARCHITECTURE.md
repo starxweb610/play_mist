@@ -101,7 +101,7 @@ db/playmist.sql         ⚠ historical snapshot — the live schema is defined b
 - **Durable identity via Google Play Games** (`POST /api/v1/auth/gpgs`): the app exchanges a PGS server auth code; `utils/gpgs.js` verifies it with Google and anchors the account to `gpgs_player_id`, so users survive reinstalls/device changes. (Built June 2026; needs Play Console OAuth config to be fully live.)
 - **Web QR pairing** (`/auth/web-link/*`): a browser requests a short-lived code, shows a QR; the phone app scans and approves it; the browser polls until it receives the same user's tokens.
 - A dead refresh token (4xx) means "re-register"; network/5xx means "keep session, retry" — the app distinguishes these deliberately.
-- **Voluntary email linking** (`controllers/api/profileApi.js`): users may link an email from Profile Settings — 6-digit OTP (SHA-256 stored, 10-min expiry, 60s resend cooldown, 5 attempts) mailed via the shared mailer, verified emails unique across accounts (blocks reward farming). First verification grants the **"The Activist"** achievement (500 XP + 300 credits, once per account). Registration stubs (`<username>@playmist.local`) are never exposed to clients. Same controller: display name/bio updates and custom avatar upload (jpeg/png/webp ≤5 MB → R2 `avatars/`, replaces previous custom upload).
+- **Voluntary email linking** (`controllers/api/profileApi.js`): users may link an email from Profile Settings — 6-digit OTP (SHA-256 stored, 10-min expiry, 60s resend cooldown, 5 attempts) mailed via the shared mailer, verified emails unique across accounts (blocks reward farming). First verification grants the **"The Activist"** achievement (500 XP + 300 credits, once per account). Registration stubs (`<username>@playmist.local`) are never exposed to clients. Same controller: display name/bio updates and custom avatar upload (jpeg/png/webp ≤5 MB → R2 `avatars/`, replaces previous custom upload). **Avatar precedence:** a custom-uploaded picture (R2 `avatars/` prefix) always wins — the PGS portrait syncs in `gpgsAuth` and `gpgsSyncAvatar` (the latter runs silently on every app open) skip accounts with a custom avatar.
 
 ### 4.2 Developer & admin identity
 
@@ -175,7 +175,7 @@ React 18 + Vite, **no router library and no state library** — navigation is pl
 |---|---|
 | `WebGLPlayerPlugin` | manages downloaded game files; starts a **local HTTP server on :8765** serving an extracted game build |
 | `GameViewerPlugin` (+ `GameViewerActivity`) | opens a fullscreen native WebView pointed at the local server, with orientation lock |
-| `GamesSignInPlugin` | Google Play Games sign-in → server auth code for §4.1; also `submitScore`/`showLeaderboard` for the global XP leaderboard (native PGS overlay, opened from Profile & Settings → Compete; lifetime XP auto-submitted whenever `xp` changes in AppContext; needs `VITE_GPGS_LEADERBOARD_ID`) |
+| `GamesSignInPlugin` | Google Play Games sign-in → server auth code for §4.1; also `submitScore`/`showLeaderboard` for the global XP leaderboard (native PGS overlay, opened from Profile & Settings → Compete; lifetime XP auto-submitted whenever `xp` changes in AppContext — with a brief auth-settle poll, since PGS v2 auto-auth finishes *after* boot; opening the board re-submits current XP as a self-heal; needs `VITE_GPGS_LEADERBOARD_ID`) |
 
 ### 6.2 Screen & state model
 
@@ -243,6 +243,7 @@ ssh cgpixels-vps 'bash /var/www/play_mist/scripts/deploy.sh'
 
 - **Smoke test** (`scripts/smoke-test.js`, `npm run smoke-test`): 15 checks across every critical path — health (parses `body.status`; note `/api/health` returns HTTP 200 even on DB errors), site pages, register → refresh → catalog → profile → check-in → daily pick/challenge → **credit deduction with exact balance math** → thumbnail from R2 → notifications. Uses a throwaway `smoketest_*` user, deleted afterwards. On the VPS it targets `https://playmist.app` (full nginx/TLS path).
 - **Hourly monitor** (`scripts/smoke-monitor.js`, cron `17 * * * *` in the deploy user's crontab): runs the smoke test; a failure is confirmed by a 30s-later retry, then emailed to `ALERT_EMAIL` (default i.motionveda@gmail.com) with one recovery email when it passes again. Log: `smoke-monitor.log`.
+- **App CI** (gaming_app repo, `.github/workflows/ci.yml`): every push runs `npm ci && npm run lint && npm test && npm run build` on GitHub Actions. Lint errors fail the run (warnings don't); a CI failure email means a real problem. Run the same three commands locally before pushing.
 
 ### 7.3 Backups & restore
 
