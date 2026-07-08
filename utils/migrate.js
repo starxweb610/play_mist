@@ -57,6 +57,11 @@ exports.runMigrations = async () => {
     await migrateColumn('users', 'current_streak',  'INT DEFAULT 0 AFTER level');
     await migrateColumn('users', 'longest_streak',  'INT DEFAULT 0 AFTER current_streak');
     await migrateColumn('users', 'last_streak_date','DATE DEFAULT NULL AFTER longest_streak');
+    // Profile settings: editable display identity (handle stays immutable)
+    await migrateColumn('users', 'display_name',    'VARCHAR(80) DEFAULT NULL AFTER username');
+    await migrateColumn('users', 'bio',             'VARCHAR(200) DEFAULT NULL AFTER display_name');
+    // Voluntary verified email — registration only sets a <username>@playmist.local stub
+    await migrateColumn('users', 'email_verified',  'TINYINT(1) DEFAULT 0 AFTER email');
 
     // ── credit_transactions ───────────────────────────────────────────────────
     await db.query(`
@@ -120,7 +125,22 @@ exports.runMigrations = async () => {
       ('first_premium',   'Premium Taste',       'Play a premium game for the first time', 200, 100),
       ('daily_pick',      'Today''s Pick',       'Play the daily free game',               50,  25),
       ('challenge_first', 'Challenge Accepted',  'Complete your first daily challenge',    100, 50),
-      ('challenge_7',     'Challenger',          'Complete 7 daily challenges',            300, 200)
+      ('challenge_7',     'Challenger',          'Complete 7 daily challenges',            300, 200),
+      ('email_verified',  'The Activist',        'Link and verify your email address',     500, 300)
+    `);
+
+    // ── user_email_otps (profile email verification) ─────────────────────────
+    // One active OTP per user; resend overwrites. Codes stored as SHA-256.
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_email_otps (
+        user_id      INT PRIMARY KEY,
+        email        VARCHAR(255) NOT NULL,
+        code_hash    CHAR(64)     NOT NULL,
+        attempts     INT          DEFAULT 0,
+        expires_at   DATETIME     NOT NULL,
+        last_sent_at DATETIME     NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
     `);
 
     await db.query(`

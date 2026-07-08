@@ -50,6 +50,13 @@ const uploadImage = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
 
+// ── Player avatar (in-memory, 5 MB) ──────────────────────────────────────────
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: imageFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+});
+
 // ── Screenshots uploader (multiple files, in-memory) ───────────────────────────
 const uploadScreenshots = multer({
   storage: multer.memoryStorage(),
@@ -100,4 +107,4 @@ const developerDocImage = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
 
-module.exports = { upload, uploadImage, uploadScreenshots, developerUpload, developerThumbnail, developerDoc, developerSketch, developerDocImage };
+module.exports = { upload, uploadImage, avatarUpload, uploadScreenshots, developerUpload, developerThumbnail, developerDoc, developerSketch, developerDocImage };

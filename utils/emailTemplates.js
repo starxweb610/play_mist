@@ -78,6 +78,40 @@ function statusBadge(status) {
 
 // ── Templates ─────────────────────────────────────────────────────────────────
 
+exports.playerEmailOtp = ({ name, code }) => wrap(`
+  <tr>
+    <td style="padding:32px 40px 16px;">
+      <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#f9fafb;">Link your email</h1>
+      <p style="margin:0;font-size:15px;color:#9ca3af;line-height:1.6;">Hi <strong style="color:#e5e7eb">${name}</strong>, use the code below to link this email address to your ${APP_NAME()} account.</p>
+    </td>
+  </tr>
+
+  <!-- Code block -->
+  <tr>
+    <td align="center" style="padding:24px 40px;">
+      <table cellpadding="0" cellspacing="0" role="presentation" style="background:#1e1e2e;border:1px solid rgba(181,255,107,.3);border-radius:12px;width:100%;max-width:320px;">
+        <tr>
+          <td align="center" style="padding:28px 24px;">
+            <p style="margin:0 0 8px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">Verification Code</p>
+            <p style="margin:0;font-size:48px;font-weight:800;letter-spacing:12px;color:#B5FF6B;font-family:'Courier New',monospace;">${code}</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:0 40px 32px;">
+      <p style="margin:0 0 12px;font-size:14px;color:#6b7280;line-height:1.6;">
+        This code expires in <strong style="color:#9ca3af">10 minutes</strong>. Verifying unlocks <strong style="color:#B5FF6B">The Activist</strong> — 500 XP and 300 credits.
+      </p>
+      <p style="margin:0;font-size:13px;color:#4b5563;">
+        If you didn't request this from the ${APP_NAME()} app, please ignore this email.
+      </p>
+    </td>
+  </tr>
+`);
+
 exports.verificationCode = ({ name, code }) => wrap(`
   <tr>
     <td style="padding:32px 40px 16px;">

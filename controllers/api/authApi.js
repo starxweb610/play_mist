@@ -368,7 +368,8 @@ exports.getProfile = async (req, res) => {
   try {
     const userId = req.user.id;
     const [rows] = await db.query(
-      `SELECT id, username, email, credits, xp, level, avatar,
+      `SELECT id, username, display_name, bio, email, email_verified,
+              credits, xp, level, avatar,
               current_streak, longest_streak, last_streak_date
        FROM users WHERE id = ?`,
       [userId]
@@ -385,7 +386,12 @@ exports.getProfile = async (req, res) => {
     return res.json({
       id:            u.id,
       username:      u.username,
-      email:         u.email,
+      displayName:   u.display_name || null,
+      bio:           u.bio || null,
+      // Registration stores a <username>@playmist.local stub — only a
+      // verified, user-entered address is ever exposed to the client.
+      email:         u.email_verified ? u.email : null,
+      emailVerified: !!u.email_verified,
       credits:       u.credits,
       xp:            u.xp    ?? 0,
       level:         u.level ?? 1,

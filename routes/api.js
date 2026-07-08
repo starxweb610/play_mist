@@ -21,7 +21,14 @@ const dailyPickApi      = require('../controllers/api/dailyPickApi');
 const achievementsApi   = require('../controllers/api/achievementsApi');
 const challengeApi      = require('../controllers/api/challengeApi');
 const notificationsApi  = require('../controllers/api/notificationsApi');
+const profileApi        = require('../controllers/api/profileApi');
 const { verifyJwt }     = require('../middleware/auth');
+const { avatarUpload }  = require('../config/upload');
+
+// Multer errors (size cap, wrong type) must surface as clean 400s, not 500s.
+const avatarUploadGuard = (req, res, next) =>
+  avatarUpload.single('avatar')(req, res, (err) =>
+    err ? res.status(400).json({ error: err.message }) : next());
 
 // ─── /api/v1 routes (Unity client & React client) ────────────────────────────
 
@@ -56,6 +63,12 @@ v1Router.get('/user/profile',       verifyJwt, authApi.getProfile);
 v1Router.get('/user/transactions',  verifyJwt, authApi.getTransactions);
 v1Router.post('/user/deduct-credits', verifyJwt, authApi.deductCredits);
 v1Router.get('/user/tickets',       verifyJwt, ticketsApi.getUserTickets);
+
+// Profile settings: display name/bio, custom avatar, voluntary email linking
+v1Router.post('/user/profile/update',   verifyJwt, profileApi.updateProfile);
+v1Router.post('/user/avatar',           verifyJwt, avatarUploadGuard, profileApi.uploadAvatar);
+v1Router.post('/user/email/send-otp',   verifyJwt, profileApi.sendEmailOtp);
+v1Router.post('/user/email/verify-otp', verifyJwt, profileApi.verifyEmailOtp);
 v1Router.get('/user/achievements',  verifyJwt, achievementsApi.getUserAchievements);
 
 // Streak / daily check-in

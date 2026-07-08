@@ -125,6 +125,17 @@ async function main() {
       expect(res.status === 200, `HTTP ${res.status}`);
     });
 
+    await check('Profile settings update', async () => {
+      const res = await request('/api/v1/user/profile/update', {
+        method: 'POST',
+        headers: authed(accessToken),
+        body: JSON.stringify({ displayName: 'Smoke Tester', bio: 'smoke-test bio' }),
+      });
+      expect(res.status === 200, `HTTP ${res.status}`);
+      const body = await res.json();
+      expect(body.displayName === 'Smoke Tester', `displayName came back as "${body.displayName}"`);
+    });
+
     await check('Daily check-in (streak)', async () => {
       const res = await request('/api/v1/user/daily-checkin', {
         method: 'POST',
