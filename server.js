@@ -1,4 +1,3 @@
-throw new Error('DELIBERATE ROLLBACK TEST — this commit is reverted immediately after the deploy.sh rollback rehearsal');
 require('dotenv').config();
 
 process.on('uncaughtException', (err) => {
