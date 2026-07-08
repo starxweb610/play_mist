@@ -6,10 +6,10 @@
 
 Playmist is a mobile gaming platform: one Android app containing a catalog of web-technology games, glued together by a shared identity, a credits economy, daily engagement loops, and a developer portal that lets external studios submit games. Two codebases:
 
-| Codebase | Path | What it is |
-|---|---|---|
-| **Backend** (`play_mist`) | `gaming_backend/play_mist` | Node/Express monolith: mobile API, public website, developer portal, admin panel, MySQL, R2 storage |
-| **Mobile app** (`gaming_app`) | `gaming_app` | React 18 + Vite web app wrapped in Capacitor 6 for Android, with custom Kotlin plugins for game playback |
+| Codebase | Path | GitHub | What it is |
+|---|---|---|---|
+| **Backend** (`play_mist`) | `gaming_backend/play_mist` | `starxweb610/play_mist` | Node/Express monolith: mobile API, public website, developer portal, admin panel, MySQL, R2 storage |
+| **Mobile app** (`gaming_app`) | `gaming_app` | `starxweb610/playmist_app` | React 18 + Vite web app wrapped in Capacitor 6 for Android, with custom Kotlin plugins for game playback |
 
 ---
 
