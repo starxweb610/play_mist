@@ -26,7 +26,7 @@
     if (!isMobile()) return;
     if (sidebar.classList.contains('mobile-open') &&
         !sidebar.contains(e.target) &&
-        e.target !== toggle) {
+        !toggle.contains(e.target)) {
       sidebar.classList.remove('mobile-open');
     }
   });
