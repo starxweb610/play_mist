@@ -101,6 +101,7 @@ db/playmist.sql         ⚠ historical snapshot — the live schema is defined b
 - **Durable identity via Google Play Games** (`POST /api/v1/auth/gpgs`): the app exchanges a PGS server auth code; `utils/gpgs.js` verifies it with Google and anchors the account to `gpgs_player_id`, so users survive reinstalls/device changes. (Built June 2026; needs Play Console OAuth config to be fully live.)
 - **Web QR pairing** (`/auth/web-link/*`): a browser requests a short-lived code, shows a QR; the phone app scans and approves it; the browser polls until it receives the same user's tokens.
 - A dead refresh token (4xx) means "re-register"; network/5xx means "keep session, retry" — the app distinguishes these deliberately.
+- **Voluntary email linking** (`controllers/api/profileApi.js`): users may link an email from Profile Settings — 6-digit OTP (SHA-256 stored, 10-min expiry, 60s resend cooldown, 5 attempts) mailed via the shared mailer, verified emails unique across accounts (blocks reward farming). First verification grants the **"The Activist"** achievement (500 XP + 300 credits, once per account). Registration stubs (`<username>@playmist.local`) are never exposed to clients. Same controller: display name/bio updates and custom avatar upload (jpeg/png/webp ≤5 MB → R2 `avatars/`, replaces previous custom upload).
 
 ### 4.2 Developer & admin identity
 
@@ -110,7 +111,7 @@ Classic email+password with bcrypt, stored server-side in express-session. Devel
 
 | Group | Tables | Notes |
 |---|---|---|
-| Players | `users` | username, email stub, `credits` (default 1000), `xp`, `level`, `current_streak`, `longest_streak`, `last_streak_date`, avatar, `gpgs_player_id` |
+| Players | `users`, `user_email_otps` | username (immutable), `display_name`, `bio`, email (+`email_verified`), `credits` (default 1000), `xp`, `level`, `current_streak`, `longest_streak`, `last_streak_date`, avatar, `gpgs_player_id`; OTP table holds one pending email code per user |
 | Economy | `credit_transactions` | every credit movement; `source` ∈ game/ad/streak/achievement/challenge/welcome/other; negative `credits_used` = credits granted |
 | Catalog | `games`, `genres`, `tags`, `game_tags`, `game_screenshots`, `game_ratings` | `games.type` ∈ webgl (mini) / premium; `credits_cost`, `zip_url`, `size_bytes` auto-computed from the uploaded ZIP |
 | Engagement | `daily_picks`, `daily_challenges`, `user_challenge_completions`, `achievements`, `user_achievements` | challenge auto-generated per weekday; achievements seeded in `/api/health` |
@@ -185,7 +186,8 @@ SplashScreen → SetupUserScreen (auto-registration) → OnboardingScreen
   → GamePlayerScreen (if a game is active, fullscreen)
   → active tab: Dashboard | PremiumTab | MiniTab | MyGamesTab   (BottomNav)
       + overlay: GameDetailScreen
-      + modals: profile, wallet, search, support, launch-confirm, web-link,
+      + modals: profile, profile-settings (name/bio/avatar/email-OTP form),
+        wallet, search, support, launch-confirm, web-link,
         rate-game, download, out-of-credits, no-internet, welcome-bonus,
         transactions-history, see-all lists
       + achievement-unlock banner, Toast
@@ -239,7 +241,7 @@ ssh cgpixels-vps 'bash /var/www/play_mist/scripts/deploy.sh'
 
 ### 7.2 Verification & monitoring
 
-- **Smoke test** (`scripts/smoke-test.js`, `npm run smoke-test`): 14 checks across every critical path — health (parses `body.status`; note `/api/health` returns HTTP 200 even on DB errors), site pages, register → refresh → catalog → profile → check-in → daily pick/challenge → **credit deduction with exact balance math** → thumbnail from R2 → notifications. Uses a throwaway `smoketest_*` user, deleted afterwards. On the VPS it targets `https://playmist.app` (full nginx/TLS path).
+- **Smoke test** (`scripts/smoke-test.js`, `npm run smoke-test`): 15 checks across every critical path — health (parses `body.status`; note `/api/health` returns HTTP 200 even on DB errors), site pages, register → refresh → catalog → profile → check-in → daily pick/challenge → **credit deduction with exact balance math** → thumbnail from R2 → notifications. Uses a throwaway `smoketest_*` user, deleted afterwards. On the VPS it targets `https://playmist.app` (full nginx/TLS path).
 - **Hourly monitor** (`scripts/smoke-monitor.js`, cron `17 * * * *` in the deploy user's crontab): runs the smoke test; a failure is confirmed by a 30s-later retry, then emailed to `ALERT_EMAIL` (default i.motionveda@gmail.com) with one recovery email when it passes again. Log: `smoke-monitor.log`.
 
 ### 7.3 Backups & restore
@@ -277,6 +279,7 @@ ssh cgpixels-vps 'bash /var/www/play_mist/scripts/deploy.sh'
 | change what a game costs / launch behavior | `controllers/api/authApi.js` (`deductCredits`) + app `components/LaunchModal.jsx` |
 | tune streak / challenge / achievement rewards | `controllers/api/streakApi.js`, `challengeApi.js`, `utils/achievements.js` (+ seeds in `routes/api.js` health) |
 | add/modify a mobile API endpoint | `routes/api.js` → controller in `controllers/api/` → client call in app `src/services/api.js` |
+| change profile settings / email linking / avatar rules | `controllers/api/profileApi.js` + app `src/screens/ProfileSettingsScreen.jsx` |
 | change the app's screens/flow | `src/App.jsx` (render precedence) + `src/context/AppContext.jsx` (state) |
 | touch the developer portal or admin panel | `routes/developer.js` / `routes/sitehandler.js` + matching controllers + `views/` |
 | change the DB schema | add an idempotent step in `utils/migrate.js`; restart applies it (never edit `db/playmist.sql` and expect effect) |
