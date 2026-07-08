@@ -218,6 +218,53 @@ exports.gpgsAuth = async (req, res) => {
   }
 };
 
+// POST /api/v1/auth/gpgs/avatar — refresh the Play Games portrait for an
+// already-authenticated session. /auth/gpgs (the only other place the avatar
+// is fetched from Google) runs solely at onboarding, so accounts created
+// before the avatar sync — or players who later change their portrait — need
+// this lightweight path. It never re-issues tokens and only touches the row
+// when the verified player is this account's anchor.
+exports.gpgsSyncAvatar = async (req, res) => {
+  try {
+    const { authCode } = req.body;
+    if (!authCode) {
+      return res.status(400).json({ error: 'authCode is required' });
+    }
+
+    let playerId, avatarUrl;
+    try {
+      ({ playerId, avatarUrl } = await verifyServerAuthCode(authCode));
+    } catch (err) {
+      if (err instanceof GpgsError) {
+        const status = err.reason === 'config'  ? 503
+                     : err.reason === 'network' ? 502
+                     : 401;
+        return res.status(status).json({ error: err.message, reason: err.reason });
+      }
+      throw err;
+    }
+
+    const [rows] = await db.query(
+      'SELECT gpgs_player_id, avatar FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'User not found' });
+    if (rows[0].gpgs_player_id !== playerId) {
+      // The signed-in Play Games player isn't this account's anchor — never
+      // cross-pollinate portraits between identities.
+      return res.status(409).json({ error: 'Play Games player does not match this account' });
+    }
+
+    if (avatarUrl && avatarUrl !== rows[0].avatar) {
+      await db.query('UPDATE users SET avatar = ? WHERE id = ?', [avatarUrl, req.user.id]);
+    }
+    return res.json({ avatar: avatarUrl || rows[0].avatar || null });
+  } catch (err) {
+    console.error('gpgsSyncAvatar error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
 // ── Web QR pairing ──────────────────────────────────────────────────────────
 // The web build is an anonymous guest until it claims the phone's PGS-anchored
 // identity. Web asks for a short-lived link code (rendered as a QR); the phone
