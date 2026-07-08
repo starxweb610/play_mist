@@ -147,9 +147,9 @@ exports.gpgsAuth = async (req, res) => {
     }
 
     // Verify with Google → authoritative player identity (never trust the client).
-    let playerId, displayName;
+    let playerId, displayName, avatarUrl;
     try {
-      ({ playerId, displayName } = await verifyServerAuthCode(authCode));
+      ({ playerId, displayName, avatarUrl } = await verifyServerAuthCode(authCode));
     } catch (err) {
       if (err instanceof GpgsError) {
         const status = err.reason === 'config'  ? 503
@@ -161,7 +161,7 @@ exports.gpgsAuth = async (req, res) => {
     }
 
     const [existing] = await db.query(
-      'SELECT id, username FROM users WHERE gpgs_player_id = ?',
+      'SELECT id, username, avatar FROM users WHERE gpgs_player_id = ?',
       [playerId]
     );
 
@@ -188,8 +188,19 @@ exports.gpgsAuth = async (req, res) => {
       userId = result.insertId;
     }
 
-    const [urows] = await db.query('SELECT credits FROM users WHERE id = ?', [userId]);
+    // Keep the Play Games profile portrait in sync. Best-effort — never fail
+    // auth over an avatar.
+    if (avatarUrl && avatarUrl !== (existing[0]?.avatar ?? null)) {
+      try {
+        await db.query('UPDATE users SET avatar = ? WHERE id = ?', [avatarUrl, userId]);
+      } catch (avErr) {
+        console.warn('gpgsAuth avatar sync failed:', avErr.message);
+      }
+    }
+
+    const [urows] = await db.query('SELECT credits, avatar FROM users WHERE id = ?', [userId]);
     const credits = urows.length ? urows[0].credits : 1000;
+    const avatar  = urows.length ? urows[0].avatar : null;
 
     const accessToken  = jwt.sign({ id: userId, username }, accessSecret,  { expiresIn: '1h' });
     const refreshToken = jwt.sign({ id: userId, username }, refreshSecret, { expiresIn: '7d' });
@@ -197,7 +208,7 @@ exports.gpgsAuth = async (req, res) => {
     return res.json({
       success: true,
       recovered: existing.length > 0,
-      user: { id: userId, username, credits },
+      user: { id: userId, username, credits, avatar },
       accessToken,
       refreshToken,
     });
@@ -251,7 +262,7 @@ exports.webLinkStatus = async (req, res) => {
 
     // Approved → mint tokens once, then consume the code.
     const [urows] = await db.query(
-      'SELECT id, username, credits FROM users WHERE id = ?',
+      'SELECT id, username, credits, avatar FROM users WHERE id = ?',
       [session.user_id]
     );
     if (!urows.length) {
@@ -265,7 +276,7 @@ exports.webLinkStatus = async (req, res) => {
 
     return res.json({
       status: 'approved',
-      user: { id: user.id, username: user.username, credits: user.credits },
+      user: { id: user.id, username: user.username, credits: user.credits, avatar: user.avatar || null },
       accessToken,
       refreshToken,
     });
@@ -310,7 +321,7 @@ exports.getProfile = async (req, res) => {
   try {
     const userId = req.user.id;
     const [rows] = await db.query(
-      `SELECT id, username, email, credits, xp, level,
+      `SELECT id, username, email, credits, xp, level, avatar,
               current_streak, longest_streak, last_streak_date
        FROM users WHERE id = ?`,
       [userId]
@@ -331,6 +342,7 @@ exports.getProfile = async (req, res) => {
       credits:       u.credits,
       xp:            u.xp    ?? 0,
       level:         u.level ?? 1,
+      avatar:        u.avatar || null,
       currentStreak: u.current_streak  ?? 0,
       longestStreak: u.longest_streak  ?? 0,
       claimedToday:  lastDate === today,

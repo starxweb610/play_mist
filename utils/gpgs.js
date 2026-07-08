@@ -27,7 +27,7 @@ class GpgsError extends Error {
 /**
  * Exchange a PGS server auth code for the verified player identity.
  * @param {string} authCode one-time server auth code from the Android client
- * @returns {Promise<{ playerId: string, displayName: string|null }>}
+ * @returns {Promise<{ playerId: string, displayName: string|null, avatarUrl: string|null }>}
  * @throws {GpgsError}
  */
 async function verifyServerAuthCode(authCode) {
@@ -81,6 +81,7 @@ async function verifyServerAuthCode(authCode) {
   return {
     playerId: player.playerId,
     displayName: player.displayName || null,
+    avatarUrl: player.avatarImageUrl || null,
   };
 }
 
