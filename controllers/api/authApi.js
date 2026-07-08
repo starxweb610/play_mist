@@ -9,6 +9,14 @@ const { toLocalDateStr } = require('../../utils/dates');
 const accessSecret = process.env.JWT_SECRET || 'playmist_jwt_access_secret_123';
 const refreshSecret = process.env.JWT_REFRESH_SECRET || 'playmist_jwt_refresh_secret_123';
 
+// A user-uploaded profile picture (stored in our R2 bucket under avatars/)
+// always wins over the Play Games portrait — PGS syncs must never clobber it.
+const isCustomAvatar = (url) => {
+  const { keyFromUrl } = require('../../config/r2');
+  const key = keyFromUrl(url);
+  return !!key && key.startsWith('avatars/');
+};
+
 exports.checkUsername = async (req, res) => {
   try {
     const { username } = req.body;
@@ -189,8 +197,9 @@ exports.gpgsAuth = async (req, res) => {
     }
 
     // Keep the Play Games profile portrait in sync. Best-effort — never fail
-    // auth over an avatar.
-    if (avatarUrl && avatarUrl !== (existing[0]?.avatar ?? null)) {
+    // auth over an avatar, and never overwrite a custom-uploaded picture.
+    if (avatarUrl && avatarUrl !== (existing[0]?.avatar ?? null)
+        && !isCustomAvatar(existing[0]?.avatar)) {
       try {
         await db.query('UPDATE users SET avatar = ? WHERE id = ?', [avatarUrl, userId]);
       } catch (avErr) {
@@ -253,6 +262,12 @@ exports.gpgsSyncAvatar = async (req, res) => {
       // The signed-in Play Games player isn't this account's anchor — never
       // cross-pollinate portraits between identities.
       return res.status(409).json({ error: 'Play Games player does not match this account' });
+    }
+
+    // A custom-uploaded picture always wins — the launch-time PGS portrait
+    // refresh must not clobber it (this runs silently on every app open).
+    if (isCustomAvatar(rows[0].avatar)) {
+      return res.json({ avatar: rows[0].avatar });
     }
 
     if (avatarUrl && avatarUrl !== rows[0].avatar) {
