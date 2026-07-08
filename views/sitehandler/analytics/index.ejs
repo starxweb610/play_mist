@@ -19,6 +19,24 @@
       </div>
     </div>
 
+    <!-- DAU Trend (full width) -->
+    <div class="chart-card chart-card--full">
+      <div class="chart-header chart-header--row">
+        <h3>Daily Active Users — Last 30 Days</h3>
+        <div class="dau-summary">
+          <span class="dau-today"><%= todayDau.toLocaleString() %> <small>today</small></span>
+          <% if (dauDelta !== 0) { %>
+            <span class="dau-delta <%= dauDelta > 0 ? 'dau-delta--up' : 'dau-delta--down' %>">
+              <%= dauDelta > 0 ? '▲' : '▼' %> <%= Math.abs(dauDelta).toLocaleString() %> vs yesterday
+            </span>
+          <% } else { %>
+            <span class="dau-delta">— same as yesterday</span>
+          <% } %>
+        </div>
+      </div>
+      <div class="chart-body chart-body--lg"><canvas id="dauChart"></canvas></div>
+    </div>
+
     <!-- Top Stat Tiles -->
     <div class="stat-cards">
       <div class="stat-card">
@@ -122,12 +140,42 @@
 <script>
 const chartData    = <%- chartData %>;
 const topGamesData = <%- topGamesData %>;
+const dauData      = <%- dauData %>;
 
 const gridColor  = 'rgba(255,255,255,0.05)';
 const tickColor  = '#64748b';
 const baseFont   = { family: "'Space Grotesk', sans-serif", size: 12 };
 Chart.defaults.color = tickColor;
 Chart.defaults.font  = baseFont;
+
+// DAU Line Chart (hero, 30 days)
+new Chart(document.getElementById('dauChart'), {
+  type: 'line',
+  data: {
+    labels: dauData.labels,
+    datasets: [{
+      label: 'Daily Active Users',
+      data:  dauData.counts,
+      borderColor: '#10b981',
+      backgroundColor: 'rgba(16,185,129,0.10)',
+      borderWidth: 2,
+      fill: true,
+      tension: 0.3,
+      pointBackgroundColor: '#10b981',
+      pointRadius: 3,
+      pointHoverRadius: 6,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor, maxTicksLimit: 15, maxRotation: 0 } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor, stepSize: 1, precision: 0 }, beginAtZero: true }
+    }
+  }
+});
 
 // App Opens Line Chart
 new Chart(document.getElementById('appOpensChart'), {

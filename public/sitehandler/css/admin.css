@@ -1388,10 +1388,25 @@ input, select, textarea { font: inherit; }
   padding: 20px;
 }
 .chart-card--wide { grid-column: span 1; }
+.chart-card--full { margin-bottom: 16px; }
 .chart-header { margin-bottom: 16px; }
 .chart-header h3 { font-family: var(--ff-h); font-size: 0.95rem; font-weight: 700; }
+.chart-header--row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dau-summary { display: flex; align-items: baseline; gap: 12px; }
+.dau-today { font-family: var(--ff-h); font-size: 1.4rem; font-weight: 700; }
+.dau-today small { font-size: 0.75rem; font-weight: 500; color: var(--a-text-muted); }
+.dau-delta { font-size: 0.8rem; color: var(--a-text-muted); }
+.dau-delta--up { color: #10b981; }
+.dau-delta--down { color: #ef4444; }
 .chart-body { height: 200px; }
 .chart-body--sm { height: 160px; }
+.chart-body--lg { height: 300px; }
 .device-legend {
   display: flex;
   flex-wrap: wrap;

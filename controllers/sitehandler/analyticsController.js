@@ -7,6 +7,7 @@ exports.getIndex = async (req, res) => {
   let dailyOpens  = [];  // [{ date, count }]  last 14 days
   let dailyPlays  = [];  // [{ date, count }]  last 14 days
   let topGames    = [];  // [{ title, plays }]
+  let dailyDau    = [];  // [{ date, count }]  last 30 days, unique users
 
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -18,6 +19,7 @@ exports.getIndex = async (req, res) => {
       [dailyOpRows],
       [dailyPlRows],
       [topGamesRows],
+      [dauRows],
     ] = await Promise.all([
       db.query('SELECT COUNT(*) AS c FROM analytics_app'),
       db.query('SELECT COUNT(*) AS c FROM analytics_games'),
@@ -35,6 +37,15 @@ exports.getIndex = async (req, res) => {
                 JOIN games g ON ag.game_id = g.id
                 GROUP BY ag.game_id
                 ORDER BY plays DESC LIMIT 10`),
+      // DAU: one distinct user (or anonymous session) per day; id is the
+      // fallback key so rows with neither user_id nor session_id still count
+      db.query(`SELECT event_date AS date,
+                       COUNT(DISTINCT COALESCE(CONCAT('u:', user_id),
+                                               CONCAT('s:', session_id),
+                                               CONCAT('r:', id))) AS count
+                FROM analytics_app
+                WHERE event_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                GROUP BY event_date ORDER BY event_date`),
     ]);
 
     totals.appOpens      = allOpens[0].c;
@@ -46,6 +57,7 @@ exports.getIndex = async (req, res) => {
     dailyOpens  = dailyOpRows;
     dailyPlays  = dailyPlRows;
     topGames    = topGamesRows;
+    dailyDau    = dauRows;
   } catch (_) {
     // Tables not yet created or empty — show zeros
   }
@@ -80,10 +92,33 @@ exports.getIndex = async (req, res) => {
     playCounts.push(pl ? pl.count : 0);
   }
 
+  // Build 30-day DAU series (fill missing days with 0)
+  const dauLabels = [];
+  const dauCounts = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+
+    dauLabels.push(dateStr.slice(5)); // MM-DD
+    const row = dailyDau.find(r => getYYYYMMDD(r.date) === dateStr);
+    dauCounts.push(row ? row.count : 0);
+  }
+
+  const todayDau     = dauCounts[dauCounts.length - 1] || 0;
+  const yesterdayDau = dauCounts[dauCounts.length - 2] || 0;
+  const dauDelta     = todayDau - yesterdayDau;
+
   res.render('sitehandler/analytics/index', {
     title: 'Analytics', activePage: 'analytics',
     totals, deviceData, topGames,
+    todayDau, yesterdayDau, dauDelta,
     chartData: JSON.stringify({ labels, openCounts, playCounts }),
+    dauData: JSON.stringify({ labels: dauLabels, counts: dauCounts }),
     topGamesData: JSON.stringify({
       labels: topGames.map(g => g.title),
       data:   topGames.map(g => g.plays),
