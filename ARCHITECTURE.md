@@ -174,7 +174,7 @@ React 18 + Vite, **no router library and no state library** — navigation is pl
 |---|---|
 | `WebGLPlayerPlugin` | manages downloaded game files; starts a **local HTTP server on :8765** serving an extracted game build |
 | `GameViewerPlugin` (+ `GameViewerActivity`) | opens a fullscreen native WebView pointed at the local server, with orientation lock |
-| `GamesSignInPlugin` | Google Play Games sign-in → server auth code for §4.1 |
+| `GamesSignInPlugin` | Google Play Games sign-in → server auth code for §4.1; also `submitScore`/`showLeaderboard` for the global XP leaderboard (native PGS overlay, opened from Profile & Settings → Compete; lifetime XP auto-submitted whenever `xp` changes in AppContext; needs `VITE_GPGS_LEADERBOARD_ID`) |
 
 ### 6.2 Screen & state model
 
@@ -266,7 +266,7 @@ ssh cgpixels-vps 'bash /var/www/play_mist/scripts/deploy.sh'
 - **Email:** `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
 - **Ops:** `ALERT_EMAIL`, `DB_BACKUP_ENABLED`, `DB_BACKUP_RETENTION_DAYS`, `MYSQLDUMP_PATH`
 - **Push:** `firebase-service-account.json` (file, never committed)
-- **App (Vite, build-time):** `VITE_DEV_HOST`, `VITE_API_BASE_NATIVE`, `VITE_API_BASE_WEB`, `VITE_ADMOB_INTERSTITIAL_ID`, `VITE_ADMOB_REWARDED_ID`
+- **App (Vite, build-time):** `VITE_DEV_HOST`, `VITE_API_BASE_NATIVE`, `VITE_API_BASE_WEB`, `VITE_ADMOB_INTERSTITIAL_ID`, `VITE_ADMOB_REWARDED_ID`, `VITE_GPGS_SERVER_CLIENT_ID`, `VITE_GPGS_LEADERBOARD_ID`
 
 ---
 
