@@ -17,6 +17,7 @@ const developerSubmissionsController  = require('../controllers/sitehandler/deve
 const developersController            = require('../controllers/sitehandler/developersController');
 const guidelinesController            = require('../controllers/sitehandler/guidelinesController');
 const notificationsController         = require('../controllers/sitehandler/notificationsController');
+const xpEventsController              = require('../controllers/sitehandler/xpEventsController');
 const communityNotesController        = require('../controllers/sitehandler/communityNotesController');
 
 
@@ -49,6 +50,13 @@ router.post('/games/:id/upload-screenshots', uploadScreenshots.array('screenshot
 router.post('/games/:id/delete-screenshot/:screenshotId', gamesController.postDeleteScreenshot);
 router.post('/games/:id/toggle',     gamesController.postToggle);
 router.post('/games/:id/delete',     gamesController.postDelete);
+
+// Per-game XP events (feeds that game's leaderboard)
+router.get ('/games/:id/xp-events',                    xpEventsController.getIndex);
+router.post('/games/:id/xp-events/create',              xpEventsController.postCreate);
+router.post('/games/:id/xp-events/:eventId/update',     xpEventsController.postUpdate);
+router.post('/games/:id/xp-events/:eventId/toggle',     xpEventsController.postToggle);
+router.post('/games/:id/xp-events/:eventId/delete',     xpEventsController.postDelete);
 
 // Users
 router.get ('/users',                  usersController.getIndex);

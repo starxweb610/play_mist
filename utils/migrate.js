@@ -516,6 +516,39 @@ exports.runMigrations = async () => {
       )
     `);
 
+    // ── game_xp_events: per-game catalog of what an in-game event is worth.
+    // The game only ever reports the event_key — never an amount — so the
+    // server (via this table) is the sole authority on XP values. ──────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS game_xp_events (
+        id         INT PRIMARY KEY AUTO_INCREMENT,
+        game_id    INT NOT NULL,
+        event_key  VARCHAR(80)  NOT NULL,
+        name       VARCHAR(120) NOT NULL,
+        xp_reward  INT NOT NULL DEFAULT 0,
+        is_active  TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_game_event (game_id, event_key),
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+      )
+    `);
+
+    // ── game_xp: running per-user, per-game XP total, ranked for that game's
+    // leaderboard. Kept in sync with the global users.xp total (grantXp) on
+    // every award — game_xp is the "which game" breakdown of the same XP. ──
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS game_xp (
+        id         INT PRIMARY KEY AUTO_INCREMENT,
+        user_id    INT NOT NULL,
+        game_id    INT NOT NULL,
+        xp         INT NOT NULL DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_user_game (user_id, game_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+      )
+    `);
+
     console.log('✅ DB migrations complete');
   } catch (err) {
     console.error('❌ Migration error:', err.message);

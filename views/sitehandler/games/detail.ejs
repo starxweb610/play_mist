@@ -25,6 +25,7 @@
         <% if ((game.type === 'webgl' || game.type === 'premium') && game.play_url) { %>
           <a href="<%= game.play_url %>" target="_blank" class="btn-admin-primary">▶ Test Game</a>
         <% } %>
+        <a href="/sitehandler/games/<%= game.id %>/xp-events" class="btn-admin-ghost">XP Events</a>
         <a href="/sitehandler/games" class="btn-admin-ghost">← All Games</a>
       </div>
     </div>
