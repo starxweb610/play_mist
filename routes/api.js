@@ -22,6 +22,7 @@ const achievementsApi   = require('../controllers/api/achievementsApi');
 const challengeApi      = require('../controllers/api/challengeApi');
 const notificationsApi  = require('../controllers/api/notificationsApi');
 const profileApi        = require('../controllers/api/profileApi');
+const gameSaveApi       = require('../controllers/api/gameSaveApi');
 const { verifyJwt }     = require('../middleware/auth');
 const { avatarUpload }  = require('../config/upload');
 
@@ -57,6 +58,11 @@ v1Router.get('/genres', verifyJwt, gamesApi.getGenres);
 
 // Star ratings — user-submitted, prompted by the app after repeat launches
 v1Router.post('/games/:id/rate', verifyJwt, gamesApi.rateGame);
+
+// Cloud save: opaque per-user per-game JSON blob, called by the game itself
+// via the native Playmist SDK bridge (not the app UI directly)
+v1Router.post('/games/:gameId/save', verifyJwt, gameSaveApi.saveGameData);
+v1Router.get ('/games/:gameId/save', verifyJwt, gameSaveApi.loadGameData);
 
 // User profile and credits
 v1Router.get('/user/profile',       verifyJwt, authApi.getProfile);

@@ -500,6 +500,22 @@ exports.runMigrations = async () => {
       )
     `);
 
+    // ── game_saves: one opaque cloud-save JSON blob per user per game, so
+    // progress survives local storage loss (cache clear, reinstall, etc.). ──
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS game_saves (
+        id         INT PRIMARY KEY AUTO_INCREMENT,
+        user_id    INT NOT NULL,
+        game_id    INT NOT NULL,
+        save_data  LONGTEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_user_game (user_id, game_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+      )
+    `);
+
     console.log('✅ DB migrations complete');
   } catch (err) {
     console.error('❌ Migration error:', err.message);
