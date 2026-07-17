@@ -79,7 +79,7 @@ async function collectAdFiles(filePath, type) {
  * analytics_games and rating is the live average of user-submitted ratings.
  */
 const GAME_LIST_COLUMNS = `
-       g.id, g.title, g.short_description, g.long_description,
+       g.id, g.title, g.slug, g.short_description, g.long_description,
        g.play_url, g.thumbnail_url, g.secondary_thumbnail, g.promotional_thumbnail, g.trailer_url,
        g.orientation, g.version, g.type, g.is_active, g.is_featured, g.created_at,
        g.file_path, g.zip_url,
@@ -117,6 +117,7 @@ async function fetchTagsAndScreenshotsMaps() {
 async function mapGameRow(g, tagsMap, screenshotsMap) {
   return {
     id:                   String(g.id),
+    slug:                 g.slug || null,
     gamename:             g.title,
     gameurl:              g.play_url  || '',
     description:          g.long_description || g.short_description || '',

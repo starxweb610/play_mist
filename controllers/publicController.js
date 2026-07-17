@@ -2,6 +2,25 @@ const db = require('../config/database');
 const { formatImagePath } = require('../utils/images');
 
 const APP_URL = () => process.env.APP_URL || 'https://playmist.app';
+const ANDROID_PACKAGE = 'com.playmist.app';
+
+// Play Install Referrer lets a fresh install recover which game was shared —
+// Google Play stores this string verbatim and the app reads it back on first
+// launch (see playmist_app's InstallReferrerPlugin).
+function androidUrlForGame(slug) {
+  const base = process.env.ANDROID_STORE_URL || '#';
+  if (base === '#') return base;
+  const sep = base.includes('?') ? '&' : '?';
+  return `${base}${sep}referrer=${encodeURIComponent(`game_slug=${slug}`)}`;
+}
+
+// intent:// explicitly targets the app package, so it opens the app when
+// installed regardless of Android App Links domain-verification status, and
+// falls back to the (referrer-tagged) Play Store link when it isn't.
+function appIntentUrlForGame(host, slug) {
+  const fallback = androidUrlForGame(slug);
+  return `intent://${host}/games/${slug}#Intent;scheme=https;package=${ANDROID_PACKAGE};S.browser_fallback_url=${encodeURIComponent(fallback)};end`;
+}
 
 /**
  * Shape a DB game row into the fields the public templates need.
@@ -173,8 +192,9 @@ exports.getGameDetail = async (req, res) => {
     res.render('game-detail', {
       title:       `${game.title} – ${res.locals.appName}`,
       appUrl:      APP_URL(),
-      androidUrl:  process.env.ANDROID_STORE_URL || '#',
+      androidUrl:  androidUrlForGame(game.slug),
       iosUrl:      process.env.IOS_STORE_URL    || '#',
+      appIntentUrl: appIntentUrlForGame(req.get('host'), game.slug),
       game,
       relatedGames: relatedRows.map(toCardView),
     });
