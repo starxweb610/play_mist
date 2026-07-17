@@ -18,6 +18,7 @@ const developersController            = require('../controllers/sitehandler/deve
 const guidelinesController            = require('../controllers/sitehandler/guidelinesController');
 const notificationsController         = require('../controllers/sitehandler/notificationsController');
 const xpEventsController              = require('../controllers/sitehandler/xpEventsController');
+const funnelEventsController          = require('../controllers/sitehandler/funnelEventsController');
 const communityNotesController        = require('../controllers/sitehandler/communityNotesController');
 
 
@@ -57,6 +58,13 @@ router.post('/games/:id/xp-events/create',              xpEventsController.postC
 router.post('/games/:id/xp-events/:eventId/update',     xpEventsController.postUpdate);
 router.post('/games/:id/xp-events/:eventId/toggle',     xpEventsController.postToggle);
 router.post('/games/:id/xp-events/:eventId/delete',     xpEventsController.postDelete);
+
+// Per-game funnel analytics (drop-off milestones)
+router.get ('/games/:id/funnel-events',                    funnelEventsController.getIndex);
+router.post('/games/:id/funnel-events/create',              funnelEventsController.postCreate);
+router.post('/games/:id/funnel-events/:eventId/update',     funnelEventsController.postUpdate);
+router.post('/games/:id/funnel-events/:eventId/toggle',     funnelEventsController.postToggle);
+router.post('/games/:id/funnel-events/:eventId/delete',     funnelEventsController.postDelete);
 
 // Users
 router.get ('/users',                  usersController.getIndex);

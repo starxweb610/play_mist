@@ -549,6 +549,38 @@ exports.runMigrations = async () => {
       )
     `);
 
+    // ── game_funnel_events: per-game ordered milestones for drop-off
+    // analytics (e.g. opened-game -> started-tutorial -> finished-tutorial).
+    // step_order controls left-to-right position in the funnel chart. ──────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS game_funnel_events (
+        id         INT PRIMARY KEY AUTO_INCREMENT,
+        game_id    INT NOT NULL,
+        event_key  VARCHAR(80)  NOT NULL,
+        name       VARCHAR(120) NOT NULL,
+        step_order INT NOT NULL DEFAULT 0,
+        is_active  TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_game_event (game_id, event_key),
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+      )
+    `);
+
+    // ── game_funnel_progress: one row per (user, milestone) ever reached —
+    // a reached/not-reached flag, not an accumulating value like game_xp.
+    // Repeat reports of the same milestone are harmless no-ops (unique key). ─
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS game_funnel_progress (
+        id         INT PRIMARY KEY AUTO_INCREMENT,
+        user_id    INT NOT NULL,
+        event_id   INT NOT NULL,
+        reached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_user_event (user_id, event_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (event_id) REFERENCES game_funnel_events(id) ON DELETE CASCADE
+      )
+    `);
+
     console.log('✅ DB migrations complete');
   } catch (err) {
     console.error('❌ Migration error:', err.message);

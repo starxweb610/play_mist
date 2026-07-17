@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head') %>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <link rel="icon" href="/favicon.ico" />
+</head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Funnel Analytics — <%= game.title %></h2>
+        <p class="page-subheading">Define ordered in-game milestones to see where players drop off. Each is a reached/not-reached flag per player — not a repeatable score like XP.</p>
+      </div>
+      <div class="page-header-actions">
+        <a href="/sitehandler/games/<%= game.id %>" class="btn-admin-ghost">← Back to Game</a>
+      </div>
+    </div>
+
+    <!-- ── Funnel chart ──────────────────────────────────────────────── -->
+    <div class="chart-card chart-card--full" style="margin-bottom:28px;">
+      <div class="chart-header"><h3>Drop-off Funnel</h3></div>
+      <% if (funnel.length === 0) { %>
+        <div class="widget-placeholder" style="min-height:180px"><p>No active milestones yet — add one below.</p></div>
+      <% } else { %>
+        <div class="chart-body"><canvas id="funnelChart"></canvas></div>
+      <% } %>
+    </div>
+
+    <!-- ── Add Milestone ─────────────────────────────────────────────── -->
+    <div class="card" style="margin-bottom:28px;">
+      <div class="card-header">
+        <h3 class="card-title">Add Milestone</h3>
+      </div>
+      <div class="card-body">
+        <form method="POST" action="/sitehandler/games/<%= game.id %>/funnel-events/create">
+          <div style="display:grid;grid-template-columns:1fr 2fr 1fr auto;gap:16px;align-items:end;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Event Key <span style="color:#e05c5c">*</span></label>
+              <input type="text" name="event_key" class="form-control" maxlength="80" placeholder="e.g. started_tutorial" required />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Name <span style="color:#e05c5c">*</span></label>
+              <input type="text" name="name" class="form-control" maxlength="120" placeholder="e.g. Started the tutorial" required />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Step Order</label>
+              <input type="number" name="step_order" class="form-control" min="0" value="<%= events.length %>" required />
+            </div>
+            <button type="submit" class="btn-admin-primary">Add</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── Milestones ────────────────────────────────────────────────── -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Milestones</h3>
+        <span class="admin-badge"><%= events.length %></span>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <% if (events.length === 0) { %>
+          <div style="text-align:center;padding:48px 24px;opacity:.5;">No milestones configured yet.</div>
+        <% } else { %>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Event Key</th>
+                <th>Name</th>
+                <th>Step Order</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% events.forEach(function(e) { %>
+                <tr>
+                  <td><code><%= e.event_key %></code></td>
+                  <td style="min-width:260px;">
+                    <form method="POST" action="/sitehandler/games/<%= game.id %>/funnel-events/<%= e.id %>/update" style="display:flex;gap:8px;align-items:center;">
+                      <input type="text" name="name" class="form-control" value="<%= e.name %>" style="max-width:220px;" />
+                      <input type="number" name="step_order" class="form-control" min="0" value="<%= e.step_order %>" style="max-width:80px;" />
+                      <button type="submit" class="action-btn">Save</button>
+                    </form>
+                  </td>
+                  <td style="font-weight:600;"><%= e.step_order %></td>
+                  <td>
+                    <span class="status-badge <%= e.is_active ? 'status-badge--active' : 'status-badge--pending' %>">
+                      <%= e.is_active ? 'Active' : 'Disabled' %>
+                    </span>
+                  </td>
+                  <td style="white-space:nowrap;">
+                    <form action="/sitehandler/games/<%= game.id %>/funnel-events/<%= e.id %>/toggle" method="POST" style="display:inline;">
+                      <button type="submit" class="action-btn"><%= e.is_active ? 'Disable' : 'Enable' %></button>
+                    </form>
+                    <form action="/sitehandler/games/<%= game.id %>/funnel-events/<%= e.id %>/delete" method="POST" style="display:inline;">
+                      <button type="submit" class="action-btn action-btn--danger"
+                        data-confirm="Delete the '<%= e.event_key %>' milestone? This also deletes everyone's recorded progress for it.">
+                        Delete
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        <% } %>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+<% if (funnel.length > 0) { %>
+const funnelData = <%- JSON.stringify(funnel) %>;
+
+const gridColor = 'rgba(255,255,255,0.05)';
+const tickColor = '#64748b';
+Chart.defaults.color = tickColor;
+Chart.defaults.font  = { family: "'Space Grotesk', sans-serif", size: 12 };
+
+new Chart(document.getElementById('funnelChart'), {
+  type: 'bar',
+  data: {
+    labels: funnelData.map(f => f.name),
+    datasets: [{
+      label: 'Players reached',
+      data: funnelData.map(f => f.reached),
+      backgroundColor: 'rgba(124,58,237,0.7)',
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor, stepSize: 1, precision: 0 }, beginAtZero: true },
+      y: { grid: { display: false }, ticks: { color: tickColor } }
+    }
+  }
+});
+<% } %>
+</script>
+<script src="/sitehandler/js/admin.js"></script>
+</body>
+</html>
