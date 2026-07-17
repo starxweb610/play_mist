@@ -104,3 +104,17 @@
 [2026-06-19T21:59:27.390Z] Duplicate play skipped today
 [2026-06-19T21:59:40.449Z] Incoming Request: {"game_id":10,"user_id":27,"device":"android","session_id":"sess_27_1781906378918"}
 [2026-06-19T21:59:40.454Z] DB Insertion SUCCESS
+[2026-07-17T17:08:26.757Z] Incoming Request: {"game_id":2,"user_id":6,"device":"android","session_id":"sess_6_1784308105770"}
+[2026-07-17T17:08:26.760Z] DB Insertion SUCCESS
+[2026-07-17T17:13:19.867Z] Incoming Request: {"game_id":2,"user_id":6,"device":"android","session_id":"sess_6_1784308398940"}
+[2026-07-17T17:13:19.868Z] Duplicate play skipped today
+[2026-07-17T17:14:02.059Z] Incoming Request: {"game_id":2,"user_id":7,"device":"android","session_id":"sess_7_1784308441132"}
+[2026-07-17T17:14:02.061Z] DB Insertion SUCCESS
+[2026-07-17T17:20:16.803Z] Incoming Request: {"game_id":2,"user_id":7,"device":"android","session_id":"sess_7_1784308815859"}
+[2026-07-17T17:20:16.805Z] Duplicate play skipped today
+[2026-07-17T17:21:07.961Z] Incoming Request: {"game_id":2,"user_id":7,"device":"android","session_id":"sess_7_1784308867030"}
+[2026-07-17T17:21:07.961Z] Duplicate play skipped today
+[2026-07-17T17:21:49.916Z] Incoming Request: {"game_id":2,"user_id":7,"device":"android","session_id":"sess_7_1784308908980"}
+[2026-07-17T17:21:49.917Z] Duplicate play skipped today
+[2026-07-17T17:24:57.470Z] Incoming Request: {"game_id":2,"user_id":7,"device":"android","session_id":"sess_7_1784309096540"}
+[2026-07-17T17:24:57.471Z] Duplicate play skipped today

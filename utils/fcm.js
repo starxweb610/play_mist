@@ -51,7 +51,7 @@ exports.sendBroadcast = async ({ title, body, imageUrl, data = {} }) => {
   // Always fetch the real token count from DB
   let tokenRows = [];
   try {
-    const [rows] = await db.query('SELECT DISTINCT fcm_token FROM push_tokens');
+    const [rows] = await db.query('SELECT DISTINCT fcm_token, platform FROM push_tokens');
     tokenRows = rows;
   } catch (dbErr) {
     console.error('FCM: failed to fetch tokens from DB:', dbErr.message);
@@ -72,65 +72,82 @@ exports.sendBroadcast = async ({ title, body, imageUrl, data = {} }) => {
     Object.entries(data).map(([k, v]) => [k, String(v)])
   );
 
-  const tokens = tokenRows.map(r => r.fcm_token);
-  const BATCH  = 500;
-  let   sent   = 0;
+  const androidTokens = tokenRows.filter(r => r.platform === 'android').map(r => r.fcm_token);
+  const otherTokens   = tokenRows.filter(r => r.platform !== 'android').map(r => r.fcm_token);
+  const BATCH = 500;
+  let   sent  = 0;
 
-  for (let i = 0; i < tokens.length; i += BATCH) {
-    const batch = tokens.slice(i, i + BATCH);
-    try {
-      const result = await m.sendEachForMulticast({
-        tokens: batch,
-        notification: {
-          title,
-          body,
-          ...(imageUrl ? { imageUrl } : {}),
-        },
-        data: stringData,
-        android: {
-          priority: 'high',
-          // Image must also be set here for Android to render BigPicture
-          notification: imageUrl ? { imageUrl } : {},
-        },
-        apns: {
-          payload: {
-            aps: {
-              sound: 'default',
-              badge: 1,
-              // Required so the iOS notification service extension can attach the image
-              ...(imageUrl ? { 'mutable-content': 1 } : {}),
-            },
-          },
-          ...(imageUrl ? { fcmOptions: { imageUrl } } : {}),
-        },
-      });
+  const sendBatches = async (tokens, message) => {
+    for (let i = 0; i < tokens.length; i += BATCH) {
+      const batch = tokens.slice(i, i + BATCH);
+      try {
+        const result = await m.sendEachForMulticast({ tokens: batch, ...message });
+        sent += result.successCount;
 
-      sent += result.successCount;
-
-      // Clean up tokens that are permanently invalid
-      const invalid = [];
-      result.responses.forEach((r, idx) => {
-        if (!r.success && r.error) {
-          const code = r.error.code;
-          if (code === 'messaging/registration-token-not-registered' ||
-              code === 'messaging/invalid-registration-token') {
-            invalid.push(batch[idx]);
+        // Clean up tokens that are permanently invalid
+        const invalid = [];
+        result.responses.forEach((r, idx) => {
+          if (!r.success && r.error) {
+            const code = r.error.code;
+            if (code === 'messaging/registration-token-not-registered' ||
+                code === 'messaging/invalid-registration-token') {
+              invalid.push(batch[idx]);
+            }
           }
+        });
+        if (invalid.length) {
+          await db.query(
+            `DELETE FROM push_tokens WHERE fcm_token IN (${invalid.map(() => '?').join(',')})`,
+            invalid
+          ).catch(() => {});
         }
-      });
-      if (invalid.length) {
-        await db.query(
-          `DELETE FROM push_tokens WHERE fcm_token IN (${invalid.map(() => '?').join(',')})`,
-          invalid
-        ).catch(() => {});
+      } catch (err) {
+        console.error('FCM multicast error (batch):', err.message);
       }
-    } catch (err) {
-      console.error('FCM multicast error (batch):', err.message);
     }
+  };
+
+  // Android: data-only, so onMessageReceived (PlaymistFirebaseMessagingService)
+  // always fires — foreground, background, or killed — instead of FCM's default
+  // auto-display path, which silently drops the image on any hiccup within its
+  // internal, hard-coded 5s download timeout.
+  if (androidTokens.length) {
+    await sendBatches(androidTokens, {
+      data: { ...stringData, title, body, ...(imageUrl ? { image: imageUrl } : {}) },
+      android: { priority: 'high' },
+    });
   }
 
-  console.log(`FCM: sent ${sent}/${tokens.length} successfully`);
-  return tokens.length;
+  // iOS / web / unknown platform: unchanged, relies on the OS/APNs default
+  // notification + image handling.
+  if (otherTokens.length) {
+    await sendBatches(otherTokens, {
+      notification: {
+        title,
+        body,
+        ...(imageUrl ? { imageUrl } : {}),
+      },
+      data: stringData,
+      android: {
+        priority: 'high',
+        notification: imageUrl ? { imageUrl } : {},
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+            // Required so the iOS notification service extension can attach the image
+            ...(imageUrl ? { 'mutable-content': 1 } : {}),
+          },
+        },
+        ...(imageUrl ? { fcmOptions: { imageUrl } } : {}),
+      },
+    });
+  }
+
+  console.log(`FCM: sent ${sent}/${tokenRows.length} successfully`);
+  return tokenRows.length;
 };
 
 // Push to all users when a game goes live (inactive → active).
