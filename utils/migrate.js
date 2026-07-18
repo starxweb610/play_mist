@@ -93,6 +93,9 @@ exports.runMigrations = async () => {
     // Widen source to include 'shop' (in-game purchases via game_shop_items) —
     // migrateColumn only adds missing columns, so an existing enum needs its
     // own explicit MODIFY, guarded so re-runs on an already-widened column are no-ops.
+    // Appended at the end (not inserted before 'other') so MySQL can do this as a
+    // fast in-place metadata change instead of a full table rebuild — enum
+    // ordering isn't relied on anywhere for this column.
     const [sourceCol] = await db.query(
       `SELECT COLUMN_TYPE FROM information_schema.COLUMNS
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'credit_transactions' AND COLUMN_NAME = 'source'`
@@ -100,7 +103,7 @@ exports.runMigrations = async () => {
     if (sourceCol.length && !sourceCol[0].COLUMN_TYPE.includes("'shop'")) {
       await db.query(
         `ALTER TABLE credit_transactions MODIFY source
-         ENUM('game','ad','streak','achievement','challenge','welcome','shop','other') DEFAULT 'game'`
+         ENUM('game','ad','streak','achievement','challenge','welcome','other','shop') DEFAULT 'game'`
       );
     }
 
