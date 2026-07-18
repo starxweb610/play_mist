@@ -26,6 +26,7 @@ const gameSaveApi       = require('../controllers/api/gameSaveApi');
 const gameXpApi         = require('../controllers/api/gameXpApi');
 const gameFunnelApi     = require('../controllers/api/gameFunnelApi');
 const gameShopApi       = require('../controllers/api/gameShopApi');
+const multiplayerApi    = require('../controllers/api/multiplayerApi');
 const { verifyJwt }     = require('../middleware/auth');
 const { avatarUpload }  = require('../config/upload');
 
@@ -103,6 +104,9 @@ v1Router.get('/ads/ssv-callback', adsApi.ssvCallback);
 v1Router.post('/push-token',                verifyJwt, notificationsApi.registerToken);
 v1Router.get ('/notifications',             verifyJwt, notificationsApi.getNotifications);
 v1Router.post('/notifications/mark-read',  verifyJwt, notificationsApi.markAllRead);
+
+// Multiplayer signaling — mints a short-lived token for the WebRTC signaling server
+v1Router.get('/multiplayer/token', verifyJwt, multiplayerApi.getSignalingToken);
 
 // Mount versioned router
 router.use('/v1', v1Router);
