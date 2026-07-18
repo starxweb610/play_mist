@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %>  <link rel="icon" href="/favicon.ico" /></head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Shop Items — <%= game.title %></h2>
+        <p class="page-subheading">Define what each in-game purchase costs. The game only ever sends the item key — never a price — so this list is the sole source of truth for cost.</p>
+      </div>
+      <div class="page-header-actions">
+        <a href="/sitehandler/games/<%= game.id %>" class="btn-admin-ghost">← Back to Game</a>
+      </div>
+    </div>
+
+    <!-- ── Add Item ──────────────────────────────────────────────────── -->
+    <div class="card" style="margin-bottom:28px;">
+      <div class="card-header">
+        <h3 class="card-title">Add Item</h3>
+      </div>
+      <div class="card-body">
+        <form method="POST" action="/sitehandler/games/<%= game.id %>/shop-items/create">
+          <div style="display:grid;grid-template-columns:1fr 2fr 1fr auto;gap:16px;align-items:end;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Item Key <span style="color:#e05c5c">*</span></label>
+              <input type="text" name="item_key" class="form-control" maxlength="80" placeholder="e.g. extra_life" required />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Name <span style="color:#e05c5c">*</span></label>
+              <input type="text" name="name" class="form-control" maxlength="120" placeholder="e.g. Extra Life" required />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Price (credits)</label>
+              <input type="number" name="price_credits" class="form-control" min="0" value="10" required />
+            </div>
+            <button type="submit" class="btn-admin-primary">Add</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── Items ─────────────────────────────────────────────────────── -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Items</h3>
+        <span class="admin-badge"><%= items.length %></span>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <% if (items.length === 0) { %>
+          <div style="text-align:center;padding:48px 24px;opacity:.5;">No shop items configured yet.</div>
+        <% } else { %>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Item Key</th>
+                <th>Name</th>
+                <th>Price</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% items.forEach(function(it) { %>
+                <tr>
+                  <td><code><%= it.item_key %></code></td>
+                  <td style="min-width:220px;">
+                    <form method="POST" action="/sitehandler/games/<%= game.id %>/shop-items/<%= it.id %>/update" style="display:flex;gap:8px;align-items:center;">
+                      <input type="text" name="name" class="form-control" value="<%= it.name %>" style="max-width:220px;" />
+                      <input type="number" name="price_credits" class="form-control" min="0" value="<%= it.price_credits %>" style="max-width:90px;" />
+                      <button type="submit" class="action-btn">Save</button>
+                    </form>
+                  </td>
+                  <td style="font-weight:600;"><%= it.price_credits %> c</td>
+                  <td>
+                    <span class="status-badge <%= it.is_active ? 'status-badge--active' : 'status-badge--pending' %>">
+                      <%= it.is_active ? 'Active' : 'Disabled' %>
+                    </span>
+                  </td>
+                  <td style="white-space:nowrap;">
+                    <form action="/sitehandler/games/<%= game.id %>/shop-items/<%= it.id %>/toggle" method="POST" style="display:inline;">
+                      <button type="submit" class="action-btn"><%= it.is_active ? 'Disable' : 'Enable' %></button>
+                    </form>
+                    <form action="/sitehandler/games/<%= game.id %>/shop-items/<%= it.id %>/delete" method="POST" style="display:inline;">
+                      <button type="submit" class="action-btn action-btn--danger"
+                        data-confirm="Delete the '<%= it.item_key %>' item? Games still calling spendCredits with this key will simply fail with unknown_item.">
+                        Delete
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        <% } %>
+      </div>
+    </div>
+
+  </main>
+</div>
+<script src="/sitehandler/js/admin.js"></script>
+</body>
+</html>

@@ -25,6 +25,7 @@ const profileApi        = require('../controllers/api/profileApi');
 const gameSaveApi       = require('../controllers/api/gameSaveApi');
 const gameXpApi         = require('../controllers/api/gameXpApi');
 const gameFunnelApi     = require('../controllers/api/gameFunnelApi');
+const gameShopApi       = require('../controllers/api/gameShopApi');
 const { verifyJwt }     = require('../middleware/auth');
 const { avatarUpload }  = require('../config/upload');
 
@@ -68,6 +69,7 @@ v1Router.get ('/games/:gameId/save', verifyJwt, gameSaveApi.loadGameData);
 v1Router.post('/games/:gameId/xp-event',   verifyJwt, gameXpApi.reportEvent);
 v1Router.get ('/games/:gameId/leaderboard', verifyJwt, gameXpApi.getLeaderboard);
 v1Router.post('/games/:gameId/track-event', verifyJwt, gameFunnelApi.trackEvent);
+v1Router.post('/games/:gameId/purchase',    verifyJwt, gameShopApi.purchase);
 
 // User profile and credits
 v1Router.get('/user/profile',       verifyJwt, authApi.getProfile);

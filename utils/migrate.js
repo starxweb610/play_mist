@@ -90,6 +90,20 @@ exports.runMigrations = async () => {
     await migrateColumn('credit_transactions', 'source',
       "ENUM('game','ad','streak','achievement','challenge','welcome','other') DEFAULT 'game'");
 
+    // Widen source to include 'shop' (in-game purchases via game_shop_items) —
+    // migrateColumn only adds missing columns, so an existing enum needs its
+    // own explicit MODIFY, guarded so re-runs on an already-widened column are no-ops.
+    const [sourceCol] = await db.query(
+      `SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'credit_transactions' AND COLUMN_NAME = 'source'`
+    );
+    if (sourceCol.length && !sourceCol[0].COLUMN_TYPE.includes("'shop'")) {
+      await db.query(
+        `ALTER TABLE credit_transactions MODIFY source
+         ENUM('game','ad','streak','achievement','challenge','welcome','shop','other') DEFAULT 'game'`
+      );
+    }
+
     // ── daily_picks ───────────────────────────────────────────────────────────
     await db.query(`
       CREATE TABLE IF NOT EXISTS daily_picks (
@@ -529,6 +543,23 @@ exports.runMigrations = async () => {
         is_active  TINYINT(1) NOT NULL DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY uniq_game_event (game_id, event_key),
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+      )
+    `);
+
+    // ── game_shop_items: per-game catalog of in-game purchases. The game
+    // only ever sends the item_key — never a price — so the server (via this
+    // table) is the sole authority on cost, same reasoning as game_xp_events. ─
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS game_shop_items (
+        id            INT PRIMARY KEY AUTO_INCREMENT,
+        game_id       INT NOT NULL,
+        item_key      VARCHAR(80)  NOT NULL,
+        name          VARCHAR(120) NOT NULL,
+        price_credits INT NOT NULL DEFAULT 0,
+        is_active     TINYINT(1) NOT NULL DEFAULT 1,
+        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_game_item (game_id, item_key),
         FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
       )
     `);

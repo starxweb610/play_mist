@@ -19,6 +19,7 @@ const guidelinesController            = require('../controllers/sitehandler/guid
 const notificationsController         = require('../controllers/sitehandler/notificationsController');
 const xpEventsController              = require('../controllers/sitehandler/xpEventsController');
 const funnelEventsController          = require('../controllers/sitehandler/funnelEventsController');
+const shopItemsController             = require('../controllers/sitehandler/shopItemsController');
 const communityNotesController        = require('../controllers/sitehandler/communityNotesController');
 
 
@@ -65,6 +66,13 @@ router.post('/games/:id/funnel-events/create',              funnelEventsControll
 router.post('/games/:id/funnel-events/:eventId/update',     funnelEventsController.postUpdate);
 router.post('/games/:id/funnel-events/:eventId/toggle',     funnelEventsController.postToggle);
 router.post('/games/:id/funnel-events/:eventId/delete',     funnelEventsController.postDelete);
+
+// Per-game shop items (in-game purchases against wallet credits)
+router.get ('/games/:id/shop-items',                    shopItemsController.getIndex);
+router.post('/games/:id/shop-items/create',              shopItemsController.postCreate);
+router.post('/games/:id/shop-items/:itemId/update',      shopItemsController.postUpdate);
+router.post('/games/:id/shop-items/:itemId/toggle',      shopItemsController.postToggle);
+router.post('/games/:id/shop-items/:itemId/delete',      shopItemsController.postDelete);
 
 // Users
 router.get ('/users',                  usersController.getIndex);
