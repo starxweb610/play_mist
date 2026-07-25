@@ -27,6 +27,7 @@ const gameXpApi         = require('../controllers/api/gameXpApi');
 const gameFunnelApi     = require('../controllers/api/gameFunnelApi');
 const gameShopApi       = require('../controllers/api/gameShopApi');
 const multiplayerApi    = require('../controllers/api/multiplayerApi');
+const appConfigApi      = require('../controllers/api/appConfigApi');
 const { verifyJwt }     = require('../middleware/auth');
 const { avatarUpload }  = require('../config/upload');
 
@@ -49,6 +50,9 @@ v1Router.post('/auth/web-link/approve', verifyJwt, authApi.webLinkApprove);
 
 // Image/file proxy to bypass Nginx regex interception
 v1Router.get('/image-proxy', gamesApi.imageProxy);
+
+// App version / force-update check — public, must work before login too
+v1Router.get('/app-config', appConfigApi.getAppConfig);
 
 /**
  * GET /api/v1/all-games

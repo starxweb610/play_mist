@@ -21,6 +21,7 @@ const xpEventsController              = require('../controllers/sitehandler/xpEv
 const funnelEventsController          = require('../controllers/sitehandler/funnelEventsController');
 const shopItemsController             = require('../controllers/sitehandler/shopItemsController');
 const communityNotesController        = require('../controllers/sitehandler/communityNotesController');
+const appUpdateController             = require('../controllers/sitehandler/appUpdateController');
 
 
 // ─── Auth (public within /sitehandler) ────────────────────────────────────────
@@ -98,6 +99,10 @@ router.post('/admins/:id/delete',    adminsController.postDelete);
 router.get ('/settings',             settingsController.getIndex);
 router.post('/settings/profile',     settingsController.postProfile);
 router.post('/settings/password',    settingsController.postPassword);
+
+// App update / force-update version gate
+router.get ('/app-update',           appUpdateController.getEdit);
+router.post('/app-update',           appUpdateController.postSave);
 
 // Genres
 router.get ('/genres',               genresController.getIndex);

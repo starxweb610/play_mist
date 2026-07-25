@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %>  <link rel="icon" href="/favicon.ico" />
+</head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">App Update</h2>
+        <p class="page-subheading">Tell the app what the latest version is — optionally force everyone below it to update before they can continue.</p>
+      </div>
+    </div>
+
+    <div class="settings-grid">
+
+      <div class="form-card">
+        <h3 class="form-card-title">📱 Version Gate</h3>
+        <form action="/sitehandler/app-update" method="POST" novalidate>
+          <div class="form-group">
+            <label class="form-label">Latest Version <span class="req">*</span></label>
+            <input type="text" name="latestVersion" class="form-input" required
+              value="<%= config.latestVersion %>" placeholder="e.g. 2.1.0" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" name="forceUpdate" <%= config.forceUpdate ? 'checked' : '' %> />
+              Force update — block users on an older version until they update
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Update Message (optional)</label>
+            <textarea name="updateMessage" class="form-input" rows="3"
+              placeholder="Shown to the user, e.g. what's new or why the update matters"><%= config.updateMessage %></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Update URL (optional)</label>
+            <input type="text" name="updateUrl" class="form-input"
+              value="<%= config.updateUrl %>" placeholder="<%= defaultUpdateUrl %>" />
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-admin-primary">Save</button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+
+  </main>
+</div>
+<script src="/sitehandler/js/admin.js"></script>
+</body>
+</html>
