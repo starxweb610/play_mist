@@ -57,14 +57,22 @@ exports.getLeaderboard = async (req, res) => {
     const { gameId } = req.params;
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
 
+    // Ties (equal xp) are broken by who reached that total first — updated_at
+    // bumps on every xp gain (see reportEvent's upsert), so an earlier
+    // updated_at means they got there first and ranks above a later tie.
+    // `gx.id` is a last-resort tiebreak for same-second updates.
     const [leaderboard] = await db.query(
       `SELECT gx.user_id, gx.xp, u.username, u.avatar,
               (SELECT COUNT(*) + 1 FROM game_xp gx2
-               WHERE gx2.game_id = gx.game_id AND gx2.xp > gx.xp) AS \`rank\`
+               WHERE gx2.game_id = gx.game_id
+                 AND (gx2.xp > gx.xp
+                      OR (gx2.xp = gx.xp AND gx2.updated_at < gx.updated_at)
+                      OR (gx2.xp = gx.xp AND gx2.updated_at = gx.updated_at AND gx2.id < gx.id))
+              ) AS \`rank\`
        FROM game_xp gx
        JOIN users u ON u.id = gx.user_id
        WHERE gx.game_id = ?
-       ORDER BY gx.xp DESC
+       ORDER BY gx.xp DESC, gx.updated_at ASC, gx.id ASC
        LIMIT ?`,
       [gameId, limit]
     );
@@ -74,7 +82,11 @@ exports.getLeaderboard = async (req, res) => {
       const [meRows] = await db.query(
         `SELECT gx.user_id, gx.xp, u.username, u.avatar,
                 (SELECT COUNT(*) + 1 FROM game_xp gx2
-                 WHERE gx2.game_id = gx.game_id AND gx2.xp > gx.xp) AS \`rank\`
+                 WHERE gx2.game_id = gx.game_id
+                   AND (gx2.xp > gx.xp
+                        OR (gx2.xp = gx.xp AND gx2.updated_at < gx.updated_at)
+                        OR (gx2.xp = gx.xp AND gx2.updated_at = gx.updated_at AND gx2.id < gx.id))
+                ) AS \`rank\`
          FROM game_xp gx
          JOIN users u ON u.id = gx.user_id
          WHERE gx.game_id = ? AND gx.user_id = ?`,
