@@ -60,7 +60,7 @@ exports.getLeaderboard = async (req, res) => {
     const [leaderboard] = await db.query(
       `SELECT gx.user_id, gx.xp, u.username, u.avatar,
               (SELECT COUNT(*) + 1 FROM game_xp gx2
-               WHERE gx2.game_id = gx.game_id AND gx2.xp > gx.xp) AS rank
+               WHERE gx2.game_id = gx.game_id AND gx2.xp > gx.xp) AS \`rank\`
        FROM game_xp gx
        JOIN users u ON u.id = gx.user_id
        WHERE gx.game_id = ?
@@ -74,7 +74,7 @@ exports.getLeaderboard = async (req, res) => {
       const [meRows] = await db.query(
         `SELECT gx.user_id, gx.xp, u.username, u.avatar,
                 (SELECT COUNT(*) + 1 FROM game_xp gx2
-                 WHERE gx2.game_id = gx.game_id AND gx2.xp > gx.xp) AS rank
+                 WHERE gx2.game_id = gx.game_id AND gx2.xp > gx.xp) AS \`rank\`
          FROM game_xp gx
          JOIN users u ON u.id = gx.user_id
          WHERE gx.game_id = ? AND gx.user_id = ?`,
