@@ -31,6 +31,14 @@ exports.reportEvent = async (req, res) => {
     );
     await grantXp(userId, xpReward);
 
+    // First-time-only completion flag for the task list — reportEvent stays
+    // repeatable above, but INSERT IGNORE means a second (or hundredth) fire
+    // of the same event is a harmless no-op against the unique key.
+    await db.query(
+      'INSERT IGNORE INTO game_xp_event_completions (user_id, game_id, event_key) VALUES (?, ?, ?)',
+      [userId, gameId, eventKey]
+    );
+
     const [[gameXpRow]] = await db.query(
       'SELECT xp FROM game_xp WHERE user_id = ? AND game_id = ?',
       [userId, gameId]
@@ -61,8 +69,14 @@ exports.getLeaderboard = async (req, res) => {
     // bumps on every xp gain (see reportEvent's upsert), so an earlier
     // updated_at means they got there first and ranks above a later tie.
     // `gx.id` is a last-resort tiebreak for same-second updates.
+    // A player's chosen display_name (once set) is the sole public-facing
+    // identity — the immutable handle in `username` is never shown to other
+    // players, only ever resolved into this same-named field so existing
+    // consumers of `username` need no changes.
     const [leaderboard] = await db.query(
-      `SELECT gx.user_id, gx.xp, u.username, u.avatar,
+      `SELECT gx.user_id, gx.xp,
+              COALESCE(NULLIF(TRIM(u.display_name), ''), u.username) AS username,
+              u.avatar,
               (SELECT COUNT(*) + 1 FROM game_xp gx2
                WHERE gx2.game_id = gx.game_id
                  AND (gx2.xp > gx.xp
@@ -80,7 +94,9 @@ exports.getLeaderboard = async (req, res) => {
     let me = leaderboard.find(r => r.user_id === userId) || null;
     if (!me) {
       const [meRows] = await db.query(
-        `SELECT gx.user_id, gx.xp, u.username, u.avatar,
+        `SELECT gx.user_id, gx.xp,
+                COALESCE(NULLIF(TRIM(u.display_name), ''), u.username) AS username,
+                u.avatar,
                 (SELECT COUNT(*) + 1 FROM game_xp gx2
                  WHERE gx2.game_id = gx.game_id
                    AND (gx2.xp > gx.xp
@@ -98,6 +114,43 @@ exports.getLeaderboard = async (req, res) => {
     return res.json({ leaderboard, me });
   } catch (err) {
     console.error('getLeaderboard error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * GET /api/v1/games/:gameId/xp-tasks
+ *
+ * This game's admin-configured XP tasks (name + xp_reward), each flagged
+ * with whether the calling player has completed it at least once — see
+ * game_xp_event_completions, written by reportEvent above. Pairs with
+ * getLeaderboard: the leaderboard shows who's winning, this shows what
+ * actually earns the XP behind it.
+ */
+exports.getXpTasks = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { gameId } = req.params;
+
+    const [tasks] = await db.query(
+      `SELECT e.id, e.event_key, e.name, e.xp_reward,
+              c.completed_at
+       FROM game_xp_events e
+       LEFT JOIN game_xp_event_completions c
+         ON c.game_id = e.game_id AND c.event_key = e.event_key AND c.user_id = ?
+       WHERE e.game_id = ? AND e.is_active = 1
+       ORDER BY e.xp_reward ASC, e.id ASC`,
+      [userId, gameId]
+    );
+
+    const normalized = tasks.map(({ completed_at, ...t }) => ({
+      ...t,
+      completed: !!completed_at,
+    }));
+
+    return res.json({ tasks: normalized });
+  } catch (err) {
+    console.error('getXpTasks error:', err);
     return res.status(500).json({ error: err.message });
   }
 };

@@ -1,0 +1,101 @@
+term,category,notes
+fuck,profanity,
+sex,profanity,
+sexmaster,profanity,
+fucking,profanity,
+fucker,profanity,
+motherfucker,profanity,
+fck,profanity,leetspeak/short variant
+shit,profanity,
+bullshit,profanity,
+bitch,profanity,
+bastard,profanity,
+asshole,profanity,
+ass,profanity,
+dick,profanity,
+dickhead,profanity,
+cock,profanity,
+pussy,profanity,
+cunt,profanity,
+twat,profanity,
+wanker,profanity,
+piss,profanity,
+slut,profanity,
+whore,profanity,
+damn,profanity,mild - remove if too strict
+hell,profanity,mild - remove if too strict
+nigger,abusive,racial slur
+nigga,abusive,racial slur variant
+chink,abusive,racial slur
+spic,abusive,racial slur
+kike,abusive,ethnic/religious slur
+gook,abusive,racial slur
+wetback,abusive,racial slur
+coon,abusive,racial slur
+paki,abusive,ethnic slur
+raghead,abusive,ethnic/religious slur
+towelhead,abusive,ethnic/religious slur
+faggot,abusive,homophobic slur
+fag,abusive,homophobic slur
+dyke,abusive,homophobic slur
+tranny,abusive,transphobic slur
+retard,abusive,ableist slur
+retarded,abusive,ableist slur
+spastic,abusive,ableist slur
+idiot,abusive,mild insult
+moron,abusive,mild insult
+dumbass,abusive,
+loser,abusive,mild insult
+scum,abusive,
+kys,abusive,"""kill yourself"" abbreviation"
+killyourself,abusive,
+rapist,abusive,
+nazi,abusive,hate symbol reference
+hitler,abusive,hate symbol reference
+terrorist,abusive,
+pedophile,abusive,
+pedo,abusive,
+',sql_special_char,single quote
+"""",sql_special_char,double quote
+;,sql_special_char,statement terminator
+--,sql_special_char,SQL comment
+/*,sql_special_char,SQL block comment open
+*/,sql_special_char,SQL block comment close
+=,sql_special_char,
+<,sql_special_char,
+>,sql_special_char,
+(,sql_special_char,
+),sql_special_char,
+\,sql_special_char,backslash/escape
+%,sql_special_char,SQL wildcard - also explicitly banned in display names
+_,sql_special_char,SQL single-char wildcard
+#,sql_special_char,comment marker - also explicitly banned in display names
+&,sql_special_char,also explicitly banned in display names
+-,sql_special_char,also explicitly banned in display names
+|,sql_special_char,pipe/OR operator
+^,sql_special_char,
+~,sql_special_char,
+`,sql_special_char,backtick
+{,sql_special_char,
+},sql_special_char,
+[,sql_special_char,
+],sql_special_char,
++,sql_special_char,
+union,sql_special_char,SQL keyword
+select,sql_special_char,SQL keyword
+insert,sql_special_char,SQL keyword
+update,sql_special_char,SQL keyword
+delete,sql_special_char,SQL keyword
+drop,sql_special_char,SQL keyword
+alter,sql_special_char,SQL keyword
+truncate,sql_special_char,SQL keyword
+exec,sql_special_char,SQL keyword
+xp_cmdshell,sql_special_char,SQL Server dangerous procedure
+sleep(,sql_special_char,time-based injection probe
+benchmark(,sql_special_char,time-based injection probe
+information_schema,sql_special_char,schema enumeration probe
+or 1=1,sql_special_char,classic tautology injection
+<script,sql_special_char,XSS vector (defense in depth)
+javascript:,sql_special_char,XSS vector (defense in depth)
+onerror=,sql_special_char,XSS vector (defense in depth)
+onload=,sql_special_char,XSS vector (defense in depth)

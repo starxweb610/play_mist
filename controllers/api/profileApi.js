@@ -17,6 +17,7 @@ const { uploadBuffer, deleteObject, keyFromUrl } = require('../../config/r2');
 const { grantAchievement } = require('../../utils/achievements');
 const { sendMail } = require('../../utils/mailer');
 const templates = require('../../utils/emailTemplates');
+const { validateDisplayName } = require('../../utils/displayName');
 
 const OTP_TTL_MINUTES = 10;
 const OTP_RESEND_COOLDOWN_S = 60;
@@ -36,9 +37,12 @@ exports.updateProfile = async (req, res) => {
     const params = [];
 
     if (req.body.displayName !== undefined) {
-      const name = String(req.body.displayName).trim().slice(0, 80);
+      const result = validateDisplayName(req.body.displayName);
+      if (!result.valid) {
+        return res.status(400).json({ error: result.error });
+      }
       updates.push('display_name = ?');
-      params.push(name || null);
+      params.push(result.value);
     }
     if (req.body.bio !== undefined) {
       const bio = String(req.body.bio).trim().slice(0, 200);

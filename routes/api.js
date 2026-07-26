@@ -73,6 +73,7 @@ v1Router.post('/games/:gameId/save', verifyJwt, gameSaveApi.saveGameData);
 v1Router.get ('/games/:gameId/save', verifyJwt, gameSaveApi.loadGameData);
 v1Router.post('/games/:gameId/xp-event',   verifyJwt, gameXpApi.reportEvent);
 v1Router.get ('/games/:gameId/leaderboard', verifyJwt, gameXpApi.getLeaderboard);
+v1Router.get ('/games/:gameId/xp-tasks',    verifyJwt, gameXpApi.getXpTasks);
 v1Router.post('/games/:gameId/track-event', verifyJwt, gameFunnelApi.trackEvent);
 v1Router.post('/games/:gameId/purchase',    verifyJwt, gameShopApi.purchase);
 

@@ -550,6 +550,28 @@ exports.runMigrations = async () => {
       )
     `);
 
+    // ── game_xp_event_completions: one row per (user, game, event) the
+    // player has ever triggered — a reached/not-reached flag, same pattern
+    // as game_funnel_progress. reportEvent stays repeatable (xp keeps
+    // accruing each fire), but "completed" here is first-time-only: firing
+    // an event again is a harmless no-op against the unique key. Keyed on
+    // event_key (not event_id) so it reads directly off what reportEvent
+    // already has in hand; the composite FK rides game_xp_events' own
+    // (game_id, event_key) unique key, so deleting a task from the admin
+    // panel cascades and cleans up its stray completion rows too. ──────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS game_xp_event_completions (
+        id           INT PRIMARY KEY AUTO_INCREMENT,
+        user_id      INT NOT NULL,
+        game_id      INT NOT NULL,
+        event_key    VARCHAR(80) NOT NULL,
+        completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_user_game_event (user_id, game_id, event_key),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (game_id, event_key) REFERENCES game_xp_events(game_id, event_key) ON DELETE CASCADE
+      )
+    `);
+
     // ── game_shop_items: per-game catalog of in-game purchases. The game
     // only ever sends the item_key — never a price — so the server (via this
     // table) is the sole authority on cost, same reasoning as game_xp_events. ─
