@@ -654,6 +654,131 @@ input, select, textarea { font: inherit; }
   background: rgba(255,255,255,0.03);
 }
 
+/* ─── Modal ──────────────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4,4,10,0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--a-trans);
+  padding: 20px;
+}
+
+.modal-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-box {
+  background: var(--a-card);
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius);
+  width: 100%;
+  max-width: 480px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  transform: translateY(12px) scale(0.98);
+  transition: transform var(--a-trans);
+}
+
+.modal-overlay.is-open .modal-box {
+  transform: translateY(0) scale(1);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.modal-header h3 {
+  font-family: var(--ff-h);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.modal-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--a-text-muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  transition: all var(--a-trans);
+}
+
+.modal-close:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--a-text);
+}
+
+.modal-subtext {
+  font-size: 0.8rem;
+  color: var(--a-text-muted);
+  margin-bottom: 22px;
+}
+
+/* ─── User Engagement Sliders ────────────────────────────────────────────── */
+.engagement-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.engagement-metric-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.engagement-metric-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--a-text);
+}
+
+.engagement-metric-value {
+  font-family: var(--ff-h);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--ic);
+}
+
+.engagement-slider {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+
+.engagement-slider-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--ic), color-mix(in srgb, var(--ic) 55%, white));
+  width: 0%;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.engagement-metric-sub {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: var(--a-text-dim);
+  line-height: 1.5;
+}
+
 /* ─── Login Page ─────────────────────────────────────────────────────────── */
 .login-body {
   display: flex;

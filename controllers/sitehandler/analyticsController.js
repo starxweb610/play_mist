@@ -8,6 +8,12 @@ exports.getIndex = async (req, res) => {
   let dailyPlays  = [];  // [{ date, count }]  last 14 days
   let topGames    = [];  // [{ title, plays }]
   let dailyDau    = [];  // [{ date, count }]  last 30 days, unique users
+  let engagement  = {
+    totalUsers: 0,
+    playedUsers: 0, playedPct: 0,
+    returningUsers: 0, returningPct: 0,
+    engagedToday: 0, engagementPct: 0,
+  };
 
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -20,6 +26,10 @@ exports.getIndex = async (req, res) => {
       [dailyPlRows],
       [topGamesRows],
       [dauRows],
+      [totalUsersRows],
+      [playedUsersRows],
+      [returningUsersRows],
+      [engagedTodayRows],
     ] = await Promise.all([
       db.query('SELECT COUNT(*) AS c FROM analytics_app'),
       db.query('SELECT COUNT(*) AS c FROM analytics_games'),
@@ -46,6 +56,17 @@ exports.getIndex = async (req, res) => {
                 FROM analytics_app
                 WHERE event_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
                 GROUP BY event_date ORDER BY event_date`),
+      // User Engagement modal — total registered users
+      db.query('SELECT COUNT(*) AS c FROM users'),
+      // Users who have played at least one game (any logged play event)
+      db.query('SELECT COUNT(DISTINCT user_id) AS c FROM analytics_games WHERE user_id IS NOT NULL'),
+      // Returning users: have a transaction on a day other than their registration day
+      db.query(`SELECT COUNT(DISTINCT ct.user_id) AS c
+                FROM credit_transactions ct
+                JOIN users u ON u.id = ct.user_id
+                WHERE DATE(ct.created_at) <> DATE(u.created_at)`),
+      // Engagement ratio: distinct users with a transaction today
+      db.query('SELECT COUNT(DISTINCT user_id) AS c FROM credit_transactions WHERE DATE(created_at) = CURDATE()'),
     ]);
 
     totals.appOpens      = allOpens[0].c;
@@ -58,6 +79,17 @@ exports.getIndex = async (req, res) => {
     dailyPlays  = dailyPlRows;
     topGames    = topGamesRows;
     dailyDau    = dauRows;
+
+    const totalUsers = totalUsersRows[0].c;
+    const pct = (count) => totalUsers > 0 ? Math.round((count / totalUsers) * 1000) / 10 : 0;
+
+    engagement.totalUsers     = totalUsers;
+    engagement.playedUsers    = playedUsersRows[0].c;
+    engagement.playedPct      = pct(playedUsersRows[0].c);
+    engagement.returningUsers = returningUsersRows[0].c;
+    engagement.returningPct   = pct(returningUsersRows[0].c);
+    engagement.engagedToday   = engagedTodayRows[0].c;
+    engagement.engagementPct  = pct(engagedTodayRows[0].c);
   } catch (_) {
     // Tables not yet created or empty — show zeros
   }
@@ -115,7 +147,7 @@ exports.getIndex = async (req, res) => {
 
   res.render('sitehandler/analytics/index', {
     title: 'Analytics', activePage: 'analytics',
-    totals, deviceData, topGames,
+    totals, deviceData, topGames, engagement,
     todayDau, yesterdayDau, dauDelta,
     chartData: JSON.stringify({ labels, openCounts, playCounts }),
     dauData: JSON.stringify({ labels: dauLabels, counts: dauCounts }),

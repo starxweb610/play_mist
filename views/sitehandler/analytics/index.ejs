@@ -17,6 +17,58 @@
         <h2 class="page-heading">Analytics</h2>
         <p class="page-subheading">App usage and game play insights from the Playmist mobile app.</p>
       </div>
+      <div class="page-header-actions">
+        <button type="button" class="btn-admin-primary" id="openEngagementModal">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          User Engagements
+        </button>
+      </div>
+    </div>
+
+    <!-- User Engagements Modal -->
+    <div class="modal-overlay" id="engagementModalOverlay">
+      <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="engagementModalTitle">
+        <div class="modal-header">
+          <h3 id="engagementModalTitle">User Engagement</h3>
+          <button type="button" class="modal-close" id="closeEngagementModal" aria-label="Close">&times;</button>
+        </div>
+        <p class="modal-subtext">Based on <%= engagement.totalUsers.toLocaleString() %> registered user<%= engagement.totalUsers === 1 ? '' : 's' %>.</p>
+
+        <div class="engagement-metrics">
+          <div class="engagement-metric" style="--ic:#7c3aed">
+            <div class="engagement-metric-head">
+              <span class="engagement-metric-label">Playing Users</span>
+              <span class="engagement-metric-value"><%= engagement.playedPct %>%</span>
+            </div>
+            <div class="engagement-slider">
+              <div class="engagement-slider-fill" data-pct="<%= engagement.playedPct %>"></div>
+            </div>
+            <span class="engagement-metric-sub"><%= engagement.playedUsers.toLocaleString() %> of <%= engagement.totalUsers.toLocaleString() %> users have played at least one game</span>
+          </div>
+
+          <div class="engagement-metric" style="--ic:#06b6d4">
+            <div class="engagement-metric-head">
+              <span class="engagement-metric-label">Returning Users</span>
+              <span class="engagement-metric-value"><%= engagement.returningPct %>%</span>
+            </div>
+            <div class="engagement-slider">
+              <div class="engagement-slider-fill" data-pct="<%= engagement.returningPct %>"></div>
+            </div>
+            <span class="engagement-metric-sub"><%= engagement.returningUsers.toLocaleString() %> of <%= engagement.totalUsers.toLocaleString() %> users transacted on a day after registration</span>
+          </div>
+
+          <div class="engagement-metric" style="--ic:#10b981">
+            <div class="engagement-metric-head">
+              <span class="engagement-metric-label">Engagement Ratio</span>
+              <span class="engagement-metric-value"><%= engagement.engagementPct %>%</span>
+            </div>
+            <div class="engagement-slider">
+              <div class="engagement-slider-fill" data-pct="<%= engagement.engagementPct %>"></div>
+            </div>
+            <span class="engagement-metric-sub"><%= engagement.engagedToday.toLocaleString() %> of <%= engagement.totalUsers.toLocaleString() %> users transacted today</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- DAU Trend (full width) -->
@@ -274,6 +326,40 @@ new Chart(document.getElementById('topGamesChart'), {
   }
 });
 <% } %>
+
+// User Engagements Modal
+(function initEngagementModal() {
+  const openBtn  = document.getElementById('openEngagementModal');
+  const closeBtn = document.getElementById('closeEngagementModal');
+  const overlay  = document.getElementById('engagementModalOverlay');
+  if (!openBtn || !overlay) return;
+
+  const fills = overlay.querySelectorAll('.engagement-slider-fill');
+
+  const openModal = () => {
+    overlay.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+    // Animate fills from 0 -> target pct on each open
+    fills.forEach(f => { f.style.width = '0%'; });
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        fills.forEach(f => { f.style.width = (f.dataset.pct || 0) + '%'; });
+      });
+    });
+  };
+
+  const closeModal = () => {
+    overlay.classList.remove('is-open');
+    document.body.style.overflow = '';
+  };
+
+  openBtn.addEventListener('click', openModal);
+  closeBtn && closeBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay.classList.contains('is-open')) closeModal();
+  });
+})();
 </script>
 <script src="/sitehandler/js/admin.js"></script>
 </body>
