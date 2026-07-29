@@ -27,6 +27,7 @@ const gameXpApi         = require('../controllers/api/gameXpApi');
 const gameFunnelApi     = require('../controllers/api/gameFunnelApi');
 const gameShopApi       = require('../controllers/api/gameShopApi');
 const multiplayerApi    = require('../controllers/api/multiplayerApi');
+const demoFeedbackApi   = require('../controllers/api/demoFeedbackApi');
 const appConfigApi      = require('../controllers/api/appConfigApi');
 const { verifyJwt }     = require('../middleware/auth');
 const { avatarUpload }  = require('../config/upload');
@@ -63,6 +64,12 @@ v1Router.get('/all-games', verifyJwt, gamesApi.getAllGames);
 v1Router.get('/latest-games', verifyJwt, gamesApi.getLatestGames);
 v1Router.get('/popular-games', verifyJwt, gamesApi.getPopularGames);
 v1Router.get('/genres', verifyJwt, gamesApi.getGenres);
+
+// Coming Soon — in-development titles. The list carries no build URLs at all;
+// the detail endpoint attaches the demo build only when one is published.
+v1Router.get('/coming-soon-games',     verifyJwt, gamesApi.getComingSoonGames);
+v1Router.get('/coming-soon-games/:id', verifyJwt, gamesApi.getComingSoonGameDetail);
+v1Router.post('/coming-soon-games/:id/feedback', verifyJwt, demoFeedbackApi.submitFeedback);
 
 // Star ratings — user-submitted, prompted by the app after repeat launches
 v1Router.post('/games/:id/rate', verifyJwt, gamesApi.rateGame);

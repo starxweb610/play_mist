@@ -49,6 +49,27 @@ exports.runMigrations = async () => {
     // varchar `size` column keeps the human-readable form for old clients.
     await migrateColumn('games', 'size_bytes',            'BIGINT DEFAULT NULL AFTER size');
 
+    // ── Release stage: the game lifecycle dimension ───────────────────────────
+    // 'live' (default — every pre-existing row) behaves exactly as before.
+    // 'in_development' titles are served ONLY by /api/v1/coming-soon-games and
+    // are forced to is_active = 0, which keeps them out of the mobile catalog,
+    // the public website, the sitemap and the daily pick (all filter is_active).
+    await migrateColumn('games', 'release_stage',
+      "ENUM('live','in_development') NOT NULL DEFAULT 'live' AFTER is_featured");
+    // Free-text window shown on the Coming Soon card ("Q1 2027", "Winter 2026")
+    await migrateColumn('games', 'expected_release',  'VARCHAR(40) DEFAULT NULL AFTER release_stage');
+    // Decides which 5 in-development titles surface, and in what order
+    await migrateColumn('games', 'coming_soon_rank',  'INT DEFAULT 0 AFTER expected_release');
+
+    // ── Demo builds ───────────────────────────────────────────────────────────
+    // Kept in their own columns so publishing a demo never touches zip_url /
+    // version / size_bytes — the real build's fields stay clean, and shipping
+    // the finished game doesn't have to undo anything the demo wrote.
+    await migrateColumn('games', 'demo_zip_url', 'VARCHAR(500) DEFAULT NULL AFTER coming_soon_rank');
+    await migrateColumn('games', 'demo_version', "VARCHAR(20) DEFAULT '0.1.0' AFTER demo_zip_url");
+    await migrateColumn('games', 'demo_enabled', 'TINYINT(1) DEFAULT 0 AFTER demo_version');
+    await migrateColumn('games', 'demo_size_bytes', 'BIGINT DEFAULT NULL AFTER demo_enabled');
+
     // ── users columns ─────────────────────────────────────────────────────────
     await migrateColumn('users', 'credits',         'INT DEFAULT 1000 AFTER avatar');
     await db.query('UPDATE users SET credits = 1000 WHERE credits IS NULL');
@@ -634,6 +655,34 @@ exports.runMigrations = async () => {
         UNIQUE KEY uniq_user_event (user_id, event_id),
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (event_id) REFERENCES game_funnel_events(id) ON DELETE CASCADE
+      )
+    `);
+
+    // ── demo_feedback: structured playtest responses on in-development games ──
+    // Keyed by demo_version as well as (game, user): a player who tested v0.3
+    // is asked again on v0.4, and the two answers stay separately comparable.
+    // Re-submitting the SAME version upserts (see uniq_game_user_version), so
+    // the reward can only ever be granted once per version.
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS demo_feedback (
+        id              INT PRIMARY KEY AUTO_INCREMENT,
+        game_id         INT NOT NULL,
+        user_id         INT NOT NULL,
+        demo_version    VARCHAR(20)  NOT NULL DEFAULT '0.1.0',
+        overall         TINYINT      NOT NULL,
+        fun             TINYINT      DEFAULT NULL,
+        difficulty      TINYINT      DEFAULT NULL,
+        performance     TINYINT      DEFAULT NULL,
+        liked           TEXT         DEFAULT NULL,
+        frustration     TEXT         DEFAULT NULL,
+        would_play      ENUM('yes','maybe','no') DEFAULT NULL,
+        session_seconds INT          DEFAULT NULL,
+        device          VARCHAR(40)  DEFAULT NULL,
+        created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        updated_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_game_user_version (game_id, user_id, demo_version),
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
 

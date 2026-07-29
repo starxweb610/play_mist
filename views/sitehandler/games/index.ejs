@@ -36,6 +36,7 @@
         <option value="">All Status</option>
         <option value="active"   <%= filters.status === 'active'   ? 'selected' : '' %>>Active</option>
         <option value="inactive" <%= filters.status === 'inactive' ? 'selected' : '' %>>Draft</option>
+        <option value="in_development" <%= filters.status === 'in_development' ? 'selected' : '' %>>In development</option>
       </select>
       <button type="submit" class="btn-admin-primary">Filter</button>
       <a href="/sitehandler/games" class="btn-admin-ghost">Clear</a>
@@ -86,12 +87,26 @@
                   <% } %>
                 </td>
                 <td>
-                  <label class="toggle-switch" title="<%= game.is_active ? 'Active' : 'Draft' %>">
-                    <form action="/sitehandler/games/<%= game.id %>/toggle" method="POST" style="display:inline">
-                      <input type="checkbox" onchange="this.form.submit()" <%= game.is_active ? 'checked' : '' %>>
-                      <span class="toggle-slider"></span>
-                    </form>
-                  </label>
+                  <% if (game.release_stage === 'in_development') { %>
+                    <%# In-development games are always is_active = 0, so the
+                        Active toggle would just read "Draft" and mislead. Show
+                        the Coming Soon state instead. %>
+                    <span class="badge badge--premium">In development</span>
+                    <div class="text-dim text-sm" style="margin-top:4px">
+                      <% if (comingSoonVisibleIds.includes(game.id)) { %>
+                        Showing · rank <%= game.coming_soon_rank || 0 %>
+                      <% } else { %>
+                        Not shown (over the 5 limit)
+                      <% } %>
+                    </div>
+                  <% } else { %>
+                    <label class="toggle-switch" title="<%= game.is_active ? 'Active' : 'Draft' %>">
+                      <form action="/sitehandler/games/<%= game.id %>/toggle" method="POST" style="display:inline">
+                        <input type="checkbox" onchange="this.form.submit()" <%= game.is_active ? 'checked' : '' %>>
+                        <span class="toggle-slider"></span>
+                      </form>
+                    </label>
+                  <% } %>
                 </td>
                 <td>
                   <div class="action-btns">

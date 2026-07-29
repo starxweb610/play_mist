@@ -187,10 +187,51 @@
               </div>
             </div>
 
+            <!-- Release stage: 'in_development' moves the game out of the live
+                 catalog entirely and into the app's Coming Soon rail. -->
+            <div class="form-group">
+              <label class="form-label">Release Stage</label>
+              <select name="release_stage" class="form-input" id="releaseStageSelect">
+                <option value="live" <%= game.release_stage !== 'in_development' ? 'selected' : '' %>>Live — in the normal catalog</option>
+                <option value="in_development" <%= game.release_stage === 'in_development' ? 'selected' : '' %>>In development — Coming Soon rail only</option>
+              </select>
+              <p class="text-dim text-sm" style="margin-top:6px">
+                In-development games are forced inactive: they never appear in the catalog,
+                search, the website or the daily pick — only in the app's Coming Soon rail
+                (max 5, lowest rank first).
+              </p>
+            </div>
+
+            <div id="comingSoonFields" style="display:<%= game.release_stage === 'in_development' ? 'block' : 'none' %>">
+              <div class="form-row-2">
+                <div class="form-group">
+                  <label class="form-label">Expected Release</label>
+                  <input type="text" name="expected_release" class="form-input"
+                    value="<%= game.expected_release || '' %>" placeholder="e.g. Q1 2027, Winter 2026" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Coming Soon Rank</label>
+                  <input type="number" name="coming_soon_rank" class="form-input"
+                    value="<%= game.coming_soon_rank || 0 %>" placeholder="0" />
+                </div>
+              </div>
+            </div>
+
             <div class="form-actions">
               <button type="submit" class="btn-admin-primary">Save Changes</button>
             </div>
           </form>
+
+          <script>
+            (function () {
+              var sel = document.getElementById('releaseStageSelect');
+              var box = document.getElementById('comingSoonFields');
+              if (!sel || !box) return;
+              sel.addEventListener('change', function () {
+                box.style.display = sel.value === 'in_development' ? 'block' : 'none';
+              });
+            })();
+          </script>
         </div>
       </div>
 
@@ -249,6 +290,69 @@
               Upload & Extract
             </button>
           </form>
+        </div>
+
+        <!-- Demo build — only meaningful while the game is in development -->
+        <div class="form-card">
+          <h3 class="form-card-title">🧪 Playtest Demo Build</h3>
+
+          <% if (game.release_stage !== 'in_development') { %>
+            <p class="text-dim text-sm">
+              Set <strong>Release Stage</strong> to “In development” and save to publish a demo
+              players can test from the Coming Soon rail.
+            </p>
+          <% } else { %>
+            <% if (game.demo_zip_url) { %>
+              <div class="file-status file-status--ok">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <span>Demo v<%= game.demo_version || '0.1.0' %> uploaded<%= game.demo_size_label ? ' · ' + game.demo_size_label : '' %></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;margin:12px 0">
+                <form action="/sitehandler/games/<%= game.id %>/demo-toggle" method="POST" style="display:flex;align-items:center;gap:10px">
+                  <label class="toggle-switch" title="<%= game.demo_enabled ? 'Demo live' : 'Demo hidden' %>">
+                    <input type="checkbox" name="demo_enabled" onchange="this.form.submit()" <%= game.demo_enabled ? 'checked' : '' %>>
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="text-dim text-sm">
+                    <%= game.demo_enabled ? 'Players can play this demo' : 'Demo hidden from players' %>
+                  </span>
+                </form>
+              </div>
+              <a href="/sitehandler/games/<%= game.id %>/demo-feedback" class="btn-admin-ghost" style="width:100%;display:block;text-align:center">
+                View playtest feedback →
+              </a>
+            <% } else { %>
+              <div class="file-status file-status--pending">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span>No demo build yet</span>
+              </div>
+            <% } %>
+
+            <div class="upload-hint" style="margin-top:12px">
+              <strong>Demo builds are separate</strong> from the final build above — uploading one
+              never touches the real <code>zip_url</code>. Bump the version on each new build so
+              feedback stays comparable across iterations.
+            </div>
+
+            <form action="/sitehandler/games/<%= game.id %>/upload-demo" method="POST"
+                  enctype="multipart/form-data">
+              <div class="form-group">
+                <label class="form-label">Demo Version</label>
+                <input type="text" name="demo_version" class="form-input"
+                       value="<%= game.demo_version || '0.1.0' %>" placeholder="0.1.0" required />
+              </div>
+              <div class="drop-zone">
+                <input type="file" name="demo_zip" accept=".zip" required class="drop-input" />
+                <div class="drop-text">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <span>Drop demo .zip here or click to browse</span>
+                </div>
+              </div>
+              <button type="submit" class="btn-admin-primary" style="width:100%;margin-top:12px">
+                Upload Demo Build
+              </button>
+            </form>
+          <% } %>
         </div>
 
         <!-- Thumbnail Image Upload -->

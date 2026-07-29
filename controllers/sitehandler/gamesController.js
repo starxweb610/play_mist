@@ -59,21 +59,32 @@ exports.getIndex = async (req, res) => {
   if (genre)  { sql += ' AND g.genre = ?'; params.push(genre); }
   if (status === 'active')   { sql += ' AND g.is_active = 1'; }
   if (status === 'inactive') { sql += ' AND g.is_active = 0'; }
+  if (status === 'in_development') { sql += " AND g.release_stage = 'in_development'"; }
   if (q)      { sql += ' AND g.title LIKE ?'; params.push(`%${q}%`); }
   sql += ' ORDER BY g.created_at DESC';
 
   let games = [];
   let genres = [];
+  // Which in-development titles actually reach the app's Coming Soon rail —
+  // mirrors the LIMIT 5 in gamesApi.getComingSoonGames so the list view can
+  // say plainly which ones players will and won't see.
+  let comingSoonVisibleIds = [];
   try {
     const [gamesRows] = await db.query(sql, params);
     const [genresRows] = await db.query('SELECT * FROM genres ORDER BY name ASC');
     games = gamesRows;
     genres = genresRows;
+
+    const [visibleRows] = await db.query(
+      `SELECT id FROM games WHERE release_stage = 'in_development'
+       ORDER BY coming_soon_rank ASC, created_at DESC LIMIT 5`
+    );
+    comingSoonVisibleIds = visibleRows.map(r => r.id);
   } catch (_) {}
 
   res.render('sitehandler/games/index', {
     title: 'Manage Games', activePage: 'games',
-    games, filters: { type, genre, status, q }, genres,
+    games, filters: { type, genre, status, q }, genres, comingSoonVisibleIds,
   });
 };
 
@@ -150,6 +161,8 @@ exports.getDetail = async (req, res) => {
     game.thumbnail_url = formatAdminImagePath(game.thumbnail_url);
     game.secondary_thumbnail = formatAdminImagePath(game.secondary_thumbnail);
     game.promotional_thumbnail = formatAdminImagePath(game.promotional_thumbnail);
+    // formatBytes isn't available inside EJS — precompute the demo size label
+    game.demo_size_label = game.demo_size_bytes ? formatBytes(game.demo_size_bytes) : '';
 
     const mappedScreenshots = screenshots.map(s => ({
       ...s,
@@ -181,11 +194,18 @@ exports.postUpdate = async (req, res) => {
     short_description, long_description, trailer_url,
     version, is_active, is_featured,
     studio, credits_cost, flag,
+    release_stage, expected_release, coming_soon_rank,
     tags
   } = req.body;
   try {
     const [prevRows] = await db.query('SELECT is_active FROM games WHERE id = ?', [id]);
     const wasActive  = prevRows.length ? !!prevRows[0].is_active : false;
+
+    // An in-development game is forced inactive. This is what makes the
+    // "Coming Soon only" containment structural rather than a habit — leaving
+    // the Active toggle on can't publish an unfinished game to the catalog.
+    const stage       = release_stage === 'in_development' ? 'in_development' : 'live';
+    const isActiveNow = stage === 'in_development' ? 0 : (is_active === 'on' ? 1 : 0);
 
     const base = slugify(title);
     const slug = await uniqueSlug(base, parseInt(id));
@@ -193,16 +213,20 @@ exports.postUpdate = async (req, res) => {
       `UPDATE games SET title=?, slug=?, genre=?, orientation=?, type=?,
        short_description=?, long_description=?, trailer_url=?,
        version=?, is_active=?, is_featured=?,
-       studio=?, credits_cost=?, flag=? WHERE id=?`,
+       studio=?, credits_cost=?, flag=?,
+       release_stage=?, expected_release=?, coming_soon_rank=? WHERE id=?`,
       [
         title, slug, genre, orientation, type,
         short_description, long_description || null, trailer_url?.trim() || null,
         version || '1.0.0',
-        is_active === 'on' ? 1 : 0,
+        isActiveNow,
         is_featured === 'on' ? 1 : 0,
         studio || null,
         credits_cost ? parseInt(credits_cost) : null,
         flag || null,
+        stage,
+        stage === 'in_development' ? (expected_release?.trim() || null) : null,
+        stage === 'in_development' ? (parseInt(coming_soon_rank, 10) || 0) : 0,
         id,
       ]
     );
@@ -219,8 +243,10 @@ exports.postUpdate = async (req, res) => {
     }
 
     // Game published via the edit form (inactive → active): push to all users
-    // + "your game is live" email to the submitting developer
-    if (!wasActive && is_active === 'on') {
+    // + "your game is live" email to the submitting developer. Promoting a
+    // Coming Soon title (stage → live + Active on) is exactly this transition,
+    // so the launch announcement fires for it too.
+    if (!wasActive && isActiveNow === 1) {
       const { announceGameLive } = require('../../utils/gameLive');
       announceGameLive(parseInt(id), req.session.admin?.id || null);
     }
@@ -315,6 +341,100 @@ exports.postUpload = async (req, res) => {
     await fse.remove(zipFile.path).catch(() => {});
     if (extractDir) await fse.remove(extractDir).catch(() => {});
   }
+};
+
+// ── POST /sitehandler/games/:id/upload-demo ──────────────────────────────────
+// Publishes a playtest build for an in-development game. Deliberately writes
+// only the demo_* columns and uploads to its own R2 prefix, so the eventual
+// real build (file_path / play_url / zip_url / size_bytes) is never touched and
+// shipping the finished game needs no cleanup here.
+exports.postUploadDemo = async (req, res) => {
+  const { id } = req.params;
+  const zipFile = req.file;
+
+  if (!zipFile) {
+    req.flash('error_msg', 'No file uploaded. Please select a .zip file.');
+    return res.redirect(`/sitehandler/games/${id}`);
+  }
+
+  let extractDir = null;
+  try {
+    const [rows] = await db.query('SELECT * FROM games WHERE id = ?', [id]);
+    if (!rows.length) throw new Error('Game not found');
+    const game = rows[0];
+
+    if (game.release_stage !== 'in_development') {
+      throw new Error('Demo builds can only be uploaded to in-development games.');
+    }
+
+    const demoVersion = (req.body.demo_version || '').trim() || '0.1.0';
+
+    const zip     = new AdmZip(zipFile.path);
+    const entries = zip.getEntries().map(e => e.entryName.replace(/\\/g, '/'));
+
+    const hasRoot = entries.some(e => e === 'index.html' || e.match(/^[^/]+\/index\.html$/));
+    if (!hasRoot) throw new Error('ZIP must contain index.html at root (or one folder deep).');
+
+    extractDir = path.join(PATHS.TEMP_DIR, `demo_extract_${Date.now()}_${id}`);
+    await fse.ensureDir(extractDir);
+
+    const subFolder = entries.find(e => e.match(/^[^/]+\/index\.html$/));
+    if (subFolder) {
+      const tempExtract = path.join(PATHS.TEMP_DIR, `demo_raw_${Date.now()}_${id}`);
+      await fse.ensureDir(tempExtract);
+      zip.extractAllTo(tempExtract, true);
+      await fse.copy(path.join(tempExtract, subFolder.split('/')[0]), extractDir);
+      await fse.remove(tempExtract);
+    } else {
+      zip.extractAllTo(extractDir, true);
+    }
+
+    // Own prefix — never collides with the real build at games/webgl/<slug>
+    const r2Prefix = `games/demo/${game.slug}`;
+    await r2.deletePrefix(`${r2Prefix}/`);
+
+    const files = walkFiles(extractDir);
+    const CONCURRENCY = 5;
+    for (let i = 0; i < files.length; i += CONCURRENCY) {
+      await Promise.all(files.slice(i, i + CONCURRENCY).map(filePath => {
+        const rel = path.relative(extractDir, filePath).replace(/\\/g, '/');
+        return r2.uploadFile(`${r2Prefix}/${rel}`, filePath,
+          r2.getContentType(rel), r2.getContentEncoding(rel));
+      }));
+    }
+    await r2.uploadFile(`${r2Prefix}/game.zip`, zipFile.path, 'application/zip');
+
+    const sizeBytes = fs.statSync(zipFile.path).size;
+    await db.query(
+      `UPDATE games SET demo_zip_url=?, demo_version=?, demo_size_bytes=?, demo_enabled=1
+       WHERE id=?`,
+      [r2.getPublicUrl(`${r2Prefix}/game.zip`), demoVersion, sizeBytes, id]
+    );
+
+    req.flash('success_msg', `✅ Demo v${demoVersion} published — players can now test it from Coming Soon.`);
+    res.redirect(`/sitehandler/games/${id}`);
+  } catch (err) {
+    req.flash('error_msg', 'Demo upload failed: ' + err.message);
+    res.redirect(`/sitehandler/games/${id}`);
+  } finally {
+    await fse.remove(zipFile.path).catch(() => {});
+    if (extractDir) await fse.remove(extractDir).catch(() => {});
+  }
+};
+
+// ── POST /sitehandler/games/:id/demo-toggle ──────────────────────────────────
+// Pulls a demo without deleting it — the build and its feedback stay intact.
+exports.postDemoToggle = async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db.query('UPDATE games SET demo_enabled = ? WHERE id = ?',
+      [req.body.demo_enabled === 'on' ? 1 : 0, id]);
+    req.flash('success_msg', req.body.demo_enabled === 'on'
+      ? 'Demo is live for players.' : 'Demo hidden from players.');
+  } catch (err) {
+    req.flash('error_msg', 'Failed to toggle demo: ' + err.message);
+  }
+  res.redirect(`/sitehandler/games/${id}`);
 };
 
 // ── POST /sitehandler/games/:id/upload-image ─────────────────────────────────

@@ -431,12 +431,21 @@ exports.deductCredits = async (req, res) => {
     }
 
     const [games] = await db.query(
-      'SELECT credits_cost, type FROM games WHERE id = ?',
+      'SELECT credits_cost, type, release_stage, demo_enabled, demo_zip_url FROM games WHERE id = ?',
       [gameId]
     );
 
     if (!games.length) {
       return res.status(404).json({ error: 'Game not found' });
+    }
+
+    // In-development titles are playable only as a published demo, and only
+    // ever for free. Enforced here rather than in the UI: this is the single
+    // point every session must pass through, so a stale client, a replayed
+    // request or a deep link cannot start an unreleased build.
+    const isDemoSession = games[0].release_stage === 'in_development';
+    if (isDemoSession && !(games[0].demo_enabled && games[0].demo_zip_url)) {
+      return res.status(403).json({ error: 'This game is not available yet' });
     }
 
     // Check if this is today's daily pick — server-authoritative, client cannot fake it.
@@ -448,7 +457,9 @@ exports.deductCredits = async (req, res) => {
     const baseCost  = games[0].credits_cost !== null
       ? games[0].credits_cost
       : (games[0].type === 'premium' ? 25 : 5);
-    const cost = freeToday ? 0 : baseCost;
+    // Demos are always free — charging players to test an unfinished game
+    // inverts the favour being asked of them.
+    const cost = (freeToday || isDemoSession) ? 0 : baseCost;
 
     if (cost > 0) {
       // Atomic conditional deduction — prevents double-spend under concurrent requests
@@ -469,42 +480,51 @@ exports.deductCredits = async (req, res) => {
 
     const [updated] = await db.query('SELECT credits, xp, level FROM users WHERE id = ?', [userId]);
 
-    // Record the transaction
+    // Record the transaction.
+    // Demo sessions are logged as 'other', NOT 'game'. Daily-challenge progress
+    // and the play-count achievements below both count rows with source='game',
+    // and a demo is free and unlimited — logging it as a game play would let a
+    // player farm challenge rewards by relaunching the same demo. The play is
+    // still captured for analytics via /api/analytics/game-play.
     try {
       await db.query(
         `INSERT INTO credit_transactions (user_id, game_id, credits_used, source)
-         VALUES (?, ?, ?, 'game')`,
-        [userId, gameId, cost]
+         VALUES (?, ?, ?, ?)`,
+        [userId, gameId, cost, isDemoSession ? 'other' : 'game']
       );
     } catch (txErr) {
       console.error('Failed to log credit transaction:', txErr.message);
     }
 
     // Fire achievement checks (non-blocking — failures don't affect the response)
+    // Skipped entirely for demos: "play 5 different games" should mean five
+    // finished games, not five unreleased builds.
     const newAchievements = [];
     try {
-      // Count total distinct games played by this user
-      const [playCount] = await db.query(
-        `SELECT COUNT(DISTINCT game_id) AS c FROM credit_transactions
-         WHERE user_id = ? AND source = 'game'`,
-        [userId]
-      );
-      const total = playCount[0].c;
+      if (!isDemoSession) {
+        // Count total distinct games played by this user
+        const [playCount] = await db.query(
+          `SELECT COUNT(DISTINCT game_id) AS c FROM credit_transactions
+           WHERE user_id = ? AND source = 'game'`,
+          [userId]
+        );
+        const total = playCount[0].c;
 
-      if (total === 1) {
-        const r = await grantAchievement(userId, 'first_game'); if (r.granted) newAchievements.push(r.achievement);
-      }
-      if (total >= 5) {
-        const r = await grantAchievement(userId, 'games_5');   if (r.granted) newAchievements.push(r.achievement);
-      }
-      if (total >= 25) {
-        const r = await grantAchievement(userId, 'games_25');  if (r.granted) newAchievements.push(r.achievement);
-      }
-      if (games[0].type === 'premium') {
-        const r = await grantAchievement(userId, 'first_premium'); if (r.granted) newAchievements.push(r.achievement);
-      }
-      if (freeToday) {
-        const r = await handleDailyPickPlay(userId, gameId);   if (r.granted) newAchievements.push(r.achievement);
+        if (total === 1) {
+          const r = await grantAchievement(userId, 'first_game'); if (r.granted) newAchievements.push(r.achievement);
+        }
+        if (total >= 5) {
+          const r = await grantAchievement(userId, 'games_5');   if (r.granted) newAchievements.push(r.achievement);
+        }
+        if (total >= 25) {
+          const r = await grantAchievement(userId, 'games_25');  if (r.granted) newAchievements.push(r.achievement);
+        }
+        if (games[0].type === 'premium') {
+          const r = await grantAchievement(userId, 'first_premium'); if (r.granted) newAchievements.push(r.achievement);
+        }
+        if (freeToday) {
+          const r = await handleDailyPickPlay(userId, gameId);   if (r.granted) newAchievements.push(r.achievement);
+        }
       }
     } catch (achErr) {
       console.error('Achievement check error:', achErr.message);

@@ -114,6 +114,7 @@ Classic email+password with bcrypt, stored server-side in express-session. Devel
 | Players | `users`, `user_email_otps` | username (immutable), `display_name`, `bio`, email (+`email_verified`), `credits` (default 1000), `xp`, `level`, `current_streak`, `longest_streak`, `last_streak_date`, avatar, `gpgs_player_id`; OTP table holds one pending email code per user |
 | Economy | `credit_transactions` | every credit movement; `source` ∈ game/ad/streak/achievement/challenge/welcome/other; negative `credits_used` = credits granted |
 | Catalog | `games`, `genres`, `tags`, `game_tags`, `game_screenshots`, `game_ratings` | `games.type` ∈ webgl (mini) / premium; `credits_cost`, `zip_url`, `size_bytes` auto-computed from the uploaded ZIP |
+| Coming Soon | `games.release_stage` + `expected_release` / `coming_soon_rank` / `demo_*`, `demo_feedback` | `release_stage` ∈ live / in_development (§5.5); demo build columns are separate from the real build's |
 | Engagement | `daily_picks`, `daily_challenges`, `user_challenge_completions`, `achievements`, `user_achievements` | challenge auto-generated per weekday; achievements seeded in `/api/health` |
 | Developers | `developers`, developer games/submissions, knowledge notes | submission lifecycle in §5.3 |
 | Comms | notifications, push tokens, `tickets`, `ticket_replies`, `feedbacks`, `newsletter_signups` | |
@@ -165,6 +166,20 @@ Rejections carry a reason (emailed). Admins can ban developers. Knowledge-sphere
 
 ---
 
+### 5.5 Coming Soon & playtest demos (in-development titles)
+
+A game's lifecycle is a **separate dimension from visibility**: `games.release_stage` ∈ `live` | `in_development`. Everything about this feature follows from one containment rule.
+
+**Server side.** In-development games are forced `is_active = 0` by `gamesController.postUpdate` — which keeps them out of `/all-games`, `/latest-games`, `/popular-games`, the public website, the sitemap and the daily pick, all of which already filter `is_active = 1`. They are served *only* by `GET /api/v1/coming-soon-games` (`ORDER BY coming_soon_rank`, hard `LIMIT 5`). That list payload carries **no build URLs and no price**; `GET /api/v1/coming-soon-games/:id` is the only endpoint that ever returns `demoZipUrl`, and only when a demo is published.
+
+**App side.** The mirror rule: coming-soon games are held in their own `comingSoonGames` state and never passed to `setAllGames()`/`setGames()`. Since every other surface — search, Premium/Mini tabs, My Games, see-all lists, "more like this", the featured carousel — renders from `games`/`ALL_GAMES`, that single boundary confines them to the Dashboard rail with no per-screen filtering. Guarded by `src/data/comingSoonContainment.test.js`, which fails CI if a future edit merges the lists or references `comingSoonGames` outside its four allowed files.
+
+**Demos.** Uploaded separately (`/sitehandler/games/:id/upload-demo` → R2 `games/demo/<slug>/`, own `demo_*` columns), so publishing a playtest build never touches the real `zip_url`/`version`/`size_bytes`. `deductCredits` gates the launch: a non-`live` game requires `demo_enabled` + `demo_zip_url`, else 403 — the single server-side chokepoint no client can bypass. Demos always cost **0**, and their sessions are logged with `source='other'` rather than `'game'`, because daily-challenge progress and the play-count achievements both count `source='game'` rows and a free unlimited demo would otherwise farm them. On device the build extracts under `demo-<id>` with its own `pm_demo_version_<id>` key, so it can't collide with the finished game once that ships under the same id.
+
+**Feedback.** After a demo session ≥90s, the native `resume` listener opens `DemoFeedbackModal` (alongside, and mutually exclusive with, the rating prompt). One `demo_feedback` row per (game, user, `demo_version`) — upsert, so a new build asks again and a re-submit edits; +200 credits / +100 XP granted once per version. Read at `/sitehandler/games/:id/demo-feedback`, grouped by version, with CSV export.
+
+---
+
 ## 6. Mobile app (`gaming_app`)
 
 ### 6.1 Stack
@@ -189,7 +204,8 @@ SplashScreen → SetupUserScreen (auto-registration) → OnboardingScreen
       + modals: profile, profile-settings (name/bio/avatar/email-OTP form),
         wallet, search, support, launch-confirm, web-link,
         rate-game, download, out-of-credits, no-internet, welcome-bonus,
-        transactions-history, see-all lists
+        transactions-history, see-all lists,
+        coming-soon (in-development detail), demo-feedback (§5.5)
       + achievement-unlock banner, Toast
 ```
 
@@ -278,6 +294,7 @@ ssh cgpixels-vps 'bash /var/www/play_mist/scripts/deploy.sh'
 | I want to… | Start here |
 |---|---|
 | change what a game costs / launch behavior | `controllers/api/authApi.js` (`deductCredits`) + app `components/LaunchModal.jsx` |
+| put a game in Coming Soon / publish a demo / read playtest feedback | §5.5 — admin game detail page (Release Stage + demo upload cards), `controllers/api/gamesApi.js` (`getComingSoonGames`), app `context/AppContext.jsx` (`launchDemo`) + `screens/ComingSoonScreen.jsx` |
 | tune streak / challenge / achievement rewards | `controllers/api/streakApi.js`, `challengeApi.js`, `utils/achievements.js` (+ seeds in `routes/api.js` health) |
 | add/modify a mobile API endpoint | `routes/api.js` → controller in `controllers/api/` → client call in app `src/services/api.js` |
 | change profile settings / email linking / avatar rules | `controllers/api/profileApi.js` + app `src/screens/ProfileSettingsScreen.jsx` |
