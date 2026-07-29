@@ -211,6 +211,132 @@ exports.getPopularGames = async (req, res) => {
   }
 };
 
+// ── Coming Soon (in-development titles) ──────────────────────────────────────
+
+/** Hard cap on how many in-development titles the app will ever be shown. */
+const COMING_SOON_LIMIT = 5;
+
+/**
+ * Deliberately NOT mapGameRow: the list payload carries no build URLs at all
+ * (`zipurl`, `gameurl`, `adFiles`) and no price. An unreleased build's location
+ * never leaves the server from this endpoint, so no client — modified or not —
+ * can download a game from the Coming Soon rail. The demo build URL is served
+ * only by getComingSoonGameDetail below, and only when a demo is published.
+ */
+function mapComingSoonRow(g, screenshotsMap) {
+  return {
+    id:                   String(g.id),
+    slug:                 g.slug || null,
+    gamename:             g.title,
+    description:          g.long_description || g.short_description || '',
+    imageurl:             formatImagePath(g.thumbnail_url),
+    secondaryThumbnail:   formatImagePath(g.secondary_thumbnail),
+    promotionalThumbnail: formatImagePath(g.promotional_thumbnail),
+    trailerurl:           g.trailer_url || '',
+    screenshots:          (screenshotsMap[g.id] || []).map(formatImagePath),
+    gameorientation:      g.orientation || 'landscape',
+    gametype:             g.type,
+    genre:                g.genre  || '',
+    studio:               g.studio || '',
+    releaseStage:         g.release_stage,
+    expectedRelease:      g.expected_release || '',
+    // A demo exists and is switched on — the client shows a "Play the demo" CTA
+    // and then fetches the detail endpoint for the actual build URL.
+    hasDemo:              !!(g.demo_enabled && g.demo_zip_url),
+    demoVersion:          (g.demo_enabled && g.demo_zip_url) ? (g.demo_version || '0.1.0') : null,
+    demoSize:             g.demo_size_bytes ? formatBytes(g.demo_size_bytes) : '',
+  };
+}
+
+const COMING_SOON_COLUMNS = `
+       g.id, g.title, g.slug, g.short_description, g.long_description,
+       g.thumbnail_url, g.secondary_thumbnail, g.promotional_thumbnail, g.trailer_url,
+       g.orientation, g.type, g.genre, g.studio,
+       g.release_stage, g.expected_release, g.coming_soon_rank,
+       g.demo_zip_url, g.demo_version, g.demo_enabled, g.demo_size_bytes`;
+
+/**
+ * GET /api/v1/coming-soon-games
+ * Up to COMING_SOON_LIMIT in-development titles for the Dashboard rail.
+ * The LIMIT is authoritative here — the client caps again defensively, but the
+ * server decides which five exist.
+ */
+exports.getComingSoonGames = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT ${COMING_SOON_COLUMNS}
+       FROM games g
+       WHERE g.release_stage = 'in_development'
+       ORDER BY g.coming_soon_rank ASC, g.created_at DESC
+       LIMIT ${COMING_SOON_LIMIT}`
+    );
+
+    const [screenshotsRows] = await db.query('SELECT game_id, image_url FROM game_screenshots');
+    const screenshotsMap = {};
+    for (const r of screenshotsRows) {
+      if (!screenshotsMap[r.game_id]) screenshotsMap[r.game_id] = [];
+      screenshotsMap[r.game_id].push(r.image_url);
+    }
+
+    res.json(rows.map(g => mapComingSoonRow(g, screenshotsMap)));
+  } catch (err) {
+    console.error('GET /api/v1/coming-soon-games error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * GET /api/v1/coming-soon-games/:id
+ * Full detail for one in-development title, including the demo build URL when
+ * a demo is published, plus this user's own feedback for the current demo
+ * version (so the UI can show "give feedback" vs "you already told us").
+ */
+exports.getComingSoonGameDetail = async (req, res) => {
+  const gameId = parseInt(req.params.id, 10);
+  if (!gameId) return res.status(400).json({ error: 'Invalid game id' });
+
+  try {
+    const [rows] = await db.query(
+      `SELECT ${COMING_SOON_COLUMNS}
+       FROM games g
+       WHERE g.id = ? AND g.release_stage = 'in_development'`,
+      [gameId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Game not found' });
+
+    const g = rows[0];
+    const [screenshotsRows] = await db.query(
+      'SELECT game_id, image_url FROM game_screenshots WHERE game_id = ?', [gameId]
+    );
+    const screenshotsMap = { [gameId]: screenshotsRows.map(r => r.image_url) };
+
+    const game = mapComingSoonRow(g, screenshotsMap);
+
+    // The build URL is attached here and nowhere else — and only if the demo
+    // is actually switched on.
+    if (game.hasDemo) {
+      game.demoZipUrl = g.demo_zip_url;
+    }
+
+    // Has this player already given feedback on the CURRENT demo version?
+    let myFeedback = null;
+    if (game.hasDemo && req.user?.id) {
+      const [fb] = await db.query(
+        `SELECT overall, fun, difficulty, performance, liked, frustration, would_play
+         FROM demo_feedback
+         WHERE game_id = ? AND user_id = ? AND demo_version = ?`,
+        [gameId, req.user.id, game.demoVersion]
+      );
+      if (fb.length) myFeedback = fb[0];
+    }
+
+    res.json({ game, myFeedback });
+  } catch (err) {
+    console.error('GET /api/v1/coming-soon-games/:id error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 /**
  * POST /api/v1/games/:id/rate   (JWT-protected)
  * Body: { rating: 1..5 }

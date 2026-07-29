@@ -112,6 +112,25 @@ async function main() {
       expect(Array.isArray(games) && games.length > 0, `expected games, got ${JSON.stringify(games).slice(0, 100)}`);
     });
 
+    // The Coming Soon rail must stay capped and must never overlap the live
+    // catalog — an in-development title leaking into /all-games would put it
+    // in search, the tabs, My Games and the see-all lists all at once.
+    await check('Coming soon list (capped at 5, disjoint from catalog)', async () => {
+      const res = await request('/api/v1/coming-soon-games', { headers: authed(accessToken) });
+      expect(res.status === 200, `HTTP ${res.status}`);
+      const comingSoon = await res.json();
+      expect(Array.isArray(comingSoon), 'expected an array');
+      expect(comingSoon.length <= 5, `expected at most 5, got ${comingSoon.length}`);
+
+      const liveIds = new Set(games.map((g) => String(g.id)));
+      const leaked = comingSoon.filter((g) => liveIds.has(String(g.id))).map((g) => g.id);
+      expect(leaked.length === 0, `in-development games present in /all-games: ${leaked.join(', ')}`);
+
+      // No build URLs in the list payload, whatever else changes.
+      const withBuild = comingSoon.filter((g) => g.zipurl || g.gameurl || g.demoZipUrl);
+      expect(withBuild.length === 0, `coming-soon list leaked a build URL for ${withBuild.map(g => g.id).join(', ')}`);
+    });
+
     await check('Game thumbnail loads', async () => {
       expect(games.length > 0, 'no game to check');
       const img = games.map((g) => g.imageurl).find(Boolean);

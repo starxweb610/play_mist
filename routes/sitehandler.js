@@ -7,6 +7,7 @@ const authController                  = require('../controllers/sitehandler/auth
 const dashboardController             = require('../controllers/sitehandler/dashboardController');
 const analyticsController             = require('../controllers/sitehandler/analyticsController');
 const gamesController                 = require('../controllers/sitehandler/gamesController');
+const demoFeedbackController          = require('../controllers/sitehandler/demoFeedbackController');
 const ticketsController               = require('../controllers/sitehandler/ticketsController');
 const adminsController                = require('../controllers/sitehandler/adminsController');
 const settingsController              = require('../controllers/sitehandler/settingsController');
@@ -51,6 +52,10 @@ router.post('/games/:id/upload-secondary-image', uploadImage.single('secondary_i
 router.post('/games/:id/upload-promotional-image', uploadImage.single('promotional_image'), gamesController.postUploadPromotionalImage);
 router.post('/games/:id/upload-screenshots', uploadScreenshots.array('screenshots', 10), gamesController.postUploadScreenshots);
 router.post('/games/:id/delete-screenshot/:screenshotId', gamesController.postDeleteScreenshot);
+router.post('/games/:id/upload-demo', upload.single('demo_zip'),        gamesController.postUploadDemo);
+router.post('/games/:id/demo-toggle', gamesController.postDemoToggle);
+router.get ('/games/:id/demo-feedback',        demoFeedbackController.getIndex);
+router.get ('/games/:id/demo-feedback/export', demoFeedbackController.getExport);
 router.post('/games/:id/toggle',     gamesController.postToggle);
 router.post('/games/:id/delete',     gamesController.postDelete);
 
