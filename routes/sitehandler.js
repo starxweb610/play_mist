@@ -39,6 +39,7 @@ router.get('/dashboard',  dashboardController.getIndex);
 
 // Analytics
 router.get('/analytics', analyticsController.getIndex);
+router.get('/analytics/returning-users', analyticsController.getReturningUsers);
 
 // Games
 router.get ('/games',                gamesController.getIndex);
