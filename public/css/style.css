@@ -55,6 +55,8 @@
 
   /* Motion */
   --ease: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Slower ease-out for hover lifts — settles smoothly in both directions */
+  --ease-lift: 0.46s cubic-bezier(0.34, 1.4, 0.5, 1);
 
   /* Layout */
   --nav-h:    68px;
@@ -210,12 +212,142 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
 }
 
 .nav-link {
+  position: relative;
   padding: 8px 14px;
   border-radius: var(--r-full);
+  border: 1px solid transparent;   /* reserved so .active can't shift layout */
   font-size: 0.88rem;
   font-weight: 500;
   color: var(--text-muted);
-  transition: color var(--ease), background var(--ease);
+  transition: color var(--ease), background var(--ease),
+              border-color var(--ease), box-shadow var(--ease),
+              transform var(--ease-lift);
+}
+
+/* ─── Active nav item: frosted glass pill with a lime glow ────────────────── */
+.nav-link.active {
+  color: var(--text);
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  border-color: rgba(181, 255, 107, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),   /* glass top highlight */
+    0 0 16px rgba(181, 255, 107, 0.20),        /* outer glow */
+    0 4px 16px rgba(0, 0, 0, 0.32);
+}
+
+/* Soft lime bloom behind the pill, kept off the text. */
+.nav-link.active::before {
+  content: '';
+  position: absolute;
+  inset: -6px -10px;
+  border-radius: var(--r-full);
+  background: radial-gradient(ellipse at center,
+              rgba(181, 255, 107, 0.20) 0%, transparent 72%);
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+  animation: nav-glow-in 0.5s ease forwards,
+             nav-glow-breathe 3.4s ease-in-out 0.5s infinite;
+}
+
+@keyframes nav-glow-breathe {
+  0%, 100% { opacity: 0.75; transform: scale(0.97); }
+  50%      { opacity: 1;    transform: scale(1.04); }
+}
+
+@keyframes nav-glow-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Underline accent so the state survives forced-colors / no-backdrop-filter. */
+/* Tab indicator. Present on every link, collapsed to zero width until the tab
+   is hovered or current — so the underline grows out of the tab rather than
+   appearing from nowhere. */
+.nav-link::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--lime);
+  transform: translateX(-50%) scaleX(0);
+  transform-origin: 50% 50%;
+  opacity: 0;
+  transition: transform var(--ease-lift), opacity var(--ease);
+}
+
+.nav-link:hover::after {
+  transform: translateX(-50%) scaleX(0.7);
+  opacity: 0.65;
+}
+
+.nav-link.active::after {
+  transform: translateX(-50%) scaleX(1);
+  opacity: 1;
+  box-shadow: 0 0 8px rgba(181, 255, 107, 0.8);
+  animation: tab-underline-pulse 2.8s ease-in-out infinite;
+}
+
+/* The current tab keeps a slow pulse so it reads as live, matching the logo. */
+@keyframes tab-underline-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(181, 255, 107, 0.55); }
+  50%      { box-shadow: 0 0 14px rgba(181, 255, 107, 1); }
+}
+
+/* Tabs stagger in on load, same spring the logo uses. `backwards` (not `both`)
+   so the animation stops asserting `transform` once it finishes — with `both`
+   its fill outranks the :hover rule and the tab never lifts. */
+.nav-links .nav-link {
+  animation: nav-tab-in 0.55s cubic-bezier(0.34, 1.4, 0.5, 1) backwards;
+}
+.nav-links .nav-link:nth-child(1) { animation-delay: 0.10s; }
+.nav-links .nav-link:nth-child(2) { animation-delay: 0.17s; }
+.nav-links .nav-link:nth-child(3) { animation-delay: 0.24s; }
+.nav-links .nav-link:nth-child(4) { animation-delay: 0.31s; }
+.nav-links .nav-link:nth-child(5) { animation-delay: 0.38s; }
+
+@keyframes nav-tab-in {
+  from { opacity: 0; transform: translateY(-10px) scale(0.94); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Hover lifts the tab; the label nudges up with it. */
+.nav-link:hover { transform: translateY(-2px); }
+.nav-link:active { transform: translateY(0) scale(0.97); }
+
+/* Re-stagger when the mobile menu opens, so it doesn't just appear. */
+.nav-links.open .nav-link {
+  animation: nav-tab-drop 0.4s cubic-bezier(0.34, 1.4, 0.5, 1) backwards;
+}
+.nav-links.open .nav-link:nth-child(1) { animation-delay: 0.04s; }
+.nav-links.open .nav-link:nth-child(2) { animation-delay: 0.10s; }
+.nav-links.open .nav-link:nth-child(3) { animation-delay: 0.16s; }
+.nav-links.open .nav-link:nth-child(4) { animation-delay: 0.22s; }
+.nav-links.open .nav-link:nth-child(5) { animation-delay: 0.28s; }
+
+@keyframes nav-tab-drop {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.nav-link.active:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.10);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-link.active::before { animation: none; opacity: 1; }
+  .nav-links .nav-link,
+  .nav-links.open .nav-link { animation: none; opacity: 1; transform: none; }
+  .nav-link.active::after { animation: none; }
+  .nav-link:hover, .nav-link:active { transform: none; }
+  .nav-link::after { transition: none; }
 }
 .nav-link:hover {
   color: var(--text);
@@ -717,14 +849,33 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   overflow: hidden;
-  transition: transform var(--ease), box-shadow var(--ease), border-color var(--ease);
+  transition: transform var(--ease-lift), box-shadow var(--ease-lift), border-color var(--ease-lift);
   position: relative;
 }
 
-.game-card:hover {
-  transform: translateY(-5px);
+/* Scroll-reveal owns `transform` on these cards: [data-aos="zoom-in"].aos-animate
+   matches at the same specificity but hundreds of lines later, so a plain
+   .game-card:hover loses the cascade and the card never moves. The .aos-animate
+   variants below outrank it; the plain selectors still cover cards rendered
+   without a data-aos attribute. Same reason the transition is restated here —
+   otherwise [data-aos]'s 0.65s ease applies instead of our lift easing. */
+.game-card.aos-animate {
+  transition: opacity 0.65s ease,
+              transform var(--ease-lift),
+              box-shadow var(--ease-lift),
+              border-color var(--ease-lift);
+}
+
+/* The whole card lifts on hover; the deeper shadow and raised stacking order
+   sell it as rising off the grid rather than just shifting up. */
+.game-card:hover,
+.game-card:focus-visible,
+.game-card.aos-animate:hover,
+.game-card.aos-animate:focus-visible {
+  transform: translateY(-18px);
   border-color: var(--line-accent);
-  box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+  box-shadow: 0 30px 60px rgba(0,0,0,0.62);
+  z-index: 2;
 }
 
 .game-thumb {
@@ -736,14 +887,15 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
 }
 
 .game-info {
-  padding: 12px;
+  padding: 8px 10px 9px;
 }
 
 .game-info h4 {
   font-family: var(--ff-display);
   font-size: 0.88rem;
   font-weight: 700;
-  margin-bottom: 2px;
+  line-height: 1.3;
+  margin-bottom: 1px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -751,8 +903,10 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
 }
 
 .game-genre {
+  display: block;
   font-family: var(--ff-mono);
   font-size: 0.68rem;
+  line-height: 1.25;
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -811,10 +965,14 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform var(--ease);
+  transform: translateY(0) scale(1);
+  transition: transform var(--ease-lift);
 }
 
-.lib-card:hover .game-thumb--img img { transform: scale(1.05); }
+.lib-card:hover .game-thumb--img img,
+.lib-card:focus-visible .game-thumb--img img {
+  transform: translateY(-2%) scale(1.08);
+}
 
 .game-thumb-fallback {
   width: 100%;
@@ -1094,11 +1252,29 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
 
 /* ─── Footer ─────────────────────────────────────────────────────────────── */
 .footer {
-  background: var(--bg-surface);
+  /* Translucent rather than solid --bg-surface so the page aurora carries
+     through instead of stopping dead at the footer edge. */
+  background: linear-gradient(180deg,
+              rgba(21, 18, 31, 0.55) 0%,
+              rgba(21, 18, 31, 0.88) 100%);
   border-top: 1px solid var(--line);
   padding: 64px 0 28px;
   position: relative;
   z-index: 1;
+}
+
+/* Soft accent along the top edge so the seam reads as deliberate. */
+.footer::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+              transparent 0%,
+              rgba(155, 125, 255, 0.45) 25%,
+              rgba(181, 255, 107, 0.35) 55%,
+              transparent 100%);
+  pointer-events: none;
 }
 
 .footer-top {
@@ -1167,6 +1343,12 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
 [data-aos="fade-right"].aos-animate { transform: translateX(0); }
 [data-aos="fade-left"] { transform: translateX(24px); }
 [data-aos="fade-left"].aos-animate { transform: translateX(0); }
+[data-aos="fade-down"] { transform: translateY(-22px); }
+[data-aos="fade-down"].aos-animate { transform: translateY(0); }
+/* "Powers on" like a screen coming to life — used for the promo video. */
+[data-aos="power-on"] { transform: scale(0.88) translateY(18px); filter: brightness(0.4); }
+[data-aos="power-on"].aos-animate { transform: none; filter: brightness(1); }
+[data-aos="power-on"] { transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22,1,0.36,1), filter 0.7s ease; }
 
 /* ─── Scrollbar ──────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
@@ -1261,38 +1443,60 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
    GAME LIBRARY PAGE
    ════════════════════════════════════════════════════════════════════════════ */
 
-.library-hero {
-  position: relative;
-  padding: calc(var(--nav-h) + 60px) 0 52px;
-  overflow: hidden;
-  text-align: center;
-  z-index: 1;
+.library-section {
+  padding-top: calc(var(--nav-h) + 30px);
+  padding-bottom: 64px;
 }
 
-.library-title {
+/* Heading + genre picker left, search pushed to the right corner. */
+.library-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 26px;
+}
+
+.library-bar-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-right: 4px;
+}
+
+.library-heading {
   font-family: var(--ff-display);
-  font-size: clamp(2.2rem, 5vw, 3.5rem);
+  font-size: 1.5rem;
   font-weight: 800;
-  letter-spacing: -0.04em;
-  margin: 16px 0;
-  line-height: 1.1;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
 }
 
-.library-subtitle {
-  color: var(--text-muted);
-  max-width: 580px;
-  margin: 0 auto 32px;
-  font-size: 1.05rem;
-  line-height: 1.7;
+.library-count {
+  font-family: var(--ff-mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* Search sits in the right corner of the same row. */
+.library-bar .library-search { margin-left: auto; }
+
+/* The scroll-reveal wrapper around the genre picker ends on
+   `transform: translateX(0)` — not `none` — so it establishes a stacking
+   context and traps .genre-select's z-index inside it, letting the game grid
+   paint over the open dropdown. Lift the wrapper itself above the grid. */
+.library-genre-wrap {
+  position: relative;
+  z-index: 30;
 }
 
 .library-search {
-  max-width: 460px;
-  margin: 0 auto;
+  width: 280px;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 13px 20px;
+  padding: 10px 18px;
   background: var(--bg-surface);
   border: 1px solid var(--line);
   border-radius: var(--r-full);
@@ -1324,49 +1528,368 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
 }
 .search-clear:hover { color: var(--text); }
 
-.library-filters-section { padding-top: 0; }
-
-.library-filters {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  margin-bottom: 40px;
+/* ─── Genre picker (vertical dropdown) ───────────────────────────────────── */
+.genre-select {
+  position: relative;
+  display: inline-block;
+  z-index: 20;
 }
 
-.genre-chips {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-}
-
-.genre-chip {
-  padding: 7px 15px;
-  border-radius: var(--r-full);
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  border: 1px solid var(--line);
-  transition: all var(--ease);
+.genre-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
+  padding: 10px 16px;
+  min-width: 220px;
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  text-align: left;
+  transition: border-color var(--ease), background var(--ease);
 }
 
-.genre-chip:hover {
+.genre-trigger:hover,
+.genre-select.open .genre-trigger {
+  border-color: var(--line-accent);
+  background: var(--bg-elev);
+}
+
+.genre-trigger-icon { color: var(--violet); flex-shrink: 0; }
+
+.genre-trigger-label {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  margin-right: auto;
+}
+
+.genre-trigger-caption {
+  font-family: var(--ff-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.genre-trigger-value {
+  font-family: var(--ff-display);
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.genre-trigger-caret {
+  flex-shrink: 0;
+  color: var(--text-dim);
+  transition: transform var(--ease);
+}
+
+.genre-select.open .genre-trigger-caret { transform: rotate(180deg); }
+
+.genre-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
+  min-width: 100%;
+  width: max-content;
+  max-width: 280px;
+  max-height: 330px;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: var(--r-md);
+  background: var(--bg-elev);
+  border: 1px solid var(--line-accent);
+  box-shadow: 0 24px 54px rgba(0,0,0,0.6);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  transition: opacity var(--ease), transform var(--ease), visibility var(--ease);
+}
+
+/* Bridges the 8px gap so moving the cursor from trigger to menu doesn't close it. */
+.genre-menu::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: -10px;
+  height: 10px;
+}
+
+.genre-select.open .genre-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* Hover-to-open only where hovering is meaningful — on touch the click
+   handler drives it, so the menu never sticks open after a tap. */
+@media (hover: hover) and (pointer: fine) {
+  .genre-select:hover .genre-menu,
+  .genre-select:focus-within .genre-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+  .genre-select:hover .genre-trigger-caret { transform: rotate(180deg); }
+}
+
+.genre-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.genre-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: var(--r-sm);
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition: background var(--ease), color var(--ease);
+}
+
+/* Count is pushed right; the arrow trails it and only materialises on the
+   row you're pointing at, so 14 static arrows don't add noise at rest. */
+.genre-option .genre-count { margin-left: auto; }
+
+.genre-option-arrow {
+  flex-shrink: 0;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity var(--ease), transform var(--ease);
+}
+
+.genre-option:hover,
+.genre-option:focus-visible {
+  color: var(--text);
+  background: var(--violet-dim);
+}
+
+.genre-option:hover .genre-option-arrow,
+.genre-option:focus-visible .genre-option-arrow,
+.genre-option.active .genre-option-arrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.genre-option.active {
+  color: #0B0911;
+  background: var(--lime);
+  font-weight: 700;
+}
+
+.genre-option.active .genre-count { opacity: 0.75; }
+
+.genre-count { font-family: var(--ff-mono); font-size: 0.68rem; opacity: 0.7; }
+
+/* ─── Genre drawer (homepage) ────────────────────────────────────────────── */
+.genre-drawer-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+
+.genre-burger {
+  display: inline-flex;
+  align-items: center;
+  gap: 13px;
+  padding: 10px 20px 10px 16px;
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  text-align: left;
+  transition: border-color var(--ease), background var(--ease);
+}
+
+.genre-burger:hover,
+.genre-burger.is-active {
+  border-color: rgba(181, 255, 107, 0.35);
+  background: var(--bg-elev);
+}
+
+.genre-burger-bars {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 18px;
+  flex-shrink: 0;
+}
+
+.genre-burger-bars span {
+  display: block;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--lime);
+  transition: width var(--ease), transform var(--ease), opacity var(--ease);
+}
+
+.genre-burger-bars span:nth-child(1) { width: 100%; }
+.genre-burger-bars span:nth-child(2) { width: 70%; }
+.genre-burger-bars span:nth-child(3) { width: 85%; }
+
+/* Bars even out into a "pressed" state while the drawer is showing. */
+.genre-burger.is-active .genre-burger-bars span { width: 100%; }
+
+.genre-burger-text { display: flex; flex-direction: column; line-height: 1.2; }
+
+.genre-burger-caption {
+  font-family: var(--ff-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.genre-burger-value {
+  font-family: var(--ff-display);
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Sits above the navbar (z 1000) so the panel covers the full screen height. */
+.genre-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1090;
+  background: rgba(8, 7, 14, 0.62);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--ease), visibility var(--ease);
+}
+
+.genre-scrim.is-visible { opacity: 1; visibility: visible; }
+
+.genre-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 1100;
+  width: min(330px, 86vw);
+  display: flex;
+  flex-direction: column;
+  padding: 26px 18px 22px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--line-accent);
+  box-shadow: 24px 0 60px rgba(0, 0, 0, 0.55);
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+              visibility 0.42s;
+}
+
+.genre-drawer.is-open { transform: translateX(0); visibility: visible; }
+
+.genre-drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 8px 18px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.genre-drawer-kicker {
+  display: block;
+  font-family: var(--ff-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--violet);
+  margin-bottom: 6px;
+}
+
+.genre-drawer-title {
+  font-family: var(--ff-display);
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.genre-drawer-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+  transition: color var(--ease), border-color var(--ease), background var(--ease);
+}
+
+.genre-drawer-close:hover {
   color: var(--text);
   border-color: var(--line-accent);
   background: var(--violet-dim);
 }
 
-.genre-chip.active {
-  color: #0B0911;
-  background: var(--lime);
-  border-color: transparent;
-  font-weight: 600;
+.genre-drawer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  padding: 6px 0;
 }
 
-.genre-count { font-family: var(--ff-mono); font-size: 0.68rem; opacity: 0.7; }
+.genre-drawer-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: var(--r-sm);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: background var(--ease), color var(--ease);
+}
+
+.genre-drawer-item .genre-count { margin-left: auto; }
+
+.genre-drawer-item:hover,
+.genre-drawer-item:focus-visible {
+  color: var(--text);
+  background: var(--violet-dim);
+}
+
+.genre-drawer-item.active {
+  color: #0B0911;
+  background: var(--lime);
+  font-weight: 700;
+}
+
+.genre-drawer-item.active .genre-count { opacity: 0.75; }
+
+.genre-drawer-item:hover .genre-option-arrow,
+.genre-drawer-item:focus-visible .genre-option-arrow,
+.genre-drawer-item.active .genre-option-arrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .genre-drawer { transition: visibility 0.01s; }
+}
+
+@media (max-width: 560px) {
+  .genre-drawer-bar { gap: 10px; }
+  .genre-burger { flex: 1 1 auto; justify-content: center; }
+}
 
 .library-empty {
   text-align: center;
@@ -2212,6 +2735,950 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
   .policy-rights-grid { grid-template-columns: 1fr; }
   .policy-section-header { flex-direction: column; }
   .policy-layout { padding-bottom: 72px; }
-  .library-title { font-size: 2rem; }
-  .genre-chips { gap: 6px; }
+  .library-section { padding-top: calc(var(--nav-h) + 20px); }
+  .library-bar { gap: 12px; }
+  .library-bar-heading { width: 100%; }
+  .library-heading { font-size: 1.3rem; }
+  .library-bar .genre-select { flex: 1 1 190px; }
+  .library-bar .genre-trigger { width: 100%; min-width: 0; }
+  .library-bar .library-search { margin-left: 0; flex: 1 1 100%; width: auto; }
+  .genre-trigger { min-width: 0; width: 100%; }
+  .genre-select { display: block; width: 100%; }
+  .genre-menu { max-width: 100%; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   HOMEPAGE — GAMES-FIRST LAYOUT
+   The instant-games grid leads the page; the brand intro + promo video sit
+   below it. Everything here is scoped to home-only classes so the shared
+   .games-grid / .game-card / .hero-* rules used by other pages stay untouched.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Lead games section ─────────────────────────────────────────────────── */
+.home-games {
+  /* Clears the fixed navbar now that this is the first thing on the page. */
+  padding-top: calc(var(--nav-h) + 56px);
+  padding-bottom: 72px;
+  position: relative;
+  overflow: hidden;
+}
+
+.home-games-glow {
+  position: absolute;
+  top: -220px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1100px;
+  height: 620px;
+  max-width: 160vw;
+  background: var(--grad-hero);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.home-games-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 40px;
+  margin-bottom: 36px;
+}
+
+/* First line: eyebrow text plus the highlighted app CTA. */
+.home-games-kicker {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.home-games-kicker .banner-tag-mono { margin-bottom: 0; }
+
+.home-app-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--r-full);
+  background: var(--grad-lime);
+  border: 1px solid transparent;
+  color: #0B0911;
+  font-family: var(--ff-display);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  box-shadow: 0 4px 18px rgba(181, 255, 107, 0.30);
+  transition: transform var(--ease), box-shadow var(--ease), gap var(--ease);
+}
+
+.home-app-btn:hover {
+  transform: translateY(-2px);
+  gap: 11px;
+  box-shadow: 0 8px 26px rgba(181, 255, 107, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-app-btn:hover { transform: none; }
+}
+
+.home-games-title {
+  font-family: var(--ff-display);
+  font-size: clamp(2.1rem, 4.6vw, 3.4rem);
+  font-weight: 900;
+  line-height: 1.06;
+  letter-spacing: -0.04em;
+}
+
+.home-games-sub a {
+  color: var(--lime);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(181, 255, 107, 0.4);
+  transition: text-decoration-color var(--ease);
+}
+
+.home-games-sub a:hover { text-decoration-color: var(--lime); }
+
+.home-games-sub {
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.7;
+  max-width: 380px;
+  /* Clears the kicker row so this starts level with the headline instead of
+     hanging off the bottom of the block. */
+  padding-top: 52px;
+}
+
+/* 20 cards, 5 across — roomier than the shared 4-up default but still a full,
+   even grid. Doubled-up selector so these win over the single-class media
+   queries above. */
+.games-grid.games-grid--home {
+  grid-template-columns: repeat(5, 1fr);
+  gap: 22px;
+  margin-bottom: 0;
+}
+
+/* The extra room lets the card breathe: bigger art, roomier info strip. */
+.games-grid--home .game-thumb--img { aspect-ratio: 16 / 10; }
+.games-grid--home .game-info { padding: 11px 13px 12px; }
+.games-grid--home .game-info h3 { font-size: 0.94rem; }
+.games-grid--home .game-genre { font-size: 0.7rem; }
+
+/* The lead grid uses <h3> for card titles (the page's heading order starts at
+   <h1> here); mirror the shared .game-info h4 treatment. */
+.game-info h3 {
+  font-family: var(--ff-display);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+.home-games .games-cta { margin-top: 40px; }
+
+/* Optional premium strip — only rendered when premium titles exist. */
+.home-premium {
+  margin-top: 64px;
+  padding-top: 40px;
+  border-top: 1px solid var(--line);
+}
+
+.home-premium-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+
+.home-premium-title {
+  font-family: var(--ff-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.home-premium-link {
+  font-size: 0.9rem;
+  color: var(--violet);
+  white-space: nowrap;
+}
+
+.home-premium-link:hover { color: var(--text); }
+
+/* ─── Intro + promo video split ──────────────────────────────────────────── */
+.intro-split-section {
+  position: relative;
+  overflow: hidden;
+  padding: 88px 0 96px;
+  border-top: 1px solid var(--line);
+}
+
+.intro-bg-image {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: url('/images/hero-bg.png');
+  background-size: cover;
+  background-position: center 35%;
+  background-repeat: no-repeat;
+  opacity: 0.22;
+}
+
+.intro-bg-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 45%, rgba(11,9,17,0.45) 0%, rgba(11,9,17,0.78) 70%),
+    linear-gradient(180deg, var(--bg) 0%, rgba(11,9,17,0.72) 22%, rgba(11,9,17,0.78) 78%, var(--bg) 100%);
+}
+
+.intro-mist {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.intro-split-section .container { z-index: 4; }
+
+.intro-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 64px;
+}
+
+/* Left column: the hero copy, re-flowed left-aligned at a column-friendly size.
+   Higher specificity than the shared .hero-* rules so they stay centered
+   wherever else they're used. */
+.intro-copy { text-align: left; }
+
+/* These .hero-* rules carry a load-time fade-in-up from when this copy was the
+   page's hero. It now sits mid-page, so that animation played off-screen and
+   was never seen — scroll-reveal ([data-aos]) drives the entrance instead. */
+.intro-copy .hero-kicker,
+.intro-copy .hero-title,
+.intro-copy .hero-subtitle,
+.intro-copy .hero-actions,
+.intro-copy .hero-stats { animation: none; }
+
+.intro-copy .hero-kicker { margin-bottom: 24px; }
+
+.intro-copy .hero-title {
+  font-size: clamp(2.4rem, 4.2vw, 3.6rem);
+  margin-bottom: 20px;
+}
+
+.intro-copy .hero-subtitle {
+  font-size: 1.05rem;
+  margin: 0 0 32px;
+  max-width: 100%;
+}
+
+.intro-copy .hero-actions {
+  justify-content: flex-start;
+  margin-bottom: 40px;
+}
+
+.intro-copy .hero-stats {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  row-gap: 18px;
+}
+
+.intro-copy .stat-item { padding: 0 22px; }
+.intro-copy .stat-item:first-child { padding-left: 0; }
+
+/* Right column: click-to-load YouTube facade. Keeps the YouTube player off the
+   critical path — the iframe is only injected once the poster is activated. */
+.intro-video { width: 100%; }
+
+.video-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  transition: transform var(--ease), border-color var(--ease);
+}
+
+.video-frame:hover,
+.video-frame:focus-visible {
+  transform: translateY(-3px);
+  border-color: var(--line-accent);
+}
+
+.video-frame .video-poster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.video-play-btn {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 68px; height: 68px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--lime);
+  color: #0B0911;
+  box-shadow: var(--shadow-lime);
+  transition: transform var(--ease);
+}
+
+.video-play-btn svg { width: 28px; height: 28px; margin-left: 3px; }
+
+.video-frame:hover .video-play-btn { transform: translate(-50%, -50%) scale(1.08); }
+
+/* Placeholder shown until YOUTUBE_PROMO_ID is configured. */
+.video-frame--empty {
+  cursor: default;
+  background: linear-gradient(145deg, var(--bg-elev), var(--bg-surface));
+}
+
+.video-frame--empty:hover { transform: none; border-color: var(--line); }
+
+.video-empty-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.video-play-btn--muted {
+  position: static;
+  transform: none;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+  box-shadow: none;
+}
+
+.video-empty-text {
+  font-family: var(--ff-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.intro-video-cap {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+/* ─── Homepage responsive ────────────────────────────────────────────────── */
+@media (max-width: 1200px) {
+  .games-grid.games-grid--home { grid-template-columns: repeat(4, 1fr); gap: 20px; }
+}
+
+@media (max-width: 1024px) {
+  .games-grid.games-grid--home { grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .intro-split { gap: 44px; }
+}
+
+@media (max-width: 900px) {
+  .intro-split {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  /* Video leads on narrow screens — it reads better above the wall of text. */
+  .intro-video { order: -1; }
+  .intro-copy { text-align: center; }
+  .intro-copy .hero-subtitle { margin-left: auto; margin-right: auto; max-width: 560px; }
+  .intro-copy .hero-actions { justify-content: center; }
+  .intro-copy .hero-stats { justify-content: center; }
+  .intro-copy .stat-item:first-child { padding-left: 22px; }
+  .intro-video-cap { text-align: center; }
+}
+
+@media (max-width: 768px) {
+  .home-games {
+    padding-top: calc(var(--nav-h) + 32px);
+    padding-bottom: 48px;
+  }
+  .home-games-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .home-games-sub { max-width: 100%; padding-top: 0; }
+  .home-games-kicker { margin-bottom: 14px; }
+  .games-grid.games-grid--home { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .home-games .games-cta { margin-top: 32px; }
+  .home-premium { margin-top: 48px; padding-top: 32px; }
+  .intro-split-section { padding: 56px 0 64px; }
+}
+
+@media (max-width: 560px) {
+  .games-grid.games-grid--home { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .home-games .games-cta .btn { width: 100%; max-width: 320px; justify-content: center; }
+  .video-play-btn { width: 54px; height: 54px; }
+  .video-play-btn svg { width: 22px; height: 22px; }
+  .intro-copy .stat-item { padding: 0 14px; }
+  .intro-copy .stat-item:first-child { padding-left: 14px; }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   HOMEPAGE MOTION
+   Entrance choreography, ambient atmosphere and hover energy. Everything here
+   animates transform/opacity only (GPU-composited, no layout thrash) and is
+   disabled wholesale under prefers-reduced-motion at the bottom of this block.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Scroll progress bar (HUD-style) ────────────────────────────────────── */
+.scroll-progress {
+  position: fixed;
+  top: 0; left: 0;
+  height: 2px;
+  width: 100%;
+  z-index: 1200;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, var(--lime), var(--cyan), var(--violet));
+  box-shadow: 0 0 10px rgba(181, 255, 107, 0.55);
+  will-change: transform;
+}
+
+/* ─── Lead section entrance (above the fold, so it runs on load) ─────────── */
+/* Driven by the same observer as [data-aos] so it plays on load *and*
+   replays whenever the lead section scrolls back into view. */
+.lead-in { opacity: 0; }
+
+.lead-in.aos-animate {
+  animation: lead-in 0.72s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: calc(var(--lead-i, 0) * 110ms);
+}
+
+@keyframes lead-in {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Ambient grid drifting behind the lead games section ────────────────── */
+.home-grid-bg {
+  position: absolute;
+  inset: -60px 0 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(155,125,255,0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(155,125,255,0.055) 1px, transparent 1px);
+  background-size: 56px 56px;
+  /* Fades out before it reaches the cards so it never competes with artwork. */
+  -webkit-mask-image: radial-gradient(ellipse 70% 55% at 50% 0%, #000 0%, transparent 75%);
+          mask-image: radial-gradient(ellipse 70% 55% at 50% 0%, #000 0%, transparent 75%);
+  animation: grid-drift 22s linear infinite;
+}
+
+@keyframes grid-drift {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 56px 56px, 56px 56px; }
+}
+
+/* ─── Gradient text shimmer ──────────────────────────────────────────────── */
+.gradient-text,
+.hero-title .line-accent {
+  background-size: 220% 100%;
+  animation: text-shimmer 7s ease-in-out infinite;
+}
+
+@keyframes text-shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+/* ─── Card hover: light sweep across the artwork ─────────────────────────── */
+.game-thumb--img::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(105deg,
+              transparent 35%,
+              rgba(255,255,255,0.16) 50%,
+              transparent 65%);
+  transform: translateX(-120%);
+  opacity: 0;
+}
+
+.lib-card:hover .game-thumb--img::after {
+  opacity: 1;
+  animation: card-sweep 0.85s cubic-bezier(0.3, 0, 0.2, 1);
+}
+
+@keyframes card-sweep {
+  from { transform: translateX(-120%); }
+  to   { transform: translateX(120%); }
+}
+
+/* Badge reacts to hover so the whole card feels alive, not just the image. */
+.game-card .game-badge {
+  transition: transform var(--ease-lift), box-shadow var(--ease-lift);
+}
+
+.game-card:hover .game-badge {
+  transform: scale(1.08);
+  box-shadow: 0 0 14px rgba(181, 255, 107, 0.35);
+}
+
+/* Play overlay scales up as it fades rather than just appearing. */
+.play-overlay {
+  transform: scale(0.94);
+  transition: opacity var(--ease), transform var(--ease-lift);
+}
+
+.lib-card:hover .play-overlay { transform: scale(1); }
+
+/* ─── Genre burger: bars ripple on hover ─────────────────────────────────── */
+.genre-burger:hover .genre-burger-bars span:nth-child(1) { transform: translateX(2px); }
+.genre-burger:hover .genre-burger-bars span:nth-child(2) { transform: translateX(4px); }
+.genre-burger:hover .genre-burger-bars span:nth-child(3) { transform: translateX(2px); }
+
+/* ─── Stat count-up: settle each digit change ────────────────────────────── */
+.stat-value { transition: color var(--ease); }
+.stat-value.is-counting { color: var(--lime); }
+
+/* ─── Respect reduced-motion across everything above ─────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .lead-in, .lead-in.aos-animate { opacity: 1; animation: none; }
+  .home-grid-bg { animation: none; }
+  /* Pre-existing ambient motion that predates this block but was never gated. */
+  .mist-orb, .kicker-dot, .mini-card, .scroll-pip::after { animation: none; }
+  .gradient-text,
+  .hero-title .line-accent { animation: none; background-size: 100% 100%; }
+  .lib-card:hover .game-thumb--img::after { animation: none; opacity: 0; }
+  .game-card:hover .game-badge { transform: none; }
+  .scroll-progress { display: none; }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   HOMEPAGE — PER-SECTION CHOREOGRAPHY
+   Each section's wrapper carries the [data-aos] entrance; these rules stagger
+   the content *inside* it once the wrapper gains .aos-animate, so sections
+   assemble piece by piece instead of sliding in as one block.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.94); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes drop-in {
+  from { opacity: 0; transform: translateY(-16px) rotate(-6deg) scale(0.8); }
+  to   { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+}
+
+@keyframes float-idle {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-7px); }
+}
+
+@keyframes ring-pulse {
+  0%   { transform: translate(-50%, -50%) scale(1);   opacity: 0.55; }
+  70%  { transform: translate(-50%, -50%) scale(1.9); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1.9); opacity: 0; }
+}
+
+/* ─── §1 Intro + video ───────────────────────────────────────────────────── */
+
+/* Stat pillars rise one after another once the row lands. */
+.hero-stats.aos-animate .stat-item {
+  animation: pop-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.hero-stats.aos-animate .stat-item:nth-child(1) { animation-delay: 0.05s; }
+.hero-stats.aos-animate .stat-item:nth-child(2) { animation-delay: 0.14s; }
+.hero-stats.aos-animate .stat-item:nth-child(3) { animation-delay: 0.23s; }
+.hero-stats.aos-animate .stat-item:nth-child(4) { animation-delay: 0.32s; }
+
+/* The video panel drifts gently once it has finished powering on. */
+.intro-video.aos-animate .video-frame {
+  animation: float-idle 6s ease-in-out infinite 0.9s;
+}
+.intro-video .video-frame:hover { animation-play-state: paused; }
+
+/* Expanding ring behind the play button — reads as "press me". */
+.video-play-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  border: 2px solid var(--lime);
+  animation: ring-pulse 2.6s ease-out infinite;
+  pointer-events: none;
+}
+.video-play-btn--muted::before { display: none; }
+
+/* ─── §2 + §5 Banner sections (browser-console / publish) ────────────────── */
+
+.web-play-banner.aos-animate .pill {
+  animation: pop-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.web-play-banner.aos-animate .pill:nth-child(1) { animation-delay: 0.30s; }
+.web-play-banner.aos-animate .pill:nth-child(2) { animation-delay: 0.40s; }
+.web-play-banner.aos-animate .pill:nth-child(3) { animation-delay: 0.50s; }
+
+.pill { transition: color var(--ease), border-color var(--ease), background var(--ease); }
+.pill:hover {
+  color: var(--text);
+  border-color: var(--line-accent);
+  background: rgba(255,255,255,0.08);
+}
+
+/* Mini-cards drop in, then hand over to their existing idle pulse. The pulse
+   is delayed so the two never fight over `transform`. */
+.web-play-banner.aos-animate .mini-card {
+  animation: drop-in 0.55s cubic-bezier(0.34, 1.4, 0.5, 1) backwards,
+             mini-card-pulse var(--d, 3s) ease-in-out 0.95s infinite;
+}
+.web-play-banner.aos-animate .mini-card:nth-child(1) { animation-delay: 0.30s, 0.95s; }
+.web-play-banner.aos-animate .mini-card:nth-child(2) { animation-delay: 0.40s, 1.05s; }
+.web-play-banner.aos-animate .mini-card:nth-child(3) { animation-delay: 0.50s, 1.15s; }
+.web-play-banner.aos-animate .mini-card:nth-child(4) { animation-delay: 0.60s, 1.25s; }
+
+.mini-card { transition: border-color var(--ease), background var(--ease); }
+.web-play-graphic:hover .mini-card {
+  border-color: var(--line-accent);
+  background: var(--bg-card-2);
+}
+
+/* Banner glow breathes slowly instead of sitting static. */
+.web-play-banner::before { animation: text-shimmer 9s ease-in-out infinite; }
+
+/* ─── §3 Features ────────────────────────────────────────────────────────── */
+
+/* Icon springs in, then reacts to hover. */
+.feature-card.aos-animate .feature-icon-wrap {
+  animation: pop-in 0.55s cubic-bezier(0.34, 1.4, 0.5, 1) 0.18s backwards;
+}
+
+.feature-icon-wrap {
+  transition: transform var(--ease-lift), box-shadow var(--ease-lift);
+}
+
+.feature-card:hover .feature-icon-wrap {
+  transform: translateY(-3px) rotate(-6deg) scale(1.08);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+
+/* Light sweeps across the card on hover, same language as the game cards. */
+.feature-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 38%,
+              rgba(255,255,255,0.06) 50%, transparent 62%);
+  transform: translateX(-120%);
+  opacity: 0;
+}
+
+.feature-card:hover::after {
+  opacity: 1;
+  animation: card-sweep 0.9s cubic-bezier(0.3, 0, 0.2, 1);
+}
+
+.feature-card.aos-animate .chip {
+  animation: pop-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.feature-card.aos-animate .chip:nth-child(1) { animation-delay: 0.34s; }
+.feature-card.aos-animate .chip:nth-child(2) { animation-delay: 0.44s; }
+
+/* ─── §4 Download ────────────────────────────────────────────────────────── */
+
+.download-wrapper.aos-animate .store-btn {
+  animation: pop-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.32s backwards;
+}
+
+.download-wrapper.aos-animate .download-note span {
+  animation: pop-in 0.45s ease backwards;
+}
+.download-wrapper.aos-animate .download-note span:nth-child(1) { animation-delay: 0.42s; }
+.download-wrapper.aos-animate .download-note span:nth-child(2) { animation-delay: 0.50s; }
+.download-wrapper.aos-animate .download-note span:nth-child(3) { animation-delay: 0.58s; }
+
+.download-visual.aos-animate .qr-card {
+  animation: float-idle 7s ease-in-out infinite 0.8s;
+}
+
+.qr-img {
+  transition: transform var(--ease-lift), box-shadow var(--ease-lift);
+  border-radius: var(--r-sm);
+}
+
+.qr-card:hover .qr-img {
+  transform: scale(1.05);
+  box-shadow: 0 0 26px rgba(181, 255, 107, 0.35);
+}
+
+/* The section glow breathes so the CTA never sits completely still. */
+.download-bg-glow { animation: float-idle 9s ease-in-out infinite; }
+
+/* ─── Reduced motion: drop all of the above ──────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .hero-stats.aos-animate .stat-item,
+  .web-play-banner.aos-animate .pill,
+  .web-play-banner.aos-animate .mini-card,
+  .feature-card.aos-animate .feature-icon-wrap,
+  .feature-card.aos-animate .chip,
+  .download-wrapper.aos-animate .store-btn,
+  .download-wrapper.aos-animate .download-note span { animation: none; }
+
+  .intro-video.aos-animate .video-frame,
+  .download-visual.aos-animate .qr-card,
+  .download-bg-glow,
+  .web-play-banner::before,
+  .video-play-btn::before { animation: none; }
+
+  .feature-card:hover::after { animation: none; opacity: 0; }
+  .feature-card:hover .feature-icon-wrap { transform: none; }
+  [data-aos="power-on"] { filter: none; }
+}
+
+
+/* Reduced motion must never gate *visibility* behind an animation: if the
+   IntersectionObserver is outrun by a fast scroll (or never fires at all),
+   opacity:0 would leave content permanently invisible. Reveal everything up
+   front and drop the transition — the page renders complete, just static. */
+@media (prefers-reduced-motion: reduce) {
+  [data-aos],
+  [data-aos].aos-animate {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    transition: none;
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PLAYMIST LOGO
+   The logo is in motion continuously: a slow float/sway on the image plus a
+   breathing glow. drop-shadow (not box-shadow) so the glow follows the logo's
+   alpha channel rather than framing a rectangle around the transparent PNG.
+
+   The entrance lives on the .nav-logo wrapper, not the image. Hovering replaces
+   the image's whole `animation` shorthand — if the entrance were in that list
+   it would restart the intro every time the cursor left the logo.
+   Scoped to the public site; the developer portal has its own logo classes.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.nav-logo,
+.player-title {
+  animation: logo-in 0.75s cubic-bezier(0.34, 1.4, 0.5, 1) both;
+}
+
+@keyframes logo-in {
+  from { opacity: 0; transform: scale(0.8) translateY(-6px) rotate(-8deg); }
+  to   { opacity: 1; transform: scale(1) translateY(0) rotate(0); }
+}
+
+.nav-logo-img,
+.player-logo-img {
+  transform-origin: 50% 60%;
+  animation: logo-float 4.5s ease-in-out infinite,
+             logo-breathe 6s ease-in-out infinite;
+}
+
+/* Always-on drift. Starts and ends at the identity transform so hover can take
+   over and hand back without a visible jump. */
+@keyframes logo-float {
+  0%   { transform: translateY(0)      rotate(0)      scale(1); }
+  25%  { transform: translateY(-3px)   rotate(-2deg)  scale(1.02); }
+  50%  { transform: translateY(0.5px)  rotate(0)      scale(1); }
+  75%  { transform: translateY(-2px)   rotate(2deg)   scale(1.015); }
+  100% { transform: translateY(0)      rotate(0)      scale(1); }
+}
+
+/* Low-amplitude pulse — alive in peripheral vision without pulling focus. */
+@keyframes logo-breathe {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(181, 255, 107, 0.25)); }
+  50%      { filter: drop-shadow(0 0 12px rgba(181, 255, 107, 0.5)); }
+}
+
+/* Hover: a quick playful tilt-and-pop, returning to the float's baseline. */
+.nav-logo:hover .nav-logo-img,
+.player-title:hover .player-logo-img {
+  animation: logo-wobble 0.7s cubic-bezier(0.34, 1.4, 0.5, 1),
+             logo-breathe-strong 1.4s ease-in-out infinite;
+}
+
+@keyframes logo-wobble {
+  0%   { transform: scale(1)    rotate(0); }
+  30%  { transform: scale(1.12) rotate(-6deg); }
+  60%  { transform: scale(1.05) rotate(4deg); }
+  100% { transform: scale(1)    rotate(0); }
+}
+
+@keyframes logo-breathe-strong {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(181, 255, 107, 0.45)); }
+  50%      { filter: drop-shadow(0 0 18px rgba(181, 255, 107, 0.75)); }
+}
+
+.nav-logo:active .nav-logo-img { animation: none; transform: scale(0.94); }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-logo, .player-title { animation: none; opacity: 1; }
+  .nav-logo-img, .player-logo-img,
+  .nav-logo:hover .nav-logo-img,
+  .player-title:hover .player-logo-img { animation: none; filter: none; transform: none; }
+  .nav-logo:active .nav-logo-img { transform: none; }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PAGE BACKDROP
+   Four fixed layers behind everything: three drifting aurora blooms plus a
+   faint grid. They are split across html's and body's pseudo-elements on
+   purpose — one layer holding all the blooms drifts as a rigid block, whereas
+   separate layers on different durations (23s / 31s / 17s, deliberately not
+   multiples of each other) slide past one another and never visibly loop.
+
+   z-index MUST stay negative: in the CSS painting order a fixed element at
+   z-index 0 paints above non-positioned block content and would cover the page
+   text. Animated with transform only, so the gradients rasterise once and the
+   layers then move on the compositor.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+html::before,
+html::after,
+body::before {
+  content: '';
+  position: fixed;
+  inset: -35%;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* Layer 1 — violet lead bloom, now top-right, sweeping left. */
+html::before {
+  z-index: -4;
+  background:
+    radial-gradient(34% 30% at 72% 12%, rgba(155, 125, 255, 0.26), transparent 68%),
+    radial-gradient(28% 24% at 12% 58%, rgba(124, 58, 237, 0.15), transparent 70%);
+  animation: aurora-a 23s ease-in-out infinite alternate;
+}
+
+/* Layer 2 — cyan/lime, low and wide, tracking the opposite way. */
+html::after {
+  z-index: -4;
+  background:
+    radial-gradient(32% 28% at 18% 82%, rgba(92, 227, 232, 0.17), transparent 70%),
+    radial-gradient(36% 30% at 88% 66%, rgba(181, 255, 107, 0.12), transparent 70%);
+  animation: aurora-b 31s ease-in-out infinite alternate;
+}
+
+/* Layer 3 — small rose accent on the longest travel, fastest cycle. */
+body::before {
+  z-index: -3;
+  background:
+    radial-gradient(24% 20% at 46% 34%, rgba(255, 107, 168, 0.13), transparent 72%);
+  animation: aurora-c 17s ease-in-out infinite alternate;
+}
+
+@keyframes aurora-a {
+  0%   { transform: translate3d(0, 0, 0)        scale(1)    rotate(0deg); }
+  50%  { transform: translate3d(-7%, 5%, 0)     scale(1.16) rotate(4deg); }
+  100% { transform: translate3d(5%, -4%, 0)     scale(1.05) rotate(-3deg); }
+}
+
+@keyframes aurora-b {
+  0%   { transform: translate3d(0, 0, 0)        scale(1.08) rotate(0deg); }
+  50%  { transform: translate3d(8%, -6%, 0)     scale(1)    rotate(-5deg); }
+  100% { transform: translate3d(-5%, 6%, 0)     scale(1.14) rotate(3deg); }
+}
+
+@keyframes aurora-c {
+  0%   { transform: translate3d(-10%, 6%, 0)    scale(1); }
+  50%  { transform: translate3d(12%, -8%, 0)    scale(1.3); }
+  100% { transform: translate3d(-6%, -10%, 0)   scale(1.1); }
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(155, 125, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(155, 125, 255, 0.045) 1px, transparent 1px);
+  background-size: 64px 64px;
+  /* Fades out toward the edges so the grid never reads as a hard overlay. */
+  -webkit-mask-image: radial-gradient(ellipse 95% 75% at 50% 45%, #000 25%, transparent 85%);
+          mask-image: radial-gradient(ellipse 95% 75% at 50% 45%, #000 25%, transparent 85%);
+  animation: bg-grid-drift 45s linear infinite;
+}
+
+@keyframes bg-grid-drift {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 64px 64px, 64px 64px; }
+}
+
+/* ─── Per-section accent blooms for the previously bare sections ─────────── */
+.features,
+#publish {
+  position: relative;
+  isolation: isolate;   /* keeps the bloom behind this section's own content */
+}
+
+.features::before,
+#publish::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  animation: float-idle 11s ease-in-out infinite;
+}
+
+.features::before {
+  background: radial-gradient(ellipse 60% 55% at 18% 30%, rgba(92, 227, 232, 0.07), transparent 70%),
+              radial-gradient(ellipse 55% 50% at 85% 75%, rgba(181, 255, 107, 0.05), transparent 70%);
+}
+
+#publish::before {
+  background: radial-gradient(ellipse 65% 60% at 75% 35%, rgba(124, 58, 237, 0.12), transparent 70%),
+              radial-gradient(ellipse 50% 45% at 15% 80%, rgba(167, 139, 250, 0.07), transparent 70%);
+  animation-duration: 13s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html::before, html::after,
+  body::before, body::after,
+  .features::before, #publish::before { animation: none; }
 }

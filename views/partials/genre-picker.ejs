@@ -1,0 +1,73 @@
+<%
+  /**
+   * Genre picker — shared by the homepage lead section and the game library.
+   *
+   * Locals:
+   *   genres       [{ name, gameCount }]  required
+   *   activeGenre  currently filtered genre name, or falsy for "All Games"
+   *   searchQuery  current ?q= value, preserved across genre changes
+   *
+   * Every option links into /games, so on the homepage this doubles as the
+   * way through to the filtered library.
+   */
+  const pickerGenres  = typeof genres !== 'undefined' ? genres : [];
+  const pickerActive  = typeof activeGenre !== 'undefined' ? activeGenre : '';
+  const pickerQuery   = typeof searchQuery !== 'undefined' ? searchQuery : '';
+
+  const genreHref = (genreName) => {
+    const params = new URLSearchParams();
+    if (genreName)  params.set('genre', genreName);
+    if (pickerQuery) params.set('q', pickerQuery);
+    const qs = params.toString();
+    return '/games' + (qs ? '?' + qs : '');
+  };
+
+  const genreTotal = pickerGenres.reduce((sum, g) => sum + Number(g.gameCount || 0), 0);
+%>
+<% if (pickerGenres.length > 0) { %>
+  <div class="genre-bar">
+    <!-- Opens on hover (pointer devices) or click/keyboard — see main.js -->
+    <div class="genre-select" id="genreSelect">
+      <button type="button" class="genre-trigger" id="genreTrigger"
+              aria-haspopup="true" aria-expanded="false" aria-controls="genreMenu">
+        <svg class="genre-trigger-icon" width="16" height="16" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/>
+          <line x1="10" y1="18" x2="14" y2="18"/>
+        </svg>
+        <span class="genre-trigger-label">
+          <span class="genre-trigger-caption">Genre</span>
+          <span class="genre-trigger-value"><%= pickerActive || 'All Games' %></span>
+        </span>
+        <svg class="genre-trigger-caret" width="14" height="14" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+          <path d="M6 9l6 6 6-6"/>
+        </svg>
+      </button>
+
+      <div class="genre-menu" id="genreMenu" role="menu" aria-labelledby="genreTrigger">
+        <a href="<%= genreHref(null) %>" role="menuitem"
+           class="genre-option <%= !pickerActive ? 'active' : '' %>">
+          <span class="genre-option-name">All Games</span>
+          <span class="genre-count"><%= genreTotal %></span>
+          <svg class="genre-option-arrow" width="15" height="15" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </a>
+        <% pickerGenres.forEach(g => { %>
+          <a href="<%= genreHref(g.name) %>" role="menuitem"
+             class="genre-option <%= pickerActive === g.name ? 'active' : '' %>">
+            <span class="genre-option-name"><%= g.name %></span>
+            <span class="genre-count"><%= g.gameCount %></span>
+            <svg class="genre-option-arrow" width="15" height="15" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </a>
+        <% }) %>
+      </div>
+    </div>
+
+  </div>
+<% } %>

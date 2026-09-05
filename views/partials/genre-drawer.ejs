@@ -1,0 +1,31 @@
+<%
+  /**
+   * Genre drawer — trigger bar (homepage).
+   *
+   * Renders the hamburger button that opens the off-canvas genre panel. The
+   * panel itself lives in partials/genre-drawer-panel.ejs and MUST be included
+   * at body level: this bar sits inside .container, which creates a stacking
+   * context (z-index: 1), and a fixed panel nested in it would be painted
+   * underneath the navbar no matter how high its own z-index goes.
+   *
+   * Locals:
+   *   genres  [{ name, gameCount }]  required
+   */
+  const drawerGenres = typeof genres !== 'undefined' ? genres : [];
+%>
+<% if (drawerGenres.length > 0) { %>
+  <div class="genre-drawer-bar">
+    <button type="button" class="genre-burger" id="genreBurger"
+            aria-haspopup="true" aria-expanded="false" aria-controls="genreDrawer">
+      <span class="genre-burger-bars" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </span>
+      <span class="genre-burger-text">
+        <span class="genre-burger-caption">Browse</span>
+        <span class="genre-burger-value">Genres</span>
+      </span>
+    </button>
+
+  </div>
+
+<% } %>

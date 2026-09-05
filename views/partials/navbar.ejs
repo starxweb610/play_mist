@@ -4,11 +4,19 @@
       <img src="/images/play_logo.png" alt="<%= appName %>" class="nav-logo-img" />
     </a>
 
+    <%
+      // Route-based active state. The two hash links can only be "current" on
+      // the homepage, where main.js scroll-spy takes over as you scroll.
+      const here    = typeof currentPath !== 'undefined' ? currentPath : '/';
+      const isHome  = here === '/';
+      const isGames = here === '/games' || here.startsWith('/games/') || here.startsWith('/play/');
+    %>
     <div class="nav-links" id="navLinks">
-      <a href="/" class="nav-link">Home</a>
-      <a href="/games" class="nav-link">Games</a>
-      <a href="/#features" class="nav-link">Features</a>
-      <a href="/#download" class="nav-link">Get App</a>
+      <a href="/" class="nav-link<%= isHome ? ' active' : '' %>" data-spy="top"<%= isHome ? ' aria-current="page"' : '' %>>Home</a>
+      <a href="/games" class="nav-link<%= isGames ? ' active' : '' %>"<%= isGames ? ' aria-current="page"' : '' %>>Games</a>
+      <a href="/#features" class="nav-link" data-spy="features">Features</a>
+      <a href="/#download" class="nav-link" data-spy="download">Get App</a>
+      <a href="/#publish" class="nav-link" data-spy="publish">Publish</a>
     </div>
 
     <button type="button" class="nav-resume" id="resumeWebBtn">Resume on web</button>

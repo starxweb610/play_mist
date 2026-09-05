@@ -71,6 +71,8 @@ app.use(flash());
 // ─── Global Template Locals ───────────────────────────────────────────────────
 app.use((req, res, next) => {
   res.locals.appName     = process.env.APP_NAME || 'Playmist';
+  // Lets the public navbar mark which nav item matches the current page.
+  res.locals.currentPath = req.path;
   res.locals.success_msg = req.flash('success_msg');
   res.locals.error_msg   = req.flash('error_msg');
   res.locals.error       = req.flash('error');

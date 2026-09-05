@@ -68,54 +68,40 @@
 
   <%- include('partials/navbar', { appName, scrolled: true }) %>
 
-  <!-- ─── LIBRARY HEADER ───────────────────────────────────────────────── -->
-  <header class="library-hero">
-    <div class="hero-bg-orbs" aria-hidden="true">
-      <div class="orb orb-1"></div>
-      <div class="orb orb-2"></div>
-    </div>
+  <!-- ─── LIBRARY TOOLBAR ─────────────────────────────────────────────
+       One compact row: heading + genre picker on the left, search on the
+       right, then straight into the grid. -->
+  <section class="section library-section">
     <div class="container">
-      <span class="section-tag">Game Library</span>
-      <h1 class="library-title">Browse the <span class="gradient-text">full library</span></h1>
-      <p class="library-subtitle">Pick a genre, search by name, and jump straight in. No install needed for browser games.</p>
+      <div class="library-bar">
+        <div class="library-bar-heading" data-aos="fade-right">
+          <h1 class="library-heading"><%= filters.genre || 'All Games' %></h1>
+          <span class="library-count">
+            <%= games.length %> game<%= games.length === 1 ? '' : 's' %><% if (filters.q) { %> for “<%= filters.q %>”<% } %>
+          </span>
+        </div>
 
-      <form class="library-search" action="/games" method="GET">
-        <% if (filters.genre) { %><input type="hidden" name="genre" value="<%= filters.genre %>" /><% } %>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" name="q" value="<%= filters.q %>" placeholder="Search games..." aria-label="Search games" />
-        <% if (filters.q) { %><a href="/games" class="search-clear" aria-label="Clear search">✕</a><% } %>
-      </form>
-    </div>
-  </header>
+        <div class="library-genre-wrap" data-aos="fade-right" data-aos-delay="90">
+          <%- include('partials/genre-picker', {
+                genres,
+                activeGenre: filters.genre,
+                searchQuery: filters.q
+              }) %>
+        </div>
 
-  <!-- ─── FILTERS ──────────────────────────────────────────────────────── -->
-  <section class="section library-filters-section">
-    <div class="container">
-      <div class="library-filters">
-        <% if (genres.length > 0) { %>
-          <div class="genre-chips">
-            <%
-              const genreQuery = (genreName) => {
-                const params = new URLSearchParams();
-                if (genreName) params.set('genre', genreName);
-                if (filters.q) params.set('q', filters.q);
-                const qs = params.toString();
-                return '/games' + (qs ? '?' + qs : '');
-              };
-            %>
-            <a href="<%= genreQuery(null) %>" class="genre-chip <%= !filters.genre ? 'active' : '' %>">All</a>
-            <% genres.forEach(g => { %>
-              <a href="<%= genreQuery(g.name) %>" class="genre-chip <%= filters.genre === g.name ? 'active' : '' %>"><%= g.name %> <span class="genre-count"><%= g.gameCount %></span></a>
-            <% }) %>
-          </div>
-        <% } %>
+        <form class="library-search" action="/games" method="GET" data-aos="fade-left" data-aos-delay="150">
+          <% if (filters.genre) { %><input type="hidden" name="genre" value="<%= filters.genre %>" /><% } %>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" name="q" value="<%= filters.q %>" placeholder="Search games..." aria-label="Search games" />
+          <% if (filters.q) { %><a href="/games<%= filters.genre ? '?genre=' + encodeURIComponent(filters.genre) : '' %>" class="search-clear" aria-label="Clear search">✕</a><% } %>
+        </form>
       </div>
 
       <!-- ─── GAMES GRID ─────────────────────────────────────────────────── -->
       <% if (games.length > 0) { %>
         <div class="games-grid library-grid">
           <% games.forEach((g, i) => { %>
-            <a href="/games/<%= g.slug %>" class="game-card lib-card" data-aos="zoom-in" data-aos-delay="<%= (i % 8) * 50 %>">
+            <a href="/games/<%= g.slug %>" class="game-card lib-card" data-aos="zoom-in" data-aos-delay="<%= ((i % 4) + Math.floor(i / 4)) * 40 %>">
               <div class="game-thumb game-thumb--img">
                 <% if (g.thumbnail) { %>
                   <img src="<%= g.thumbnail %>" alt="<%= g.title %>" loading="lazy" />
@@ -128,7 +114,7 @@
                 <h4><%= g.title %></h4>
                 <span class="game-genre"><%= g.genre %></span>
               </div>
-              <div class="game-badge <%= g.type === 'premium' ? 'game-badge--premium' : '' %>"><%= g.type === 'premium' ? 'OFFLINE' : 'FREE' %></div>
+              <% if (g.type === 'premium') { %><div class="game-badge game-badge--premium">OFFLINE</div><% } %>
               <% if (g.flag) { %><div class="game-flag"><%= g.flag %></div><% } %>
             </a>
           <% }) %>

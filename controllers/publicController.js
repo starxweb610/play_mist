@@ -49,6 +49,27 @@ const GAME_FIELDS = `
   studio, size, plays, rating, credits_cost, flag, is_featured, created_at
 `;
 
+// The homepage leads with the instant-play grid. 20 fills it exactly at the
+// desktop width (5 columns x 4 rows) and still divides evenly at the narrower
+// breakpoints (4 and 2 columns).
+const HOME_WEBGL_LIMIT = 20;
+
+/**
+ * Genres that actually have live games, with their counts. Shared by the
+ * homepage genre picker and the library filter so the two never disagree.
+ */
+async function fetchGenres() {
+  const [rows] = await db.query(
+    `SELECT g.name, COUNT(gm.id) AS gameCount
+     FROM genres g
+     LEFT JOIN games gm ON g.name = gm.genre AND gm.is_active = 1
+     GROUP BY g.name
+     HAVING gameCount > 0
+     ORDER BY g.name ASC`
+  );
+  return rows;
+}
+
 /**
  * GET /
  * Public landing page (moved from inline server.js)
@@ -57,6 +78,7 @@ exports.getHome = async (req, res) => {
   let stats = { totalGames: 50, totalUsers: '10K+', rating: '4.8' };
   let webglGames = [];
   let premiumGames = [];
+  let genres = [];
 
   try {
     const [statRows] = await db.query('SELECT * FROM site_stats WHERE id = 1');
@@ -75,8 +97,10 @@ exports.getHome = async (req, res) => {
     );
 
     const cards = games.map(toCardView);
-    webglGames   = cards.filter(g => g.type === 'webgl').slice(0, 8);
+    webglGames   = cards.filter(g => g.type === 'webgl').slice(0, HOME_WEBGL_LIMIT);
     premiumGames = cards.filter(g => g.type === 'premium').slice(0, 6);
+
+    genres = await fetchGenres();
   } catch (_) {
     // DB not ready — defaults used
   }
@@ -89,6 +113,10 @@ exports.getHome = async (req, res) => {
     stats,
     webglGames,
     premiumGames,
+    genres,
+    // Set YOUTUBE_PROMO_ID to the 11-char video id to light up the promo embed;
+    // unset renders a "coming soon" placeholder rather than a broken iframe.
+    promoVideoId: (process.env.YOUTUBE_PROMO_ID || '').trim() || null,
   });
 };
 
@@ -119,15 +147,7 @@ exports.getGames = async (req, res) => {
     );
     games = rows.map(toCardView);
 
-    const [genreRows] = await db.query(
-      `SELECT g.name, COUNT(gm.id) AS gameCount
-       FROM genres g
-       LEFT JOIN games gm ON g.name = gm.genre AND gm.is_active = 1
-       GROUP BY g.name
-       HAVING gameCount > 0
-       ORDER BY g.name ASC`
-    );
-    genres = genreRows;
+    genres = await fetchGenres();
   } catch (_) {
     // DB not ready — empty library shown
   }

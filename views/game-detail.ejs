@@ -77,21 +77,21 @@
     <div class="container game-hero-content">
       <a href="/games" class="back-link">← Back to Library</a>
       <div class="game-hero-main">
-        <div class="game-hero-thumb">
+        <div class="game-hero-thumb" data-aos="zoom-in">
           <% if (game.thumbnail) { %>
             <img src="<%= game.thumbnail %>" alt="<%= game.title %>" />
           <% } else { %>
             <div class="game-thumb-fallback game-thumb-fallback--lg">🎮</div>
           <% } %>
         </div>
-        <div class="game-hero-info">
-          <div class="game-hero-badges">
+        <div class="game-hero-info" data-aos="fade-left" data-aos-delay="90">
+          <div class="game-hero-badges" data-aos="fade-left" data-aos-delay="140">
             <span class="game-badge <%= game.type === 'premium' ? 'game-badge--premium' : '' %>"><%= game.type === 'premium' ? 'OFFLINE · PREMIUM' : 'FREE · INSTANT PLAY' %></span>
             <% if (game.flag) { %><span class="game-badge game-badge--flag"><%= game.flag %></span><% } %>
           </div>
-          <h1 class="game-hero-title"><%= game.title %></h1>
+          <h1 class="game-hero-title" data-aos="fade-left" data-aos-delay="180"><%= game.title %></h1>
           <p class="game-hero-desc"><%= game.shortDesc %></p>
-          <div class="game-hero-meta">
+          <div class="game-hero-meta" data-aos="fade-left" data-aos-delay="230">
             <span class="meta-item"><strong><%= game.genre %></strong> Genre</span>
             <% if (game.rating) { %><span class="meta-item"><strong>⭐ <%= game.rating %></strong> Rating</span><% } %>
             <% if (game.plays) { %><span class="meta-item"><strong><%= game.plays %></strong> Plays</span><% } %>
@@ -102,7 +102,7 @@
               <% game.tags.forEach(tag => { %><span class="tag"><%= tag %></span><% }) %>
             </div>
           <% } %>
-          <div class="game-hero-actions">
+          <div class="game-hero-actions" data-aos="fade-left" data-aos-delay="280">
             <% if (game.playable) { %>
               <a href="/play/<%= game.slug %>" class="btn btn-primary">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
@@ -129,23 +129,23 @@
     <div class="container game-detail-layout">
       <div class="game-detail-main">
         <% if (game.longDesc) { %>
-          <div class="detail-block">
+          <div class="detail-block" data-aos="fade-up">
             <h2 class="detail-block-title">About this game</h2>
             <p class="detail-block-text"><%= game.longDesc %></p>
           </div>
         <% } %>
 
         <% if (game.trailerUrl) { %>
-          <div class="detail-block">
+          <div class="detail-block" data-aos="fade-up">
             <h2 class="detail-block-title">Trailer</h2>
             <video class="game-trailer" src="<%= game.trailerUrl %>" controls preload="none"></video>
           </div>
         <% } %>
 
         <% if (game.screenshots && game.screenshots.length > 0) { %>
-          <div class="detail-block">
+          <div class="detail-block" data-aos="fade-up">
             <h2 class="detail-block-title">Screenshots</h2>
-            <div class="screenshot-grid">
+            <div class="screenshot-grid" data-aos="fade-up" data-aos-delay="80">
               <% game.screenshots.forEach(s => { %>
                 <a href="<%= s %>" target="_blank" rel="noopener noreferrer" class="screenshot-item">
                   <img src="<%= s %>" alt="<%= game.title %> screenshot" loading="lazy" />
@@ -157,7 +157,7 @@
       </div>
 
       <aside class="game-detail-sidebar">
-        <div class="info-card">
+        <div class="info-card" data-aos="fade-left" data-aos-delay="120">
           <h3 class="form-card-title">Game Info</h3>
           <dl class="info-list">
             <div class="info-row"><dt>Type</dt><dd><%= game.type === 'premium' ? 'Premium (Offline)' : 'Instant (WebGL)' %></dd></div>
@@ -202,7 +202,7 @@
                 <h4><%= g.title %></h4>
                 <span class="game-genre"><%= g.genre %></span>
               </div>
-              <div class="game-badge <%= g.type === 'premium' ? 'game-badge--premium' : '' %>"><%= g.type === 'premium' ? 'OFFLINE' : 'FREE' %></div>
+              <% if (g.type === 'premium') { %><div class="game-badge game-badge--premium">OFFLINE</div><% } %>
             </a>
           <% }) %>
         </div>
