@@ -52,7 +52,7 @@ async function uniqueSlug(base, excludeId = null) {
 
 // ── GET /sitehandler/games ───────────────────────────────────────────────────
 exports.getIndex = async (req, res) => {
-  const { type, genre, status, q } = req.query;
+  const { type, genre, status, q, sort } = req.query;
   // play_count uses the same all-time analytics_games count the app API shows as `plays`
   let sql = `SELECT g.*, a.name AS creator,
                (SELECT COUNT(*) FROM analytics_games ag WHERE ag.game_id = g.id) AS play_count
@@ -64,7 +64,12 @@ exports.getIndex = async (req, res) => {
   if (status === 'inactive') { sql += ' AND g.is_active = 0'; }
   if (status === 'in_development') { sql += " AND g.release_stage = 'in_development'"; }
   if (q)      { sql += ' AND g.title LIKE ?'; params.push(`%${q}%`); }
-  sql += ' ORDER BY g.created_at DESC';
+  // Whitelisted sort orders — the raw query value never reaches the SQL string
+  const SORT_ORDERS = {
+    most_played:  'play_count DESC, g.created_at DESC',
+    least_played: 'play_count ASC, g.created_at DESC',
+  };
+  sql += ` ORDER BY ${Object.hasOwn(SORT_ORDERS, sort) ? SORT_ORDERS[sort] : 'g.created_at DESC'}`;
 
   let games = [];
   let genres = [];
@@ -87,7 +92,7 @@ exports.getIndex = async (req, res) => {
 
   res.render('sitehandler/games/index', {
     title: 'Manage Games', activePage: 'games',
-    games, filters: { type, genre, status, q }, genres, comingSoonVisibleIds,
+    games, filters: { type, genre, status, q, sort }, genres, comingSoonVisibleIds,
   });
 };
 

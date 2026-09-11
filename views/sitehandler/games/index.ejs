@@ -38,6 +38,11 @@
         <option value="inactive" <%= filters.status === 'inactive' ? 'selected' : '' %>>Draft</option>
         <option value="in_development" <%= filters.status === 'in_development' ? 'selected' : '' %>>In development</option>
       </select>
+      <select name="sort" class="filter-select">
+        <option value="">Sort by Newest</option>
+        <option value="most_played"  <%= filters.sort === 'most_played'  ? 'selected' : '' %>>Sort by Most Played</option>
+        <option value="least_played" <%= filters.sort === 'least_played' ? 'selected' : '' %>>Sort by Least Played</option>
+      </select>
       <button type="submit" class="btn-admin-primary">Filter</button>
       <a href="/sitehandler/games" class="btn-admin-ghost">Clear</a>
     </form>
