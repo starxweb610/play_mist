@@ -95,6 +95,9 @@ exports.validateDisplayName = (rawName) => {
   return { valid: true, value: name };
 };
 
+// Shared with utils/handles.js, which applies its own token-aware matching.
+exports.getBlockedTerms = () => loadBlockedTerms();
+
 exports.MIN_DISPLAY_NAME_LENGTH = MIN_LENGTH;
 exports.MAX_DISPLAY_NAME_LENGTH = MAX_LENGTH;
 

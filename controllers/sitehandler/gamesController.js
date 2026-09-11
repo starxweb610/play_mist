@@ -143,6 +143,9 @@ exports.getDetail = async (req, res) => {
     const [gameTags] = await db.query('SELECT tag_id FROM game_tags WHERE game_id = ?', [req.params.id]);
     const selectedTagIds = gameTags.map(gt => gt.tag_id);
     const [screenshots] = await db.query('SELECT * FROM game_screenshots WHERE game_id = ?', [req.params.id]);
+    const [developers] = await db.query(
+      'SELECT id, name, studio_name, handle FROM developers WHERE is_active = 1 ORDER BY name ASC'
+    );
 
     // Live stats replacing the old manually-entered size/plays/rating fields
     const [[playStats]] = await db.query(
@@ -179,7 +182,7 @@ exports.getDetail = async (req, res) => {
 
     res.render('sitehandler/games/detail', {
       title: game.title, activePage: 'games',
-      game, genres, tags, selectedTagIds, screenshots: mappedScreenshots,
+      game, genres, tags, selectedTagIds, screenshots: mappedScreenshots, developers,
       liveStats: {
         playCount:   playStats.playCount,
         avgRating:   ratingStats.avgRating ? Number(ratingStats.avgRating).toFixed(1) : null,
@@ -203,8 +206,10 @@ exports.postUpdate = async (req, res) => {
     version, is_active, is_featured,
     studio, credits_cost, flag,
     release_stage, expected_release, coming_soon_rank,
-    tags
+    tags, developer_id
   } = req.body;
+  // Which developer's public profile lists this game ('' = none)
+  const developerId = /^\d+$/.test(String(developer_id || '')) ? Number(developer_id) : null;
   try {
     const [prevRows] = await db.query('SELECT is_active FROM games WHERE id = ?', [id]);
     const wasActive  = prevRows.length ? !!prevRows[0].is_active : false;
@@ -221,7 +226,7 @@ exports.postUpdate = async (req, res) => {
       `UPDATE games SET title=?, slug=?, genre=?, orientation=?, type=?,
        short_description=?, long_description=?, trailer_url=?,
        version=?, is_active=?, is_featured=?,
-       studio=?, credits_cost=?, flag=?,
+       studio=?, developer_id=?, credits_cost=?, flag=?,
        release_stage=?, expected_release=?, coming_soon_rank=? WHERE id=?`,
       [
         title, slug, genre, orientation, type,
@@ -230,6 +235,7 @@ exports.postUpdate = async (req, res) => {
         isActiveNow,
         is_featured === 'on' ? 1 : 0,
         studio || null,
+        developerId,
         credits_cost ? parseInt(credits_cost) : null,
         flag || null,
         stage,

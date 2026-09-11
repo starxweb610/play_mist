@@ -205,14 +205,15 @@ exports.postApprove = async (req, res) => {
     const [result] = await db.query(
       `INSERT INTO games
          (title, slug, short_description, long_description, genre, type, orientation,
-          version, file_path, play_url, zip_url, size_bytes, size, studio, is_active, created_by)
-       VALUES (?, ?, ?, ?, ?, 'webgl', ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+          version, file_path, play_url, zip_url, size_bytes, size, studio, developer_id, is_active, created_by)
+       VALUES (?, ?, ?, ?, ?, 'webgl', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
       [
         sub.title, sub.slug, shortDesc, sub.description,
         sub.genre, sub.orientation, sub.version,
         r2Prefix, playUrl, zipUrl,
         sub.zip_size || null, sub.zip_size ? formatBytes(sub.zip_size) : null,
-        sub.studio_name, req.session.admin.id,
+        // developer_id lists the game on the developer's public /@handle profile
+        sub.studio_name, sub.developer_id, req.session.admin.id,
       ]
     );
 

@@ -105,7 +105,7 @@ db/playmist.sql         ⚠ historical snapshot — the live schema is defined b
 
 ### 4.2 Developer & admin identity
 
-Classic email+password with bcrypt, stored server-side in express-session. Developers verify email via a code (`utils/mailer.js` → Hostinger SMTP). Admins are created via `scripts/create-admin.js`. Developers can be banned by admins.
+Classic email+password with bcrypt, stored server-side in express-session — persisted in the MySQL `sessions` table (`utils/sessionStore.js`), so restarts and deploys don't log anyone out. Login regenerates the session id and honours a same-site `?next=` path. Developers verify email via a code (`utils/mailer.js` → Hostinger SMTP). Admins are created via `scripts/create-admin.js`. Developers can be banned by admins.
 
 ### 4.3 Database tables (grouped by purpose)
 
@@ -177,6 +177,21 @@ A game's lifecycle is a **separate dimension from visibility**: `games.release_s
 **Demos.** Uploaded separately (`/sitehandler/games/:id/upload-demo` → R2 `games/demo/<slug>/`, own `demo_*` columns), so publishing a playtest build never touches the real `zip_url`/`version`/`size_bytes`. `deductCredits` gates the launch: a non-`live` game requires `demo_enabled` + `demo_zip_url`, else 403 — the single server-side chokepoint no client can bypass. Demos always cost **0**, and their sessions are logged with `source='other'` rather than `'game'`, because daily-challenge progress and the play-count achievements both count `source='game'` rows and a free unlimited demo would otherwise farm them. On device the build extracts under `demo-<id>` with its own `pm_demo_version_<id>` key, so it can't collide with the finished game once that ships under the same id.
 
 **Feedback.** After a demo session ≥90s, the native `resume` listener opens `DemoFeedbackModal` (alongside, and mutually exclusive with, the rating prompt). One `demo_feedback` row per (game, user, `demo_version`) — upsert, so a new build asks again and a re-submit edits; +200 credits / +100 XP granted once per version. Read at `/sitehandler/games/:id/demo-feedback`, grouped by version, with CSV export.
+
+---
+
+### 5.6 Developer profiles & community (the social layer)
+
+The developer portal doubles as a small social network for indie developers. Every developer has a public profile at **`https://playmist.app/@handle`** listing their published games and public projects — one link to share for developers without their own website. Developers can follow each other and comment on games.
+
+- **Handles** (`utils/handles.js`): `^[a-z][a-z0-9_]{2,29}$`, stored lowercase; reserved route/brand words and a token-aware profanity check. The UNIQUE index `uniq_developer_handle` is the real uniqueness guarantee (the availability check is advisory). Auto-generated from name/studio at signup (and backfilled by the migration); editable on `/developer/profile`, then locked for 14 days. Old handles move to `developer_handle_history`: old links 301 to the new handle and nobody else can claim them.
+- **Public pages** (`routes/profiles.js` → `controllers/profilesController.js`, no login): `/@:handle`, `/@:handle/followers|following`, `/@:handle/projects/:id`, `/@:handle/projects/:id/docs/:docId`. Banned developers 404. Profiles with a live game or public project go into the sitemap; empty profiles are `noindex`.
+- **Games on a profile** come from `games.developer_id` — set when a submission is approved, re-assignable by admins ("Developer Profile" on the game detail page), backfilled once from `developer_submissions`. Only `is_active = 1` games are listed. Public game pages show a "Made by" credit.
+- **Project sharing**: `developer_projects.is_public`, toggled under Overview → Sharing (`PUT /developer/projects/:id/visibility`). Anyone can then read the storyboards, tasks and documents; task comments stay private. Every public query filters on `is_public = 1` *and* the owner's id — no code path loads a private project and checks afterwards.
+- **Doc HTML is sandboxed**: doc bodies are developer-authored HTML, so `/docs/:docId/content` serves them under `Content-Security-Policy: sandbox …` (opaque origin, no scripts) and the page embeds that URL in `<iframe sandbox>`. ⚠ Never render doc HTML inline on a public page — that would be stored XSS against every visitor.
+- **Social**: `developer_follows`; `game_comments` (plain text ≤1000 chars, control/bidi characters stripped, rendered escaped; deletable by the author or the game's developer; comments by banned developers are hidden). JSON API under `/developer` (`controllers/developer/socialController.js`), rate-limited per account. `/developer/community` = feed (new games + public projects from people you follow, comments on your games), discover, followers/following.
+- **Cover image**: `developers.header_url` via `POST /developer/profile/header` → `toWebp(…, 'header')` → R2 `developers/headers/`. Profile also has `headline` and `website_url` (http(s) only).
+- **Hardening that shipped with this**: `SameSite=Lax` session cookie; `blockCrossSite` rejects `Sec-Fetch-Site: cross-site` mutations on `/developer`; unauthenticated `fetch` calls get `401 { sessionExpired }` + `X-Session-Expired` instead of a 302 to the login page (that redirect, after a restart wiped the in-memory sessions, caused the storyboard "Cannot read properties of undefined (reading 'cover_url')" crash), and the portal shows a "log in in a new tab" banner rather than discarding unsaved work; `app.set('trust proxy', 'loopback')` so rate limits key on the real client IP behind nginx.
 
 ---
 
@@ -300,5 +315,6 @@ ssh cgpixels-vps 'bash /var/www/play_mist/scripts/deploy.sh'
 | change profile settings / email linking / avatar rules | `controllers/api/profileApi.js` + app `src/screens/ProfileSettingsScreen.jsx` |
 | change the app's screens/flow | `src/App.jsx` (render precedence) + `src/context/AppContext.jsx` (state) |
 | touch the developer portal or admin panel | `routes/developer.js` / `routes/sitehandler.js` + matching controllers + `views/` |
+| change public developer profiles, handles, follows, game comments or project sharing | §5.6 — `routes/profiles.js`, `controllers/profilesController.js`, `controllers/developer/socialController.js`, `utils/handles.js`, `views/profile/` |
 | change the DB schema | add an idempotent step in `utils/migrate.js`; restart applies it (never edit `db/playmist.sql` and expect effect) |
 | change deploys / monitoring / backups | `scripts/deploy.sh`, `scripts/smoke-test.js`, `scripts/smoke-monitor.js`, `scripts/backup-db.js` — see §7 gotchas first |

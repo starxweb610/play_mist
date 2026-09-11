@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%
+    const description = (dev.headline || dev.bio || `${dev.name} is an indie game developer${dev.studio_name ? ' at ' + dev.studio_name : ''}. Play their games on ${appName}.`)
+      .replace(/\s+/g, ' ').trim().slice(0, 160);
+    const initial = (dev.name || dev.handle).charAt(0).toUpperCase();
+    const joined  = new Date(dev.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    let websiteHost = null;
+    if (dev.website_url) { try { websiteHost = new URL(dev.website_url).host.replace(/^www\./, ''); } catch (_) {} }
+    const ld = {
+      '@context': 'https://schema.org',
+      '@type': 'ProfilePage',
+      url: profileUrl,
+      mainEntity: {
+        '@type': 'Person',
+        name: dev.name,
+        alternateName: '@' + dev.handle,
+        url: profileUrl,
+        description: dev.headline || undefined,
+        image: dev.avatar_url || undefined,
+        sameAs: dev.website_url ? [dev.website_url] : undefined,
+        worksFor: dev.studio_name ? { '@type': 'Organization', name: dev.studio_name } : undefined,
+      },
+    };
+  %>
+  <%- include('partials/head', {
+        title, description, canonical: profileUrl,
+        robots: indexable ? 'index, follow' : 'noindex, follow',
+        ogImage: dev.header_url || dev.avatar_url || null, ogType: 'profile',
+      }) %>
+  <script type="application/ld+json"><%- JSON.stringify(ld).replace(/</g, '\\u003c') %></script>
+</head>
+<body>
+  <%- include('../partials/navbar', { appName, scrolled: true }) %>
+
+  <main class="pf-page">
+    <div class="pf-cover">
+      <% if (dev.header_url) { %><img src="<%= dev.header_url %>" alt="" /><% } %>
+    </div>
+
+    <div class="container">
+      <header class="pf-head">
+        <div class="pf-avatar pf-avatar--lg">
+          <% if (dev.avatar_url) { %><img src="<%= dev.avatar_url %>" alt="<%= dev.name %>" /><% } else { %><%= initial %><% } %>
+        </div>
+
+        <div class="pf-id">
+          <h1 class="pf-name"><%= dev.name %></h1>
+          <div class="pf-handle">@<%= dev.handle %></div>
+          <% if (dev.headline) { %><p class="pf-headline"><%= dev.headline %></p><% } %>
+          <div class="pf-stats">
+            <span><b><%= stats.games %></b><%= stats.games === 1 ? 'game' : 'games' %></span>
+            <a href="/@<%= dev.handle %>/followers"><b data-follower-count><%= stats.followers %></b><span data-follower-label><%= stats.followers === '1' ? 'follower' : 'followers' %></span></a>
+            <a href="/@<%= dev.handle %>/following"><b><%= stats.following %></b>following</a>
+            <% if (stats.plays !== '0') { %><span><b><%= stats.plays %></b><%= stats.plays === '1' ? 'play' : 'plays' %></span><% } %>
+          </div>
+        </div>
+
+        <div class="pf-actions">
+          <% if (viewer.isSelf) { %>
+            <a href="/developer/profile" class="btn btn-ghost pf-btn">Edit profile</a>
+          <% } else if (viewer.loggedIn) { %>
+            <button type="button" class="btn pf-btn <%= viewer.isFollowing ? 'btn-ghost is-following' : 'btn-primary' %>"
+                    data-follow="<%= dev.handle %>" data-following="<%= viewer.isFollowing ? '1' : '0' %>"
+                    aria-pressed="<%= viewer.isFollowing ? 'true' : 'false' %>"><%= viewer.isFollowing ? 'Following' : 'Follow' %></button>
+          <% } else { %>
+            <a href="/developer/login?next=<%= encodeURIComponent('/@' + dev.handle) %>" class="btn btn-primary pf-btn">Follow</a>
+          <% } %>
+          <button type="button" class="btn btn-ghost pf-btn" data-share="<%= profileUrl %>" data-share-title="<%= dev.name %> on <%= appName %>">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            Share
+          </button>
+        </div>
+      </header>
+
+      <div class="pf-layout">
+        <aside class="pf-aside">
+          <section class="pf-card">
+            <h2 class="pf-card-title">About</h2>
+            <% if (dev.bio) { %>
+              <p class="pf-bio"><%= dev.bio %></p>
+            <% } else if (viewer.isSelf) { %>
+              <p class="pf-muted">Add a bio so players and other developers know what you make. <a href="/developer/profile">Edit profile</a></p>
+            <% } %>
+            <ul class="pf-facts">
+              <% if (dev.studio_name) { %>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span><%= dev.studio_name %></span></li>
+              <% } %>
+              <% if (dev.country) { %>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span><%= dev.country %></span></li>
+              <% } %>
+              <% if (websiteHost) { %>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><a href="<%= dev.website_url %>" target="_blank" rel="noopener nofollow ugc"><%= websiteHost %></a></li>
+              <% } %>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Joined <%= joined %></span></li>
+            </ul>
+          </section>
+
+          <% if (viewer.isSelf) { %>
+            <section class="pf-card pf-card--tip">
+              <h2 class="pf-card-title">This is your public profile</h2>
+              <p class="pf-muted">Share <strong>playmist.app/@<%= dev.handle %></strong> anywhere — it always shows your latest published games and public projects.</p>
+            </section>
+          <% } %>
+        </aside>
+
+        <div class="pf-main">
+          <section class="pf-section">
+            <div class="pf-section-head">
+              <h2 class="pf-section-title">Games</h2>
+              <span class="pf-count"><%= games.length %> published</span>
+            </div>
+            <% if (games.length) { %>
+              <div class="games-grid library-grid pf-games">
+                <% games.forEach(g => { %>
+                  <a href="/games/<%= g.slug %>" class="game-card lib-card">
+                    <div class="game-thumb game-thumb--img">
+                      <% if (g.thumbnail) { %>
+                        <img src="<%= g.thumbnail %>" alt="<%= g.title %>" loading="lazy" />
+                      <% } else { %>
+                        <div class="game-thumb-fallback">🎮</div>
+                      <% } %>
+                      <% if (g.playable) { %><span class="play-overlay">▶ Play Now</span><% } %>
+                    </div>
+                    <div class="game-info">
+                      <h4><%= g.title %></h4>
+                      <span class="game-genre"><%= g.genre %></span>
+                    </div>
+                    <% if (g.type === 'premium') { %><div class="game-badge game-badge--premium">OFFLINE</div><% } %>
+                  </a>
+                <% }) %>
+              </div>
+            <% } else { %>
+              <div class="pf-empty">
+                <% if (viewer.isSelf) { %>
+                  Your published games will appear here. <a href="/developer/submit">Submit a game</a>
+                <% } else { %>
+                  No published games yet.
+                <% } %>
+              </div>
+            <% } %>
+          </section>
+
+          <% if (projects.length || viewer.isSelf) { %>
+          <section class="pf-section">
+            <div class="pf-section-head">
+              <h2 class="pf-section-title">Projects</h2>
+              <span class="pf-count"><%= projects.length %> public</span>
+            </div>
+            <% if (projects.length) { %>
+              <div class="pf-projects">
+                <% projects.forEach(p => { %>
+                  <a href="/@<%= dev.handle %>/projects/<%= p.id %>" class="pf-project">
+                    <div class="pf-project-top">
+                      <span class="pf-pill pf-pill--<%= p.status %>"><%= p.statusLabel %></span>
+                      <span class="pf-count">Updated <%= new Date(p.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
+                    </div>
+                    <h3><%= p.name %></h3>
+                    <% if (p.description) { %><p><%= p.description %></p><% } %>
+                    <div class="pf-project-progress">
+                      <div class="pf-bar"><i style="width:<%= p.pct %>%"></i></div>
+                      <span class="pf-count"><%= p.done_count %>/<%= p.task_count %> tasks · <%= p.pct %>%</span>
+                    </div>
+                  </a>
+                <% }) %>
+              </div>
+            <% } else { %>
+              <div class="pf-empty">
+                None of your projects are public. Open a project and switch on <strong>Make project public</strong> to share its storyboards, tasks and docs here.
+              </div>
+            <% } %>
+          </section>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <%- include('../partials/footer', { appName }) %>
+
+  <script src="/js/main.js"></script>
+  <script src="/js/profile.js" defer></script>
+</body>
+</html>

@@ -2,6 +2,28 @@ const bcrypt    = require('bcryptjs');
 const db        = require('../../config/database');
 const mailer    = require('../../utils/mailer');
 const templates = require('../../utils/emailTemplates');
+const { generateUniqueHandle } = require('../../utils/handles');
+const { safeNextPath } = require('../../middleware/developerAuth');
+
+// Inserts the developer with an auto-generated handle. The availability check
+// and the insert aren't atomic, so a collision on the UNIQUE index (someone
+// claimed the same handle in between) is retried with a fresh pick.
+async function insertDeveloper({ name, email, phone, country, studio_name, password_hash }) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const handle = await generateUniqueHandle(name, studio_name);
+    try {
+      const [result] = await db.query(
+        `INSERT INTO developers (name, email, phone, country, studio_name, password_hash, handle)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [name, email, phone, country, studio_name, password_hash, handle]
+      );
+      return { id: result.insertId, handle };
+    } catch (err) {
+      if (err.code !== 'ER_DUP_ENTRY' || !String(err.message).includes('uniq_developer_handle')) throw err;
+    }
+  }
+  throw new Error('Could not allocate a profile handle.');
+}
 
 function generateCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
@@ -149,21 +171,20 @@ exports.postVerifyEmail = async (req, res) => {
       return res.redirect('/developer/login');
     }
 
-    const [result] = await db.query(
-      `INSERT INTO developers (name, email, phone, country, studio_name, password_hash)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [name, devEmail, phone, country, studio_name, password_hash]
-    );
+    const created = await insertDeveloper({
+      name, email: devEmail, phone, country, studio_name, password_hash,
+    });
 
     await db.query('DELETE FROM developer_email_verifications WHERE email = ?', [devEmail]);
 
     req.session.pendingVerification = null;
     req.session.developer = {
-      id:          result.insertId,
+      id:          created.id,
       name,
       email:       devEmail,
       studio_name,
       avatar_url:  null,
+      handle:      created.handle,
     };
 
     req.flash('success_msg', `Welcome, ${name}! Your developer account is ready.`);
@@ -228,7 +249,11 @@ exports.postResendVerification = async (req, res) => {
 // ── Login ──────────────────────────────────────────────────────────────────────
 
 exports.getLogin = (req, res) => {
-  if (req.session.developer) return res.redirect('/developer/dashboard');
+  // ?next= lets public pages (profiles, game comments) send visitors back
+  // where they were after logging in. Only same-site paths are accepted.
+  const next = safeNextPath(req.query.next);
+  if (req.session.developer) return res.redirect(next || '/developer/dashboard');
+  if (next) req.session.returnTo = next;
   res.render('developer/login', { title: 'Developer Login', errors: [] });
 };
 
@@ -262,14 +287,23 @@ exports.postLogin = async (req, res) => {
 
     await db.query('UPDATE developers SET last_login = NOW() WHERE id = ?', [dev.id]);
 
-    req.session.developer = {
-      id:          dev.id,
-      name:        dev.name,
-      email:       dev.email,
-      studio_name: dev.studio_name,
-      avatar_url:  dev.avatar_url || null,
-    };
-    res.redirect('/developer/dashboard');
+    const dest = safeNextPath(req.session.returnTo) || '/developer/dashboard';
+    // New session id on login, so a session id planted before authentication
+    // (session fixation) never becomes an authenticated one.
+    req.session.regenerate((regenErr) => {
+      if (regenErr) {
+        return res.render('developer/login', { title: 'Developer Login', errors: ['Login failed. Please try again.'] });
+      }
+      req.session.developer = {
+        id:          dev.id,
+        name:        dev.name,
+        email:       dev.email,
+        studio_name: dev.studio_name,
+        avatar_url:  dev.avatar_url || null,
+        handle:      dev.handle || null,
+      };
+      res.redirect(dest);
+    });
   } catch (err) {
     res.render('developer/login', { title: 'Developer Login', errors: ['Login failed. Please try again.'] });
   }

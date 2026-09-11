@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%
+    const projectUrl = `${appUrl}/@${dev.handle}/projects/${project.id}`;
+    const frameCount = storyboards.reduce((n, s) => n + s.frames.length, 0);
+    const firstFrame = (storyboards.find(s => s.frames.length) || { frames: [] }).frames[0];
+    const defaultTab = frameCount ? 'storyboards' : taskStats.total ? 'tasks' : docs.length ? 'docs' : 'storyboards';
+    const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+    const PRIORITY = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' };
+    const DOC_TYPE = { rich_text: 'Document', html: 'HTML document', upload: 'File' };
+  %>
+  <%- include('partials/head', {
+        title,
+        description: (project.description || `${project.name} — a game project by ${dev.name} on ${appName}.`).replace(/\s+/g, ' ').trim().slice(0, 160),
+        canonical: projectUrl, robots: 'index, follow',
+        ogImage: (firstFrame && firstFrame.thumb_url) || dev.header_url || null, ogType: 'website',
+      }) %>
+  <link href="https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <%- include('../partials/navbar', { appName, scrolled: true }) %>
+
+  <main class="pf-page pj-page">
+    <div class="container">
+      <nav class="pj-crumbs" aria-label="Breadcrumb">
+        <a href="/@<%= dev.handle %>" class="pj-crumb-dev">
+          <span class="pf-avatar pf-avatar--xxs">
+            <% if (dev.avatar_url) { %><img src="<%= dev.avatar_url %>" alt="" /><% } else { %><%= dev.name.charAt(0).toUpperCase() %><% } %>
+          </span>
+          <%= dev.name %>
+        </a>
+        <span aria-hidden="true">/</span>
+        <span>Projects</span>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page"><%= project.name %></span>
+      </nav>
+
+      <header class="pj-head">
+        <div style="min-width:0;flex:1;">
+          <div class="pj-kicker">
+            <span class="pf-pill pf-pill--<%= project.status %>"><%= project.statusLabel %></span>
+            <span class="pj-readonly">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              Read-only · shared publicly by <%= dev.name %>
+            </span>
+          </div>
+          <h1 class="pj-title"><%= project.name %></h1>
+          <% if (project.description) { %><p class="pj-desc"><%= project.description %></p><% } %>
+        </div>
+        <div class="pf-actions">
+          <% if (viewer.isSelf) { %>
+            <a href="/developer/projects/<%= project.id %>" class="btn btn-ghost pf-btn pf-btn--sm">Edit in portal</a>
+          <% } %>
+          <button type="button" class="btn btn-ghost pf-btn pf-btn--sm" data-share="<%= projectUrl %>" data-share-title="<%= project.name %> by <%= dev.name %>">Share</button>
+        </div>
+      </header>
+
+      <div class="pj-metrics">
+        <div class="pj-metric pj-metric--progress">
+          <b><%= taskStats.pct %>%</b>
+          <span>Progress · <%= taskStats.done %>/<%= taskStats.total %> tasks done</span>
+          <div class="pf-bar"><i style="width:<%= taskStats.pct %>%"></i></div>
+        </div>
+        <div class="pj-metric"><b><%= storyboards.length %></b><span>Storyboards</span></div>
+        <div class="pj-metric"><b><%= frameCount %></b><span>Frames</span></div>
+        <div class="pj-metric"><b><%= docs.length %></b><span>Documents</span></div>
+        <% if (project.deadline) { %><div class="pj-metric"><b><%= fmt(project.deadline) %></b><span>Target date</span></div><% } %>
+      </div>
+
+      <div class="pj-tabs" role="tablist" aria-label="Project sections">
+        <button type="button" class="pj-tab" role="tab" id="tab-storyboards" data-tab="storyboards" aria-controls="panel-storyboards"
+                aria-selected="<%= defaultTab === 'storyboards' %>" tabindex="<%= defaultTab === 'storyboards' ? 0 : -1 %>">Storyboards <span class="pf-count"><%= storyboards.length %></span></button>
+        <button type="button" class="pj-tab" role="tab" id="tab-tasks" data-tab="tasks" aria-controls="panel-tasks"
+                aria-selected="<%= defaultTab === 'tasks' %>" tabindex="<%= defaultTab === 'tasks' ? 0 : -1 %>">Tasks <span class="pf-count"><%= taskStats.total %></span></button>
+        <button type="button" class="pj-tab" role="tab" id="tab-docs" data-tab="docs" aria-controls="panel-docs"
+                aria-selected="<%= defaultTab === 'docs' %>" tabindex="<%= defaultTab === 'docs' ? 0 : -1 %>">Documents <span class="pf-count"><%= docs.length %></span></button>
+      </div>
+
+      <!-- Storyboards -->
+      <section class="pj-panel" id="panel-storyboards" role="tabpanel" aria-labelledby="tab-storyboards" <%= defaultTab === 'storyboards' ? '' : 'hidden' %>>
+        <% if (storyboards.length) { %>
+          <% storyboards.forEach(sb => { %>
+            <div class="sb-block">
+              <h2 class="sb-block-title"><%= sb.title %></h2>
+              <% if (sb.frames.length) { %>
+                <div class="sb-grid">
+                  <% sb.frames.forEach((f, i) => { %>
+                    <button type="button" class="sb-frame" data-frame
+                            data-src="<%= f.image_url || f.thumb_url %>" data-title="<%= f.title || '' %>" data-desc="<%= f.description || '' %>"
+                            aria-label="Open frame <%= i + 1 %><%= f.title ? ': ' + f.title : '' %>">
+                      <img src="<%= f.thumb_url || f.image_url %>" alt="" loading="lazy" />
+                      <span class="sb-frame-body">
+                        <span class="sb-num">FRAME <%= i + 1 %></span>
+                        <span class="sb-frame-title"><%= f.title || 'Untitled' %></span>
+                        <% if (f.description) { %><span class="sb-frame-desc"><%= f.description %></span><% } %>
+                      </span>
+                    </button>
+                  <% }) %>
+                </div>
+              <% } else { %>
+                <div class="pf-empty">No frames in this storyboard yet.</div>
+              <% } %>
+            </div>
+          <% }) %>
+        <% } else { %>
+          <div class="pf-empty">No storyboards yet.</div>
+        <% } %>
+      </section>
+
+      <!-- Tasks -->
+      <section class="pj-panel" id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" <%= defaultTab === 'tasks' ? '' : 'hidden' %>>
+        <% if (taskStats.total) { %>
+          <div class="kb-board">
+            <% columns.forEach(col => { %>
+              <div class="kb-col">
+                <div class="kb-col-head"><span><%= col.label %></span><span class="pf-count"><%= col.tasks.length %></span></div>
+                <div class="kb-items">
+                  <% if (col.tasks.length) { %>
+                    <% col.tasks.forEach(t => { %>
+                      <button type="button" class="kb-card" data-task="<%= t.id %>">
+                        <span class="kb-card-title" style="display:block;"><%= t.title %></span>
+                        <% if (t.description) { %><span class="kb-card-desc"><%= t.description %></span><% } %>
+                        <span class="kb-meta">
+                          <span class="kb-badge kb-badge--<%= t.priority %>"><%= PRIORITY[t.priority] || t.priority %></span>
+                          <% if (t.due_date) { %><span class="kb-badge">Due <%= fmt(t.due_date) %></span><% } %>
+                          <% t.labelList.slice(0, 3).forEach(l => { %><span class="kb-badge"><%= l %></span><% }) %>
+                        </span>
+                      </button>
+                    <% }) %>
+                  <% } else { %>
+                    <div class="kb-empty">Nothing here</div>
+                  <% } %>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        <% } else { %>
+          <div class="pf-empty">No tasks yet.</div>
+        <% } %>
+      </section>
+
+      <!-- Documents -->
+      <section class="pj-panel" id="panel-docs" role="tabpanel" aria-labelledby="tab-docs" <%= defaultTab === 'docs' ? '' : 'hidden' %>>
+        <% if (docs.length) { %>
+          <div class="doc-list">
+            <% docs.forEach(d => { %>
+              <a class="doc-row" href="/@<%= dev.handle %>/projects/<%= project.id %>/docs/<%= d.id %>">
+                <span class="doc-icon" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                </span>
+                <span class="doc-row-text">
+                  <h3><%= d.title %></h3>
+                  <span class="pf-count"><%= DOC_TYPE[d.doc_type] || 'Document' %><%= d.sizeLabel ? ' · ' + d.sizeLabel : '' %> · Updated <%= fmt(d.updated_at) %></span>
+                </span>
+                <% if (d.is_pinned) { %><span class="doc-pin">PINNED</span><% } %>
+              </a>
+            <% }) %>
+          </div>
+        <% } else { %>
+          <div class="pf-empty">No documents yet.</div>
+        <% } %>
+      </section>
+    </div>
+  </main>
+
+  <!-- Storyboard lightbox -->
+  <div class="pf-modal" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="Storyboard frame">
+    <div class="pf-modal-sheet lb-sheet">
+      <button type="button" class="pf-modal-close" data-close aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <img class="lb-img" data-lb-img alt="" />
+      <div class="lb-caption">
+        <div style="min-width:0;">
+          <span class="pf-count" data-lb-num></span>
+          <div class="lb-title" data-lb-title></div>
+          <p class="lb-desc" data-lb-desc></p>
+        </div>
+        <div class="lb-nav">
+          <button type="button" data-lb-step="-1" aria-label="Previous frame">←</button>
+          <button type="button" data-lb-step="1" aria-label="Next frame">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Task details -->
+  <div class="pf-modal" id="taskModal" hidden role="dialog" aria-modal="true" aria-label="Task details">
+    <div class="pf-modal-sheet">
+      <button type="button" class="pf-modal-close" data-close aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div data-task-body></div>
+    </div>
+  </div>
+
+  <% columns.forEach(col => { col.tasks.forEach(t => { %>
+    <template id="task-tpl-<%= t.id %>">
+      <div class="tm-kicker">
+        <span class="kb-badge"><%= col.label %></span>
+        <span class="kb-badge kb-badge--<%= t.priority %>"><%= PRIORITY[t.priority] || t.priority %> priority</span>
+      </div>
+      <h2 class="tm-title"><%= t.title %></h2>
+      <% if (t.description) { %><div class="tm-desc"><%= t.description %></div><% } else { %><p class="pf-muted" style="margin-top:12px;">No description.</p><% } %>
+      <dl class="tm-facts">
+        <div><dt>Status</dt><dd><%= col.label %></dd></div>
+        <% if (t.due_date) { %><div><dt>Due</dt><dd><%= fmt(t.due_date) %></dd></div><% } %>
+        <% if (t.labelList.length) { %><div><dt>Labels</dt><dd><%= t.labelList.join(', ') %></dd></div><% } %>
+        <% if (t.updated_at) { %><div><dt>Last updated</dt><dd><%= fmt(t.updated_at) %></dd></div><% } %>
+      </dl>
+    </template>
+  <% }) }) %>
+
+  <%- include('../partials/footer', { appName }) %>
+
+  <script src="/js/main.js"></script>
+  <script src="/js/profile.js" defer></script>
+</body>
+</html>

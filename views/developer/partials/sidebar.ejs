@@ -24,6 +24,14 @@
     <span class="nav-label">Projects</span>
   </a>
 
+  <a href="/developer/community" class="nav-item <%= activePage === 'community' ? 'active' : '' %>">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+    <span class="nav-label">Community</span>
+  </a>
+
   <a href="/developer/submit" class="nav-item <%= activePage === 'submit' ? 'active' : '' %>">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -55,6 +63,15 @@
       <div class="role"><%= developer.studio_name %></div>
     </div>
   </a>
+
+  <% if (developer.handle) { %>
+  <a href="/@<%= developer.handle %>" target="_blank" rel="noopener" class="nav-item" style="margin-top:4px;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+    </svg>
+    <span class="nav-label">Public profile</span>
+  </a>
+  <% } %>
 
   <a href="/developer/logout" class="nav-item" style="margin-top:4px;color:var(--danger);">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

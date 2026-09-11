@@ -16,10 +16,16 @@ function _sbEsc(str) {
   return d.innerHTML;
 }
 
+// Anything other than a JSON success is an error. A redirect (e.g. to the login
+// page) used to resolve as `{}`, and createStoryboard then pushed `undefined`
+// into the list and crashed reading `cover_url`.
 function _sbApi(url, opts) {
   return fetch(url, opts).then(async (r) => {
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error || 'Request failed');
+    const isJson = (r.headers.get('content-type') || '').includes('application/json');
+    const data = isJson ? await r.json().catch(() => null) : null;
+    if (!r.ok || r.redirected || !data) {
+      throw new Error((data && data.error) || 'Request failed. Please refresh the page and try again.');
+    }
     return data;
   });
 }
@@ -192,6 +198,7 @@ async function createStoryboard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: title.trim() }),
     });
+    if (!data.storyboard) throw new Error('Unexpected response from the server.');
     sbStoryboards.push(data.storyboard);
     renderStoryboardList();
   } catch (err) { alert('Error: ' + err.message); }

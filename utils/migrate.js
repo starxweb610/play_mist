@@ -18,8 +18,28 @@ const migrateColumn = async (table, column, definition) => {
   return false;
 };
 
+const migrateIndex = async (table, indexName, alterClause) => {
+  const [rows] = await db.query(
+    `SELECT COUNT(*) AS c FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?`,
+    [table, indexName]
+  );
+  if (rows[0].c === 0) await db.query(`ALTER TABLE \`${table}\` ${alterClause}`);
+};
+
 exports.runMigrations = async () => {
   try {
+    // ── sessions: express-session store (utils/sessionStore.js) ──────────────
+    // First, so a failure further down can never leave logins without a table.
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        sid     VARCHAR(128) NOT NULL PRIMARY KEY,
+        expires BIGINT       NOT NULL,
+        data    MEDIUMTEXT   NOT NULL,
+        KEY idx_expires (expires)
+      )
+    `);
+
     // ── analytics_games ───────────────────────────────────────────────────────
     const [agCols] = await db.query(
       `SELECT COUNT(*) AS c FROM information_schema.COLUMNS
@@ -705,6 +725,83 @@ exports.runMigrations = async () => {
         created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
         processed_at    DATETIME     DEFAULT NULL,
         KEY idx_status_scheduled (status, scheduled_at)
+      )
+    `);
+
+    // ── Developer social profiles: public /@handle pages ───────────────────────
+    await migrateColumn('developers', 'handle',            'VARCHAR(30) DEFAULT NULL');
+    await migrateColumn('developers', 'handle_changed_at', 'DATETIME DEFAULT NULL');
+    await migrateColumn('developers', 'headline',          'VARCHAR(120) DEFAULT NULL');
+    await migrateColumn('developers', 'website_url',       'VARCHAR(300) DEFAULT NULL');
+    await migrateColumn('developers', 'header_url',        'VARCHAR(500) DEFAULT NULL');
+    // The UNIQUE index is the real guarantee — two simultaneous claims of the
+    // same handle can't both succeed, whatever the application checks say.
+    await migrateIndex('developers', 'uniq_developer_handle', 'ADD UNIQUE INDEX uniq_developer_handle (handle)');
+
+    // Handles a developer has moved away from: old /@links keep redirecting,
+    // and nobody else can claim a handle someone just left.
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS developer_handle_history (
+        handle       VARCHAR(30) NOT NULL PRIMARY KEY,
+        developer_id INT         NOT NULL,
+        created_at   TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (developer_id) REFERENCES developers(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Every developer gets a handle derived from their name; they can change it.
+    const [unhandled] = await db.query('SELECT id, name, studio_name FROM developers WHERE handle IS NULL');
+    if (unhandled.length) {
+      const { generateUniqueHandle } = require('./handles');
+      for (const d of unhandled) {
+        try {
+          const handle = await generateUniqueHandle(d.name, d.studio_name);
+          await db.query('UPDATE developers SET handle = ? WHERE id = ? AND handle IS NULL', [handle, d.id]);
+        } catch (e) { console.warn(`  ⚠️  handle backfill skipped for developer ${d.id}:`, e.message); }
+      }
+    }
+
+    // Owner-controlled read-only sharing of a project (storyboards/tasks/docs)
+    await migrateColumn('developer_projects', 'is_public', 'TINYINT(1) NOT NULL DEFAULT 0');
+
+    // Which developer profile a catalog game is listed under. Backfilled once
+    // from approved submissions; admins can reassign it on the game page.
+    if (await migrateColumn('games', 'developer_id', 'INT DEFAULT NULL')) {
+      try {
+        await db.query(
+          'ALTER TABLE games ADD CONSTRAINT fk_games_developer FOREIGN KEY (developer_id) REFERENCES developers(id) ON DELETE SET NULL'
+        );
+      } catch (e) { console.warn('  ⚠️  games.developer_id FK skipped:', e.message); }
+      await db.query(
+        `UPDATE games g JOIN developer_submissions s ON s.game_id = g.id
+         SET g.developer_id = s.developer_id WHERE g.developer_id IS NULL`
+      );
+    }
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS developer_follows (
+        follower_id  INT NOT NULL,
+        following_id INT NOT NULL,
+        created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (follower_id, following_id),
+        KEY idx_following (following_id, created_at),
+        FOREIGN KEY (follower_id)  REFERENCES developers(id) ON DELETE CASCADE,
+        FOREIGN KEY (following_id) REFERENCES developers(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Developer comments on public game pages. Plain text only — rendered
+    // escaped, never as HTML.
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS game_comments (
+        id           INT PRIMARY KEY AUTO_INCREMENT,
+        game_id      INT           NOT NULL,
+        developer_id INT           NOT NULL,
+        body         VARCHAR(1000) NOT NULL,
+        created_at   TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_game_created (game_id, created_at),
+        FOREIGN KEY (game_id)      REFERENCES games(id)      ON DELETE CASCADE,
+        FOREIGN KEY (developer_id) REFERENCES developers(id) ON DELETE CASCADE
       )
     `);
 

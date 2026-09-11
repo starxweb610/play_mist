@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', {
+        title,
+        description: `${doc.title} — a document from ${project.name} by ${dev.name} on ${appName}.`,
+        canonical: `${appUrl}/@${dev.handle}/projects/${project.id}/docs/${doc.id}`,
+        robots: 'noindex, follow', ogImage: dev.header_url || null, ogType: 'article',
+      }) %>
+</head>
+<body>
+  <%- include('../partials/navbar', { appName, scrolled: true }) %>
+
+  <main class="pf-page pj-page">
+    <div class="container">
+      <nav class="pj-crumbs" aria-label="Breadcrumb">
+        <a href="/@<%= dev.handle %>" class="pj-crumb-dev">
+          <span class="pf-avatar pf-avatar--xxs">
+            <% if (dev.avatar_url) { %><img src="<%= dev.avatar_url %>" alt="" /><% } else { %><%= dev.name.charAt(0).toUpperCase() %><% } %>
+          </span>
+          <%= dev.name %>
+        </a>
+        <span aria-hidden="true">/</span>
+        <a href="/@<%= dev.handle %>/projects/<%= project.id %>"><%= project.name %></a>
+        <span aria-hidden="true">/</span>
+        <a href="/@<%= dev.handle %>/projects/<%= project.id %>#docs">Documents</a>
+      </nav>
+
+      <header class="pj-doc-head">
+        <div>
+          <span class="pj-readonly">Read-only · shared publicly</span>
+          <h1 class="pj-title pj-title--doc"><%= doc.title %></h1>
+          <div class="pf-count">
+            <%= doc.docType === 'upload' ? 'File' : doc.docType === 'html' ? 'HTML document' : 'Document' %>
+            · Updated <%= new Date(doc.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>
+          </div>
+        </div>
+        <a href="/@<%= dev.handle %>/projects/<%= project.id %>#docs" class="btn btn-ghost pf-btn pf-btn--sm">← All documents</a>
+      </header>
+
+      <% if (doc.docType === 'upload') { %>
+        <div class="pf-card pj-file">
+          <span class="doc-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </span>
+          <div style="flex:1;min-width:0;">
+            <div class="pj-file-name"><%= doc.fileName || doc.title %></div>
+            <% if (doc.sizeLabel) { %><div class="pf-count"><%= doc.sizeLabel %></div><% } %>
+          </div>
+          <% if (fileUrl) { %>
+            <a href="<%= fileUrl %>" target="_blank" rel="noopener noreferrer" class="btn btn-primary pf-btn pf-btn--sm">Open file</a>
+          <% } %>
+        </div>
+      <% } else { %>
+        <!-- Developer-authored HTML: isolated in a sandboxed frame (no scripts,
+             no same-origin access). The content URL is itself served with a CSP
+             sandbox policy, so it stays isolated even when opened directly. -->
+        <iframe class="doc-frame" src="<%= contentUrl %>" title="<%= doc.title %>"
+                sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"></iframe>
+      <% } %>
+    </div>
+  </main>
+
+  <%- include('../partials/footer', { appName }) %>
+  <script src="/js/main.js"></script>
+</body>
+</html>

@@ -20,7 +20,7 @@
     </div>
 
     <button type="button" class="nav-resume" id="resumeWebBtn">Resume on web</button>
-    <a href="/developer" class="nav-cta" id="navCta">Developer Login</a>
+    <a href="/developer" class="nav-cta" id="navCta"><%= (typeof developer !== 'undefined' && developer) ? 'Developer Portal' : 'Developer Login' %></a>
 
     <button class="hamburger" id="hamburger" aria-label="Toggle menu" aria-expanded="false">
       <span></span><span></span><span></span>

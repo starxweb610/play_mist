@@ -111,6 +111,9 @@
               <span class="s-<%= project.status %>" style="display:inline-flex;align-items:center;font-size:11px;color:var(--ink-3);font-weight:500;">
                 <span class="status-dot"></span><%= sMap[project.status] || project.status %>
               </span>
+              <% if (project.is_public) { %>
+                <span style="display:inline-flex;align-items:center;font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);padding:1px 8px;border-radius:99px;">Public</span>
+              <% } %>
             </div>
 
             <div>

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('partials/head', { title: 'Community' }) %>
+  <style>
+    .cm-hero {
+      display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+      padding: 18px 20px; margin-bottom: 18px; border-radius: 14px; border: 1px solid var(--line);
+      background: linear-gradient(135deg, var(--accent-soft), transparent 60%), var(--surface);
+      box-shadow: var(--shadow-card);
+    }
+    .cm-hero .avatar { width: 56px; height: 56px; font-size: 22px; flex-shrink: 0; }
+    .cm-id { flex: 1; min-width: 200px; }
+    .cm-name { font-size: 17px; font-weight: 700; color: var(--ink); }
+    .cm-handle { color: var(--accent); font-size: 13px; font-weight: 600; }
+    .cm-headline { color: var(--ink-3); font-size: 12.5px; margin-top: 3px; }
+    .cm-stats { display: flex; gap: 22px; }
+    .cm-stat b { display: block; font-size: 19px; font-weight: 700; color: var(--ink); }
+    .cm-stat span { font-size: 11px; color: var(--ink-3); }
+    .cm-hero-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .cm-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 18px; overflow-x: auto; }
+    .cm-tab {
+      padding: 10px 14px; color: var(--ink-3); font-size: 13px; font-weight: 500; white-space: nowrap;
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+    }
+    .cm-tab:hover { color: var(--ink); }
+    .cm-tab.active { color: var(--accent); border-color: var(--accent); }
+
+    .cm-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 18px; align-items: start; }
+    @media (max-width: 1000px) { .cm-grid { grid-template-columns: 1fr; } }
+    .cm-block-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-4); margin: 0 0 12px; }
+    .cm-block + .cm-block { margin-top: 24px; }
+
+    .cm-feed-item {
+      display: flex; gap: 14px; padding: 12px; border-radius: 12px;
+      border: 1px solid var(--line); background: var(--surface); transition: border-color .15s;
+    }
+    .cm-feed-item:hover { border-color: var(--line-strong); }
+    .cm-feed-item + .cm-feed-item { margin-top: 10px; }
+    .cm-thumb { width: 132px; aspect-ratio: 16 / 10; border-radius: 8px; object-fit: cover; background: var(--surface-3); flex-shrink: 0; }
+    .cm-feed-by { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-3); }
+    .cm-feed-by .avatar { width: 18px; height: 18px; font-size: 9px; }
+    .cm-feed-title { font-size: 14px; font-weight: 600; color: var(--ink); margin: 5px 0 3px; }
+    .cm-feed-desc { font-size: 12.5px; color: var(--ink-3); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    @media (max-width: 520px) { .cm-thumb { width: 96px; } }
+
+    .cm-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
+    .cm-person { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+    .cm-person-head { display: flex; gap: 12px; align-items: center; min-width: 0; }
+    .cm-person-head .avatar { width: 44px; height: 44px; font-size: 17px; flex-shrink: 0; }
+    .cm-person-name { font-size: 14px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cm-person-sub { font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cm-person-meta { font-size: 12px; color: var(--ink-3); }
+    .cm-person-actions { display: flex; gap: 8px; }
+    .cm-person-actions .btn { flex: 1; justify-content: center; }
+    .btn.is-following { background: transparent; border: 1px solid var(--line-strong); color: var(--ink-2); box-shadow: none; }
+
+    .cm-comment { padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+    .cm-comment:last-child { border-bottom: none; }
+    .cm-comment-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--ink-3); font-size: 12px; }
+    .cm-comment-head .avatar { width: 20px; height: 20px; font-size: 9px; }
+    .cm-comment-head strong { color: var(--ink); font-weight: 600; }
+    .cm-comment p {
+      color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; margin: 5px 0 0; line-height: 1.5;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .cm-search { display: flex; gap: 8px; margin-bottom: 16px; max-width: 520px; }
+    .cm-search input {
+      flex: 1; min-width: 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px;
+      background: var(--surface-2); color: var(--ink); font-size: 13px; font-family: inherit; outline: none;
+    }
+    .cm-search input:focus { border-color: var(--accent); }
+    .cm-empty { text-align: center; padding: 40px 20px; color: var(--ink-3); border: 1px dashed var(--line-strong); border-radius: 12px; font-size: 13px; line-height: 1.6; }
+  </style>
+  <link rel="icon" href="/favicon.ico" />
+</head>
+<body>
+<%
+  const ago = (d) => {
+    const s = Math.max(1, Math.round((Date.now() - new Date(d).getTime()) / 1000));
+    if (s < 60) return 'just now';
+    const m = Math.round(s / 60);  if (m < 60) return m + 'm ago';
+    const h = Math.round(m / 60);  if (h < 24) return h + 'h ago';
+    const days = Math.round(h / 24); if (days < 30) return days + 'd ago';
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+  const initial = (name) => String(name || '?').charAt(0).toUpperCase();
+%>
+<div class="container-app">
+  <%- include('partials/sidebar', { activePage: 'community' }) %>
+
+  <main class="main-content">
+    <header class="topbar">
+      <button class="dev-menu-btn" id="devMenuBtn" aria-label="Open navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <span class="topbar-title">Community</span>
+    </header>
+
+    <div class="page-content scroll">
+      <%- include('partials/flash') %>
+
+      <!-- You -->
+      <section class="cm-hero">
+        <div class="avatar" style="background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--accent-ink);">
+          <% if (profile.avatar_url) { %><img src="<%= profile.avatar_url %>" alt=""><% } else { %><%= initial(profile.name) %><% } %>
+        </div>
+        <div class="cm-id">
+          <div class="cm-name"><%= profile.name %></div>
+          <% if (profile.handle) { %><div class="cm-handle">playmist.app/@<%= profile.handle %></div><% } %>
+          <div class="cm-headline"><%= profile.headline || profile.studio_name %></div>
+        </div>
+        <div class="cm-stats">
+          <div class="cm-stat"><b><%= profile.games %></b><span>Games</span></div>
+          <a class="cm-stat" href="/developer/community?tab=followers"><b><%= profile.followers %></b><span>Followers</span></a>
+          <a class="cm-stat" href="/developer/community?tab=following"><b><%= profile.following %></b><span>Following</span></a>
+        </div>
+        <% if (profile.handle) { %>
+        <div class="cm-hero-actions">
+          <button type="button" class="btn sm" data-copy="/@<%= profile.handle %>">Copy profile link</button>
+          <a href="/@<%= profile.handle %>" target="_blank" rel="noopener" class="btn primary sm">View profile</a>
+        </div>
+        <% } %>
+      </section>
+
+      <nav class="cm-tabs">
+        <a href="/developer/community"                class="cm-tab <%= tab === 'feed' ? 'active' : '' %>">Feed</a>
+        <a href="/developer/community?tab=discover"   class="cm-tab <%= tab === 'discover' ? 'active' : '' %>">Discover developers</a>
+        <a href="/developer/community?tab=following"  class="cm-tab <%= tab === 'following' ? 'active' : '' %>">Following · <%= profile.following %></a>
+        <a href="/developer/community?tab=followers"  class="cm-tab <%= tab === 'followers' ? 'active' : '' %>">Followers · <%= profile.followers %></a>
+      </nav>
+
+      <% if (tab === 'feed') { %>
+        <div class="cm-grid">
+          <div>
+            <section class="cm-block">
+              <h2 class="cm-block-title">New games from developers you follow</h2>
+              <% if (newGames.length) { %>
+                <% newGames.forEach(g => { %>
+                  <a href="/games/<%= g.slug %>" target="_blank" rel="noopener" class="cm-feed-item">
+                    <% if (g.thumbnail) { %><img class="cm-thumb" src="<%= g.thumbnail %>" alt="" loading="lazy"><% } else { %><div class="cm-thumb"></div><% } %>
+                    <div style="min-width:0;">
+                      <div class="cm-feed-by">
+                        <span class="avatar"><% if (g.dev_avatar) { %><img src="<%= g.dev_avatar %>" alt=""><% } else { %><%= initial(g.dev_name) %><% } %></span>
+                        <span><%= g.dev_name %> · <%= ago(g.created_at) %></span>
+                      </div>
+                      <div class="cm-feed-title"><%= g.title %></div>
+                      <div class="cm-feed-desc"><%= g.short_description || g.genre %></div>
+                    </div>
+                  </a>
+                <% }) %>
+              <% } else { %>
+                <div class="cm-empty">
+                  Nothing here yet. Follow developers to see the games they publish.<br>
+                  <a href="/developer/community?tab=discover" class="btn primary sm" style="margin-top:12px;">Discover developers</a>
+                </div>
+              <% } %>
+            </section>
+
+            <% if (newProjects.length) { %>
+            <section class="cm-block">
+              <h2 class="cm-block-title">Projects shared by people you follow</h2>
+              <% newProjects.forEach(p => { %>
+                <a href="/@<%= p.dev_handle %>/projects/<%= p.id %>" target="_blank" rel="noopener" class="cm-feed-item">
+                  <div style="min-width:0;">
+                    <div class="cm-feed-by">
+                      <span class="avatar"><% if (p.dev_avatar) { %><img src="<%= p.dev_avatar %>" alt=""><% } else { %><%= initial(p.dev_name) %><% } %></span>
+                      <span><%= p.dev_name %> · updated <%= ago(p.updated_at) %></span>
+                    </div>
+                    <div class="cm-feed-title"><%= p.name %></div>
+                    <% if (p.description) { %><div class="cm-feed-desc"><%= p.description %></div><% } %>
+                  </div>
+                </a>
+              <% }) %>
+            </section>
+            <% } %>
+          </div>
+
+          <aside class="card" style="padding:18px;">
+            <h2 class="cm-block-title">Comments on your games</h2>
+            <% if (commentsOnMyGames.length) { %>
+              <% commentsOnMyGames.forEach(c => { %>
+                <div class="cm-comment">
+                  <div class="cm-comment-head">
+                    <span class="avatar"><% if (c.avatar_url) { %><img src="<%= c.avatar_url %>" alt=""><% } else { %><%= initial(c.name) %><% } %></span>
+                    <a href="/@<%= c.handle %>" target="_blank" rel="noopener"><strong><%= c.name %></strong></a>
+                    <span>on</span>
+                    <a href="/games/<%= c.game_slug %>#comments" target="_blank" rel="noopener" style="color:var(--accent);"><%= c.game_title %></a>
+                    <span>· <%= ago(c.created_at) %></span>
+                  </div>
+                  <p><%= c.body %></p>
+                </div>
+              <% }) %>
+            <% } else { %>
+              <p style="font-size:13px;color:var(--ink-3);margin:0;line-height:1.6;">When other developers comment on your published games, you’ll see it here.</p>
+            <% } %>
+          </aside>
+        </div>
+
+      <% } else { %>
+        <% if (tab === 'discover') { %>
+          <form class="cm-search" method="GET" action="/developer/community" role="search">
+            <input type="hidden" name="tab" value="discover">
+            <input type="search" name="q" value="<%= q %>" maxlength="60" placeholder="Search by name, @handle or studio" aria-label="Search developers">
+            <button type="submit" class="btn primary sm">Search</button>
+          </form>
+        <% } %>
+
+        <% if (people.length) { %>
+          <div class="cm-people">
+            <% people.forEach(p => { %>
+              <div class="cm-person">
+                <a class="cm-person-head" href="/@<%= p.handle %>" target="_blank" rel="noopener">
+                  <span class="avatar" style="background:linear-gradient(135deg,var(--purple),var(--info));color:#fff;">
+                    <% if (p.avatar_url) { %><img src="<%= p.avatar_url %>" alt=""><% } else { %><%= initial(p.name) %><% } %>
+                  </span>
+                  <span style="min-width:0;">
+                    <span class="cm-person-name" style="display:block;"><%= p.name %></span>
+                    <span class="cm-person-sub" style="display:block;">@<%= p.handle %><%= p.studio_name ? ' · ' + p.studio_name : '' %></span>
+                  </span>
+                </a>
+                <% if (p.headline) { %><div class="cm-person-sub" style="white-space:normal;"><%= p.headline %></div><% } %>
+                <div class="cm-person-meta"><%= p.games %> <%= Number(p.games) === 1 ? 'game' : 'games' %> · <span data-followers><%= p.followers %></span> <span data-followers-label><%= Number(p.followers) === 1 ? 'follower' : 'followers' %></span></div>
+                <div class="cm-person-actions">
+                  <button type="button" class="btn sm <%= p.is_following ? 'is-following' : 'primary' %>"
+                          data-follow="<%= p.handle %>" data-following="<%= p.is_following ? '1' : '0' %>">
+                    <%= p.is_following ? 'Following' : 'Follow' %>
+                  </button>
+                  <a href="/@<%= p.handle %>" target="_blank" rel="noopener" class="btn sm">View</a>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        <% } else { %>
+          <div class="cm-empty">
+            <% if (tab === 'discover') { %>
+              <%= q ? 'No developers match that search.' : 'No other developers yet.' %>
+            <% } else if (tab === 'following') { %>
+              You aren’t following anyone yet. <a href="/developer/community?tab=discover" style="color:var(--accent);">Discover developers</a>
+            <% } else { %>
+              No followers yet. Share your profile link to grow your audience.
+            <% } %>
+          </div>
+        <% } %>
+      <% } %>
+    </div>
+  </main>
+</div>
+
+<script>
+  document.querySelectorAll('[data-copy]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const url = location.origin + btn.dataset.copy;
+      const label = btn.textContent;
+      try { await navigator.clipboard.writeText(url); btn.textContent = 'Copied!'; }
+      catch (_) { window.prompt('Copy your profile link:', url); }
+      setTimeout(() => { btn.textContent = label; }, 1600);
+    });
+  });
+
+  document.querySelectorAll('[data-follow]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const following = btn.dataset.following === '1';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/developer/follow/' + encodeURIComponent(btn.dataset.follow), {
+          method: following ? 'DELETE' : 'POST',
+          headers: { Accept: 'application/json' },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+        btn.dataset.following = data.following ? '1' : '0';
+        btn.textContent = data.following ? 'Following' : 'Follow';
+        btn.classList.toggle('primary', !data.following);
+        btn.classList.toggle('is-following', data.following);
+        const count = btn.closest('.cm-person')?.querySelector('[data-followers]');
+        if (count) count.textContent = data.followers;
+        const label = btn.closest('.cm-person')?.querySelector('[data-followers-label]');
+        if (label) label.textContent = data.followers === 1 ? 'follower' : 'followers';
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+</script>
+</body>
+</html>

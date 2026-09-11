@@ -28,9 +28,17 @@ const sitehandlerRoutes = require('./routes/sitehandler');
 const apiRoutes         = require('./routes/api');
 const developerRoutes   = require('./routes/developer');
 
+const profileRoutes     = require('./routes/profiles');
+const { MySQLSessionStore } = require('./utils/sessionStore');
+
 const app  = express();
 app.use(cors());
 const PORT = process.env.PORT || 3000;
+
+// nginx on the same host proxies every request. Trusting only the loopback hop
+// makes req.ip the real client address (from X-Forwarded-For), so rate limits
+// are per visitor instead of one bucket shared by everyone behind 127.0.0.1.
+app.set('trust proxy', 'loopback');
 
 // ─── Security ────────────────────────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -54,14 +62,19 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // ─── Sessions ────────────────────────────────────────────────────────────────
+const SESSION_TTL_MS = 1000 * 60 * 60 * 8;
 app.use(session({
   secret:            process.env.SESSION_SECRET || 'playmist_dev_secret',
+  store:             new MySQLSessionStore({ ttlMs: SESSION_TTL_MS }),
   resave:            false,
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
+    // Lax keeps the cookie off cross-site POSTs (CSRF) while still sending it
+    // when someone follows a link to a profile from another site.
+    sameSite: 'lax',
     secure:   process.env.NODE_ENV === 'production',
-    maxAge:   1000 * 60 * 60 * 8,
+    maxAge:   SESSION_TTL_MS,
   },
 }));
 
@@ -85,6 +98,7 @@ app.use((req, res, next) => {
 app.use('/api', apiRoutes);
 app.use('/sitehandler', sitehandlerRoutes);
 app.use('/developer', developerRoutes);
+app.use('/', profileRoutes);
 app.use('/', publicRoutes);
 
 // ─── 404 ─────────────────────────────────────────────────────────────────────

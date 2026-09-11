@@ -1,8 +1,8 @@
 const express      = require('express');
 const router       = express.Router();
 const rateLimit    = require('express-rate-limit');
-const { isDeveloper, checkBanned } = require('../middleware/developerAuth');
-const { developerUpload, developerThumbnail, developerDoc, developerSketch, developerDocImage } = require('../config/upload');
+const { isDeveloper, checkBanned, blockCrossSite } = require('../middleware/developerAuth');
+const { developerUpload, developerThumbnail, developerHeader, developerDoc, developerSketch, developerDocImage } = require('../config/upload');
 
 const authController        = require('../controllers/developer/authController');
 const dashboardController   = require('../controllers/developer/dashboardController');
@@ -13,6 +13,7 @@ const projectsController    = require('../controllers/developer/projectsControll
 const profileController     = require('../controllers/developer/profileController');
 const projectDocsController = require('../controllers/developer/projectDocsController');
 const storyboardController  = require('../controllers/developer/storyboardController');
+const socialController      = require('../controllers/developer/socialController');
 
 // ── Rate limiters ─────────────────────────────────────────────────────────────
 
@@ -82,7 +83,40 @@ const passwordResetLimiter = rateLimit({
   standardHeaders: true, legacyHeaders: false,
 });
 
+// Social limits are keyed by account rather than IP: these routes always run
+// behind isDeveloper, and a whole studio can share one office IP.
+const byDeveloper = (req) => `dev:${req.session.developer.id}`;
+
+// Image uploads answered by fetch(): turn multer's size/type errors into JSON
+// the page can show, instead of the generic 500 error handler.
+const jsonUpload = (uploader, field) => (req, res, next) =>
+  uploader.single(field)(req, res, (err) => {
+    if (!err) return next();
+    const error = err.code === 'LIMIT_FILE_SIZE' ? 'That image is too large.' : (err.message || 'Upload failed.');
+    res.status(400).json({ error });
+  });
+const jsonLimit   = (message) => (req, res) => res.status(429).json({ error: message });
+
+const followLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, max: 60, keyGenerator: byDeveloper,
+  handler: jsonLimit('You’re following and unfollowing too quickly. Try again in a few minutes.'),
+  standardHeaders: true, legacyHeaders: false,
+});
+
+const commentLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, max: 10, keyGenerator: byDeveloper,
+  handler: jsonLimit('You’re commenting too quickly. Try again in a few minutes.'),
+  standardHeaders: true, legacyHeaders: false,
+});
+
+const handleCheckLimiter = rateLimit({
+  windowMs: 60 * 1000, max: 40, keyGenerator: byDeveloper,
+  handler: jsonLimit('Too many checks. Please slow down.'),
+  standardHeaders: true, legacyHeaders: false,
+});
+
 // ── Public ────────────────────────────────────────────────────────────────────
+router.use(blockCrossSite);
 router.get ('/',        (req, res) => req.session.developer ? res.redirect('/developer/dashboard') : res.redirect('/developer/login'));
 router.get ('/signup',  authController.getSignup);
 router.post('/signup',  signupLimiter, authController.postSignup);
@@ -121,11 +155,19 @@ router.put ('/knowledge/notes/:id',                   noteLimiter, knowledgeCont
 router.delete('/knowledge/notes/:id',                 knowledgeController.deleteNote);
 router.get ('/knowledge/community',                   communityLimiter, knowledgeController.getCommunity);
 
+// Community — follows, discovery, game comments
+router.get   ('/community',                           socialController.getCommunity);
+router.post  ('/follow/:handle',                      followLimiter, socialController.follow);
+router.delete('/follow/:handle',                      followLimiter, socialController.unfollow);
+router.post  ('/games/:gameId/comments',              commentLimiter, socialController.postComment);
+router.delete('/game-comments/:commentId',            socialController.deleteComment);
+
 // Projects — page
 router.get ('/projects',                              projectsController.getProjects);
 router.post('/projects',                              projectMutateLimiter, projectsController.postProject);
 router.get ('/projects/:id',                          projectsController.getProjectDetail);
 router.post('/projects/:id/update',                   projectMutateLimiter, projectsController.postUpdateProject);
+router.put ('/projects/:id/visibility',               projectMutateLimiter, projectsController.putVisibility);
 router.post('/projects/:id/delete',                   projectsController.postDeleteProject);
 
 // Projects — task JSON API
@@ -169,7 +211,10 @@ router.put   ('/docs/:docId/pin',             projectDocsController.pinDoc);
 // Profile
 router.get ('/profile',                               profileController.getProfile);
 router.post('/profile',                               profileUpdateLimiter, profileController.postProfile);
+router.get ('/profile/handle-check',                  handleCheckLimiter, profileController.checkHandle);
 router.post('/profile/password',                      profileUpdateLimiter, profileController.postPassword);
-router.post('/profile/avatar',                        avatarLimiter, developerThumbnail.single('avatar'), profileController.postAvatar);
+router.post('/profile/avatar',                        avatarLimiter, jsonUpload(developerThumbnail, 'avatar'), profileController.postAvatar);
+router.post('/profile/header',                        avatarLimiter, jsonUpload(developerHeader, 'header'), profileController.postHeader);
+router.delete('/profile/header',                      profileController.deleteHeader);
 
 module.exports = router;

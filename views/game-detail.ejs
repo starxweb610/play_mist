@@ -61,6 +61,7 @@
 
   <!-- Stylesheet -->
   <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/profile.css" />
 
   <!-- Favicon -->
   <link rel="icon" href="/favicon.ico" />
@@ -98,6 +99,17 @@
             <% if (game.plays) { %><span class="meta-item"><strong><%= game.plays %></strong> Plays</span><% } %>
             <span class="meta-item"><strong><%= game.studio %></strong> Studio</span>
           </div>
+          <% if (developer && developer.handle) { %>
+            <a href="/@<%= developer.handle %>" class="dev-credit">
+              <span class="pf-avatar pf-avatar--xs">
+                <% if (developer.avatar_url) { %><img src="<%= developer.avatar_url %>" alt="" /><% } else { %><%= developer.name.charAt(0).toUpperCase() %><% } %>
+              </span>
+              <span>
+                <span class="dev-credit-label">Made by</span>
+                <span class="dev-credit-name"><%= developer.name %> <span class="dev-credit-handle">@<%= developer.handle %></span></span>
+              </span>
+            </a>
+          <% } %>
           <% if (game.tags && game.tags.length > 0) { %>
             <div class="feature-tags game-hero-tags">
               <% game.tags.forEach(tag => { %><span class="tag"><%= tag %></span><% }) %>
@@ -165,6 +177,9 @@
             <div class="info-row"><dt>Genre</dt><dd><%= game.genre %></dd></div>
             <div class="info-row"><dt>Orientation</dt><dd><%= game.orientation === 'portrait' ? '📱 Portrait' : '🖥️ Landscape' %></dd></div>
             <div class="info-row"><dt>Studio</dt><dd><%= game.studio %></dd></div>
+            <% if (developer && developer.handle) { %>
+              <div class="info-row"><dt>Developer</dt><dd><a href="/@<%= developer.handle %>" class="info-link">@<%= developer.handle %></a></dd></div>
+            <% } %>
             <div class="info-row"><dt>Version</dt><dd><%= game.version %></dd></div>
             <% if (game.size) { %><div class="info-row"><dt>Size</dt><dd><%= game.size %></dd></div><% } %>
             <% if (game.rating) { %><div class="info-row"><dt>Rating</dt><dd>⭐ <%= game.rating %></dd></div><% } %>
@@ -177,6 +192,70 @@
           <% } %>
         </div>
       </aside>
+    </div>
+  </section>
+
+  <!-- ─── DEVELOPER COMMENTS ───────────────────────────────────────────── -->
+  <section class="section gc-section" id="comments">
+    <div class="container">
+      <div class="gc" id="gameComments" data-game-id="<%= game.id %>" data-max="<%= commentMax %>">
+        <div class="gc-head">
+          <h2 class="detail-block-title">Developer comments <span class="gc-count" data-comment-count><%= commentTotal %></span></h2>
+          <p class="gc-sub">Feedback and shout-outs from indie developers on <%= appName %>.</p>
+        </div>
+
+        <% if (commenter) { %>
+          <form class="gc-form" data-comment-form novalidate>
+            <span class="pf-avatar pf-avatar--xs" aria-hidden="true">
+              <% if (commenter.avatarUrl) { %><img src="<%= commenter.avatarUrl %>" alt="" /><% } else { %><%= (commenter.name || '?').charAt(0).toUpperCase() %><% } %>
+            </span>
+            <div class="gc-form-main">
+              <label for="gcBody" class="pf-sr-only">Your comment</label>
+              <textarea id="gcBody" name="body" rows="3" placeholder="Share feedback with the developer…"></textarea>
+              <div class="gc-form-foot">
+                <span class="gc-error" data-comment-error role="alert"></span>
+                <span class="gc-counter" data-comment-counter>0 / <%= commentMax %></span>
+                <button type="submit" class="btn btn-primary pf-btn pf-btn--sm">Post</button>
+              </div>
+            </div>
+          </form>
+        <% } else { %>
+          <div class="gc-login">
+            <p><strong>Are you a game developer?</strong> Log in with your <%= appName %> developer account to join the conversation.</p>
+            <div class="gc-login-actions">
+              <a href="/developer/login?next=<%= encodeURIComponent('/games/' + game.slug + '#comments') %>" class="btn btn-primary pf-btn pf-btn--sm">Log in</a>
+              <a href="/developer/signup" class="btn btn-ghost pf-btn pf-btn--sm">Create account</a>
+            </div>
+          </div>
+        <% } %>
+
+        <div class="gc-list" data-comment-list>
+          <% comments.forEach(c => { %>
+            <article class="gc-item" data-comment-id="<%= c.id %>">
+              <% if (c.author.handle) { %><a href="/@<%= c.author.handle %>" class="pf-avatar pf-avatar--xs"><% } else { %><span class="pf-avatar pf-avatar--xs"><% } %>
+                <% if (c.author.avatarUrl) { %><img src="<%= c.author.avatarUrl %>" alt="" /><% } else { %><%= (c.author.name || '?').charAt(0).toUpperCase() %><% } %>
+              <% if (c.author.handle) { %></a><% } else { %></span><% } %>
+              <div class="gc-item-main">
+                <div class="gc-item-head">
+                  <% if (c.author.handle) { %>
+                    <a href="/@<%= c.author.handle %>" class="gc-author"><%= c.author.name %></a>
+                    <span class="gc-handle">@<%= c.author.handle %></span>
+                  <% } else { %>
+                    <span class="gc-author"><%= c.author.name %></span>
+                  <% } %>
+                  <time class="gc-time" datetime="<%= new Date(c.createdAt).toISOString() %>"><%= new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %></time>
+                  <% if (c.canDelete) { %><button type="button" class="gc-delete" data-delete-comment="<%= c.id %>">Delete</button><% } %>
+                </div>
+                <p class="gc-body"><%= c.body %></p>
+              </div>
+            </article>
+          <% }) %>
+          <p class="gc-empty" data-comment-empty <%= comments.length ? 'hidden' : '' %>>No comments yet.<%= commenter ? ' Be the first to leave feedback.' : '' %></p>
+        </div>
+        <% if (commentTotal > comments.length) { %>
+          <p class="gc-more">Showing the latest <%= comments.length %> of <%= commentTotal %> comments.</p>
+        <% } %>
+      </div>
     </div>
   </section>
 
@@ -214,5 +293,6 @@
   <%- include('partials/footer', { appName }) %>
 
   <script src="/js/main.js"></script>
+  <script src="/js/profile.js" defer></script>
 </body>
 </html>

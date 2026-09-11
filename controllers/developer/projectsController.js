@@ -99,6 +99,30 @@ exports.postUpdateProject = async (req, res) => {
   }
 };
 
+// ── Public / private sharing ──────────────────────────────────────────────────
+// A public project is readable (never editable) by anyone at
+// /@handle/projects/:id — overview, storyboards, tasks and documents.
+
+exports.putVisibility = async (req, res) => {
+  const { id } = req.params;
+  const devId = req.session.developer.id;
+  const isPublic = [true, 1, '1', 'true'].includes(req.body?.is_public);
+  try {
+    const [result] = await db.query(
+      'UPDATE developer_projects SET is_public = ? WHERE id = ? AND developer_id = ?',
+      [isPublic ? 1 : 0, id, devId]
+    );
+    if (!result.affectedRows) return res.status(404).json({ error: 'Project not found.' });
+    const handle = req.session.developer.handle;
+    res.json({
+      is_public:  isPublic,
+      public_url: isPublic && handle ? `/@${handle}/projects/${id}` : null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update visibility.' });
+  }
+};
+
 // ── Delete project ────────────────────────────────────────────────────────────
 
 exports.postDeleteProject = async (req, res) => {

@@ -7,3 +7,37 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/developer.css" />
+  <script>
+    // Every portal JSON call answers 401 + X-Session-Expired once the login
+    // session is gone. Rather than redirecting (which would throw away an
+    // unsaved sketch or doc), show a banner that opens login in a new tab —
+    // the cookie is shared, so retrying here afterwards just works.
+    (function () {
+      var nativeFetch = window.fetch;
+      function showExpired() {
+        if (document.getElementById('pm-session-expired')) return;
+        var bar = document.createElement('div');
+        bar.id = 'pm-session-expired';
+        bar.setAttribute('role', 'alert');
+        bar.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:99999;background:#2f343f;color:#f4f5f7;border:1px solid rgba(255,181,71,.45);border-radius:10px;padding:10px 14px;font:13px Inter,system-ui,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.45);display:flex;gap:12px;align-items:center;max-width:92vw;';
+        var msg = document.createElement('span');
+        msg.textContent = 'Your session expired. Log in again in a new tab, then retry — your unsaved work here is kept.';
+        var link = document.createElement('a');
+        link.href = '/developer/login';
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = 'Log in';
+        link.style.cssText = 'color:#1a1d24;background:#B5FF6B;border-radius:7px;padding:5px 10px;font-weight:600;white-space:nowrap;';
+        link.addEventListener('click', function () { bar.remove(); });
+        bar.appendChild(msg);
+        bar.appendChild(link);
+        document.body.appendChild(bar);
+      }
+      window.fetch = function () {
+        return nativeFetch.apply(this, arguments).then(function (res) {
+          if (res.status === 401 && res.headers.get('X-Session-Expired')) showExpired();
+          return res;
+        });
+      };
+    })();
+  </script>

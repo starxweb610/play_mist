@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', {
+        title,
+        description: `This page isn’t available on ${appName}.`,
+        canonical: null, robots: 'noindex, nofollow', ogImage: null, ogType: 'website',
+      }) %>
+</head>
+<body>
+  <%- include('../partials/navbar', { appName, scrolled: true }) %>
+
+  <main class="pf-page">
+    <div class="container pf-notfound">
+      <div class="pf-notfound-code">404</div>
+      <h1 class="pf-section-title">This page isn’t available</h1>
+      <p class="pf-muted">The profile or project may have been renamed, made private, or never existed.</p>
+      <div class="pf-actions" style="justify-content:center;">
+        <a href="/games" class="btn btn-primary pf-btn">Browse games</a>
+        <a href="/" class="btn btn-ghost pf-btn">Home</a>
+      </div>
+    </div>
+  </main>
+
+  <%- include('../partials/footer', { appName }) %>
+  <script src="/js/main.js"></script>
+</body>
+</html>

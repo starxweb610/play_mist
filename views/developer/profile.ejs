@@ -2,24 +2,57 @@
 <html lang="en">
 <head><%- include('partials/head', { title: 'My Profile' }) %>
   <style>
+    /* ── Cover + identity ─────────────────────────────────────────────────── */
+    .pcover {
+      position: relative; height: clamp(140px, 22vw, 230px);
+      border: 1px solid var(--line); border-bottom: none; border-radius: 14px 14px 0 0; overflow: hidden;
+      background:
+        radial-gradient(120% 140% at 0% 0%, rgba(167,139,250,.35), transparent 55%),
+        radial-gradient(120% 140% at 100% 100%, rgba(181,255,107,.22), transparent 55%),
+        var(--surface-2);
+    }
+    .pcover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pcover.is-uploading { opacity: .55; pointer-events: none; }
+    .pcover-actions { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 8px; }
+    .pcover-actions .btn {
+      background: rgba(20,22,28,.72); backdrop-filter: blur(6px);
+      border: 1px solid rgba(255,255,255,.16); color: #fff; cursor: pointer;
+    }
+    .pcover-actions .btn:hover { background: rgba(20,22,28,.9); }
+    .pcover-hint {
+      position: absolute; left: 14px; bottom: 14px; font-size: 11px; color: rgba(255,255,255,.7);
+      background: rgba(20,22,28,.55); padding: 3px 8px; border-radius: 6px;
+    }
+
     .profile-hero {
-      display: flex;
-      gap: 22px;
-      align-items: center;
-      padding: 22px;
-      background: linear-gradient(135deg, var(--accent-soft), transparent 70%), var(--surface);
-      border-radius: 14px;
-      border: 1px solid var(--line);
-      margin-bottom: 22px;
-      box-shadow: var(--shadow-card);
+      display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;
+      padding: 0 22px 20px; margin-bottom: 22px;
+      background: var(--surface); border: 1px solid var(--line); border-top: none;
+      border-radius: 0 0 14px 14px; box-shadow: var(--shadow-card);
     }
-    .profile-grid {
-      display: grid;
-      grid-template-columns: 1fr 1.4fr;
-      gap: 18px;
-      align-items: start;
+    .hero-id { flex: 1; min-width: 220px; padding-top: 12px; }
+    .hero-actions { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 12px; }
+    .hero-handle { color: var(--accent); font-size: 13px; font-weight: 600; margin-top: 3px; }
+
+    .avatar-wrap {
+      position: relative; flex-shrink: 0; width: 104px; height: 104px; margin-top: -52px;
+      border-radius: 50%; overflow: hidden; border: 4px solid var(--surface); background: var(--surface);
     }
-    @media (max-width: 800px) { .profile-grid { grid-template-columns: 1fr; } }
+    .avatar-wrap .avatar.xl {
+      display: flex; align-items: center; justify-content: center;
+      width: 100%; height: 100%; font-size: 38px; cursor: pointer;
+    }
+    .avatar-overlay {
+      position: absolute; inset: 0; border-radius: 50%; background: rgba(0,0,0,0.55);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; cursor: pointer; transition: opacity .15s; color: #fff;
+    }
+    .avatar-wrap:hover .avatar-overlay, .avatar-overlay:focus-within { opacity: 1; }
+    .avatar-uploading { opacity: 0.5; pointer-events: none; }
+    .upload-error { font-size: 12px; color: var(--danger); margin: -12px 0 16px; }
+
+    .profile-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; align-items: start; }
+    @media (max-width: 900px) { .profile-grid { grid-template-columns: 1fr; } }
 
     .tabs { display: flex; gap: 4px; margin-bottom: 18px; }
     .tab-btn {
@@ -30,9 +63,11 @@
     .tab-btn:hover  { background: var(--surface-2); color: var(--ink); }
     .tab-btn.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
-    .pf-label { font-size: 12px; font-weight: 500; color: var(--ink-2); display: block; margin-bottom: 6px; }
+    .pf-label { font-size: 12px; font-weight: 500; color: var(--ink-2); display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .pf-label .opt, .pf-label .count { color: var(--ink-4); font-weight: 400; }
     .pf-field { margin-bottom: 16px; }
-    .pf-field:last-child { margin-bottom: 0; }
+    .pf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 560px) { .pf-row { grid-template-columns: 1fr; } }
     input.pf-input, textarea.pf-input {
       display: block; width: 100%; padding: 9px 12px;
       border: 1px solid var(--line); border-radius: 8px;
@@ -41,44 +76,22 @@
       transition: border-color .15s; box-sizing: border-box;
     }
     input.pf-input:focus, textarea.pf-input:focus { border-color: var(--accent); box-shadow: none; }
+    .field-hint { font-size: 11.5px; color: var(--ink-4); margin-top: 5px; line-height: 1.5; }
 
-    /* ── Avatar upload wrapper ── */
-    .avatar-wrap {
-      position: relative;
-      flex-shrink: 0;
-      width: 64px;
-      height: 64px;
-      overflow: hidden;
-      border-radius: 50%;
+    .handle-field {
+      display: flex; align-items: stretch; border: 1px solid var(--line); border-radius: 8px;
+      background: var(--surface-2); overflow: hidden; transition: border-color .15s;
     }
-    .avatar-wrap .avatar.xl {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      height: 100%;
-      cursor: pointer;
-    }
-    .avatar-overlay {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      border-radius: 50%;
-      background: rgba(0,0,0,0.55);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      cursor: pointer;
-      transition: opacity .15s;
-      color: #fff;
-    }
-    .avatar-wrap:hover .avatar-overlay { opacity: 1; }
-    .avatar-uploading { opacity: 0.5; pointer-events: none; }
-    .avatar-error {
-      font-size: 11px; color: var(--danger); margin-top: 6px;
-      text-align: center; max-width: 64px;
-    }
+    .handle-field:focus-within { border-color: var(--accent); }
+    .handle-field.is-locked { opacity: .7; }
+    .handle-prefix { padding: 9px 0 9px 12px; color: var(--ink-3); font-size: 13px; white-space: nowrap; user-select: none; }
+    .handle-field input.pf-input { border: none !important; background: transparent !important; padding-left: 1px; min-width: 0; }
+    .handle-status { font-size: 12px; margin-top: 6px; min-height: 16px; color: var(--ink-3); }
+    .handle-status.ok  { color: var(--ok); }
+    .handle-status.bad { color: var(--danger); }
+
+    .share-row { display: flex; gap: 6px; }
+    .share-row input { flex: 1; min-width: 0; }
   </style>
   <link rel="icon" href="/favicon.ico" />
 </head>
@@ -94,6 +107,11 @@
         </svg>
       </button>
       <span class="topbar-title">My Profile</span>
+      <% if (devProfile.handle) { %>
+      <div class="top-actions">
+        <a href="/@<%= devProfile.handle %>" target="_blank" rel="noopener" class="btn ghost sm">View public profile</a>
+      </div>
+      <% } %>
     </header>
 
     <div class="page-content scroll">
@@ -106,31 +124,43 @@
         </div>
       <% } %>
 
-      <!-- Profile hero -->
-      <div class="profile-hero">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-          <div class="avatar-wrap" id="avatarWrap">
-            <div class="avatar xl" id="profileAvatar" style="background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--accent-ink);">
-              <% if (devProfile.avatar_url) { %>
-                <img src="<%= devProfile.avatar_url %>" alt="<%= devProfile.name %>">
-              <% } else { %>
-                <%= devProfile.name.charAt(0).toUpperCase() %>
-              <% } %>
-            </div>
-            <label class="avatar-overlay" for="avatarInput" title="Change photo">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                <circle cx="12" cy="13" r="4"/>
-              </svg>
-            </label>
-            <input type="file" id="avatarInput" accept="image/jpeg,image/png,image/webp" style="display:none;">
-          </div>
-          <div class="avatar-error" id="avatarError" style="display:none;"></div>
+      <!-- Cover image -->
+      <div class="pcover" id="coverWrap">
+        <img id="coverImg" src="<%= devProfile.header_url || '' %>" alt="" style="<%= devProfile.header_url ? '' : 'display:none;' %>">
+        <% if (!devProfile.header_url) { %><span class="pcover-hint" id="coverHint">Add a cover image — 1584 × 396 or wider works best</span><% } %>
+        <div class="pcover-actions">
+          <label class="btn sm" for="coverInput">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <span id="coverLabel"><%= devProfile.header_url ? 'Change cover' : 'Add cover' %></span>
+          </label>
+          <button type="button" class="btn sm" id="coverRemove" style="<%= devProfile.header_url ? '' : 'display:none;' %>">Remove</button>
+          <input type="file" id="coverInput" accept="image/jpeg,image/png,image/webp" style="display:none;">
         </div>
-        <div>
+      </div>
+
+      <!-- Identity -->
+      <div class="profile-hero">
+        <div class="avatar-wrap" id="avatarWrap">
+          <div class="avatar xl" id="profileAvatar" style="background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--accent-ink);">
+            <% if (devProfile.avatar_url) { %>
+              <img src="<%= devProfile.avatar_url %>" alt="<%= devProfile.name %>">
+            <% } else { %>
+              <%= devProfile.name.charAt(0).toUpperCase() %>
+            <% } %>
+          </div>
+          <label class="avatar-overlay" for="avatarInput" title="Change photo">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </label>
+          <input type="file" id="avatarInput" accept="image/jpeg,image/png,image/webp" style="display:none;">
+        </div>
+        <div class="hero-id">
           <h1 style="margin:0;font-size:22px;font-weight:700;letter-spacing:-0.02em;color:var(--ink);"><%= devProfile.name %></h1>
-          <div style="color:var(--ink-3);font-size:13px;margin-top:3px;"><%= devProfile.email %></div>
-          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+          <% if (devProfile.handle) { %><div class="hero-handle">@<%= devProfile.handle %></div><% } %>
+          <% if (devProfile.headline) { %><div style="color:var(--ink-2);font-size:13px;margin-top:6px;"><%= devProfile.headline %></div><% } %>
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <span class="badge-pending" style="font-size:11px;padding:3px 10px;"><span class="badge-dot"></span><%= devProfile.studio_name %></span>
             <span style="font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:5px;">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -138,7 +168,14 @@
             </span>
           </div>
         </div>
+        <% if (devProfile.handle) { %>
+        <div class="hero-actions">
+          <button type="button" class="btn sm" data-copy="/@<%= devProfile.handle %>">Copy profile link</button>
+          <a href="/@<%= devProfile.handle %>" target="_blank" rel="noopener" class="btn primary sm">View profile</a>
+        </div>
+        <% } %>
       </div>
+      <div class="upload-error" id="uploadError" style="display:none;"></div>
 
       <div class="profile-grid">
         <!-- Left: forms -->
@@ -150,30 +187,62 @@
 
           <!-- Profile tab -->
           <div id="profile-tab" style="display:<%= (typeof activeTab === 'undefined' || activeTab === 'profile') ? 'block' : 'none' %>;">
-            <form method="POST" action="/developer/profile">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <form method="POST" action="/developer/profile" novalidate>
+              <div class="pf-field">
+                <label class="pf-label" for="pf-handle"><span>Profile URL</span><span class="opt">3–30 characters</span></label>
+                <div class="handle-field <%= nextHandleChange ? 'is-locked' : '' %>">
+                  <span class="handle-prefix">playmist.app/@</span>
+                  <input type="text" id="pf-handle" name="handle" class="pf-input" autocomplete="off" spellcheck="false"
+                         autocapitalize="none" maxlength="30" value="<%= form.handle || '' %>"
+                         data-current="<%= devProfile.handle || '' %>" <%= nextHandleChange ? 'readonly' : '' %> />
+                </div>
+                <div class="handle-status" id="handleStatus" aria-live="polite"></div>
+                <div class="field-hint">
+                  <% if (nextHandleChange) { %>
+                    You changed your handle recently. You can change it again on <%= nextHandleChange.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) %>.
+                  <% } else { %>
+                    Lowercase letters, numbers and underscores, starting with a letter. After a change you’ll need to wait <%= handleCooldownDays %> days to change it again; old links keep redirecting to your new handle.
+                  <% } %>
+                </div>
+              </div>
+
+              <div class="pf-row">
                 <div class="pf-field">
                   <label class="pf-label" for="pf-name">Full Name *</label>
-                  <input type="text" id="pf-name" name="name" class="pf-input" required value="<%= devProfile.name || '' %>" />
+                  <input type="text" id="pf-name" name="name" class="pf-input" required maxlength="120" value="<%= form.name || '' %>" />
                 </div>
                 <div class="pf-field">
                   <label class="pf-label" for="pf-studio">Studio Name *</label>
-                  <input type="text" id="pf-studio" name="studio_name" class="pf-input" required value="<%= devProfile.studio_name || '' %>" />
+                  <input type="text" id="pf-studio" name="studio_name" class="pf-input" required maxlength="150" value="<%= form.studio_name || '' %>" />
                 </div>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+
+              <div class="pf-field">
+                <label class="pf-label" for="pf-headline"><span>Headline <span class="opt">(optional)</span></span><span class="count" data-count-for="pf-headline"></span></label>
+                <input type="text" id="pf-headline" name="headline" class="pf-input" maxlength="120"
+                       placeholder="e.g. Solo dev making cozy puzzle games" value="<%= form.headline || '' %>" />
+              </div>
+
+              <div class="pf-row">
                 <div class="pf-field">
                   <label class="pf-label" for="pf-country">Country *</label>
-                  <input type="text" id="pf-country" name="country" class="pf-input" required value="<%= devProfile.country || '' %>" />
+                  <input type="text" id="pf-country" name="country" class="pf-input" required maxlength="100" value="<%= form.country || '' %>" />
                 </div>
                 <div class="pf-field">
-                  <label class="pf-label" for="pf-phone">Phone <span style="color:var(--ink-3);font-weight:400;">(optional)</span></label>
-                  <input type="tel" id="pf-phone" name="phone" class="pf-input" value="<%= devProfile.phone || '' %>" />
+                  <label class="pf-label" for="pf-website">Website <span class="opt">(optional)</span></label>
+                  <input type="text" id="pf-website" name="website_url" class="pf-input" maxlength="300" inputmode="url"
+                         placeholder="yourstudio.com" value="<%= form.website_url || '' %>" />
                 </div>
               </div>
+
               <div class="pf-field">
-                <label class="pf-label" for="pf-bio">Bio <span style="color:var(--ink-3);font-weight:400;">(optional)</span></label>
-                <textarea id="pf-bio" name="bio" rows="3" class="pf-input" style="resize:vertical;" placeholder="Tell other developers about yourself and your games…"><%= devProfile.bio || '' %></textarea>
+                <label class="pf-label" for="pf-phone">Phone <span class="opt">(optional · never shown publicly)</span></label>
+                <input type="tel" id="pf-phone" name="phone" class="pf-input" maxlength="30" value="<%= form.phone || '' %>" />
+              </div>
+
+              <div class="pf-field">
+                <label class="pf-label" for="pf-bio"><span>Bio <span class="opt">(optional)</span></span><span class="count" data-count-for="pf-bio"></span></label>
+                <textarea id="pf-bio" name="bio" rows="4" class="pf-input" maxlength="1000" style="resize:vertical;" placeholder="Tell players and other developers about yourself and your games…"><%= form.bio || '' %></textarea>
               </div>
               <button type="submit" class="btn primary sm">Save Changes</button>
             </form>
@@ -199,30 +268,30 @@
           </div>
         </div>
 
-        <!-- Right: account info -->
-        <div class="card" style="padding:22px;">
-          <h3 style="margin:0 0 18px;font-size:15px;font-weight:600;color:var(--ink);">Account Info</h3>
+        <!-- Right: public profile + account info -->
+        <div style="display:flex;flex-direction:column;gap:18px;">
+          <% if (devProfile.handle) { %>
+          <div class="card" style="padding:22px;">
+            <h3 style="margin:0 0 6px;font-size:15px;font-weight:600;color:var(--ink);">Your public profile</h3>
+            <p style="font-size:12.5px;color:var(--ink-3);line-height:1.6;margin:0 0 14px;">
+              One link for everything you make: your published games, public projects, followers and bio. Put it in your bio on socials, your press kit or your email signature.
+            </p>
+            <div class="share-row">
+              <input type="text" class="pf-input" readonly id="profileLinkInput" aria-label="Public profile link" />
+              <button type="button" class="btn sm" data-copy="/@<%= devProfile.handle %>">Copy</button>
+            </div>
+            <p style="font-size:11.5px;color:var(--ink-4);margin:10px 0 0;">Your email and phone are never shown on your public profile.</p>
+          </div>
+          <% } %>
 
-          <div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line);">
-            <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-4);font-weight:600;margin-bottom:10px;">Details</div>
+          <div class="card" style="padding:22px;">
+            <h3 style="margin:0 0 18px;font-size:15px;font-weight:600;color:var(--ink);">Account Info</h3>
             <ul class="meta-list" style="margin:0;">
-              <li>
-                <span class="meta-key">Email</span>
-                <span class="meta-val"><%= devProfile.email %></span>
-              </li>
-              <li>
-                <span class="meta-key">Studio</span>
-                <span class="meta-val"><%= devProfile.studio_name %></span>
-              </li>
-              <li>
-                <span class="meta-key">Country</span>
-                <span class="meta-val"><%= devProfile.country %></span>
-              </li>
+              <li><span class="meta-key">Email</span><span class="meta-val"><%= devProfile.email %></span></li>
+              <li><span class="meta-key">Studio</span><span class="meta-val"><%= devProfile.studio_name %></span></li>
+              <li><span class="meta-key">Country</span><span class="meta-val"><%= devProfile.country %></span></li>
               <% if (devProfile.phone) { %>
-              <li>
-                <span class="meta-key">Phone</span>
-                <span class="meta-val"><%= devProfile.phone %></span>
-              </li>
+              <li><span class="meta-key">Phone</span><span class="meta-val"><%= devProfile.phone %></span></li>
               <% } %>
               <li>
                 <span class="meta-key">Member since</span>
@@ -230,13 +299,6 @@
               </li>
             </ul>
           </div>
-
-          <% if (devProfile.bio) { %>
-          <div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line);">
-            <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-4);font-weight:600;margin-bottom:8px;">About</div>
-            <p style="font-size:13px;color:var(--ink-2);line-height:1.6;margin:0;"><%= devProfile.bio %></p>
-          </div>
-          <% } %>
         </div>
       </div>
     </div>
@@ -254,46 +316,141 @@
     });
   });
 
+  const uploadError = document.getElementById('uploadError');
+  function showUploadError(msg) {
+    uploadError.textContent = msg;
+    uploadError.style.display = msg ? 'block' : 'none';
+  }
+
+  async function postImage(url, field, file) {
+    const formData = new FormData();
+    formData.append(field, file);
+    const res  = await fetch(url, { method: 'POST', body: formData });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Upload failed.');
+    return data;
+  }
+
   // ── Avatar upload ────────────────────────────────────────────────────────────
   document.getElementById('avatarInput').addEventListener('change', async function () {
     const file = this.files[0];
     if (!file) return;
-
-    const wrap    = document.getElementById('avatarWrap');
-    const avatar  = document.getElementById('profileAvatar');
-    const errorEl = document.getElementById('avatarError');
-
-    errorEl.style.display = 'none';
+    const avatar = document.getElementById('profileAvatar');
+    showUploadError('');
     avatar.classList.add('avatar-uploading');
-
-    const formData = new FormData();
-    formData.append('avatar', file);
-
     try {
-      const res  = await fetch('/developer/profile/avatar', { method: 'POST', body: formData });
-      const data = await res.json();
-
-      if (!res.ok) {
-        errorEl.textContent   = data.error || 'Upload failed.';
-        errorEl.style.display = 'block';
-        return;
-      }
-
-      // Update hero avatar
-      avatar.innerHTML = `<img src="${data.avatar_url}" alt="Profile photo">`;
-
-      // Update sidebar avatar tile
+      const data = await postImage('/developer/profile/avatar', 'avatar', file);
+      const img = document.createElement('img');
+      img.src = data.avatar_url;
+      img.alt = 'Profile photo';
+      avatar.replaceChildren(img);
       const sidebarAvatar = document.querySelector('.user-tile .avatar');
-      if (sidebarAvatar) sidebarAvatar.innerHTML = `<img src="${data.avatar_url}" alt="">`;
-
-    } catch (_) {
-      errorEl.textContent   = 'Upload failed. Please try again.';
-      errorEl.style.display = 'block';
+      if (sidebarAvatar) sidebarAvatar.replaceChildren(img.cloneNode());
+    } catch (err) {
+      showUploadError(err.message || 'Upload failed. Please try again.');
     } finally {
       avatar.classList.remove('avatar-uploading');
       this.value = '';
     }
   });
+
+  // ── Cover image ──────────────────────────────────────────────────────────────
+  const coverWrap   = document.getElementById('coverWrap');
+  const coverImg    = document.getElementById('coverImg');
+  const coverLabel  = document.getElementById('coverLabel');
+  const coverRemove = document.getElementById('coverRemove');
+  function setCover(url) {
+    coverImg.src = url || '';
+    coverImg.style.display = url ? '' : 'none';
+    coverRemove.style.display = url ? '' : 'none';
+    coverLabel.textContent = url ? 'Change cover' : 'Add cover';
+    document.getElementById('coverHint')?.remove();
+  }
+  document.getElementById('coverInput').addEventListener('change', async function () {
+    const file = this.files[0];
+    if (!file) return;
+    showUploadError('');
+    coverWrap.classList.add('is-uploading');
+    try {
+      const data = await postImage('/developer/profile/header', 'header', file);
+      setCover(data.header_url);
+    } catch (err) {
+      showUploadError(err.message || 'Upload failed. Please try again.');
+    } finally {
+      coverWrap.classList.remove('is-uploading');
+      this.value = '';
+    }
+  });
+  coverRemove.addEventListener('click', async () => {
+    if (!confirm('Remove your cover image?')) return;
+    coverWrap.classList.add('is-uploading');
+    try {
+      const res = await fetch('/developer/profile/header', { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not remove cover.');
+      setCover(null);
+    } catch (err) {
+      showUploadError(err.message);
+    } finally {
+      coverWrap.classList.remove('is-uploading');
+    }
+  });
+
+  // ── Copy profile link ────────────────────────────────────────────────────────
+  const linkInput = document.getElementById('profileLinkInput');
+  if (linkInput) linkInput.value = location.origin + document.querySelector('[data-copy]').dataset.copy;
+  document.querySelectorAll('[data-copy]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const url = location.origin + btn.dataset.copy;
+      const label = btn.textContent;
+      try { await navigator.clipboard.writeText(url); btn.textContent = 'Copied!'; }
+      catch (_) { window.prompt('Copy your profile link:', url); }
+      setTimeout(() => { btn.textContent = label; }, 1600);
+    });
+  });
+
+  // ── Character counters ───────────────────────────────────────────────────────
+  document.querySelectorAll('[data-count-for]').forEach(counter => {
+    const field = document.getElementById(counter.dataset.countFor);
+    const update = () => { counter.textContent = `${field.value.length} / ${field.maxLength}`; };
+    field.addEventListener('input', update);
+    update();
+  });
+
+  // ── Handle availability (advisory — the server re-checks on save) ────────────
+  (function () {
+    const input  = document.getElementById('pf-handle');
+    const status = document.getElementById('handleStatus');
+    if (!input || input.readOnly) return;
+    let timer = null, seq = 0;
+
+    function setStatus(text, kind) {
+      status.textContent = text;
+      status.className = 'handle-status' + (kind ? ' ' + kind : '');
+    }
+
+    input.addEventListener('input', () => {
+      const cleaned = input.value.replace(/^@+/, '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+      if (cleaned !== input.value) input.value = cleaned;
+      clearTimeout(timer);
+      if (cleaned === input.dataset.current) { setStatus('This is your current handle.', ''); return; }
+      if (cleaned.length < 3) { setStatus(cleaned ? 'At least 3 characters.' : '', cleaned ? 'bad' : ''); return; }
+      setStatus('Checking…', '');
+      const mine = ++seq;
+      timer = setTimeout(async () => {
+        try {
+          const res  = await fetch('/developer/profile/handle-check?h=' + encodeURIComponent(cleaned));
+          const data = await res.json().catch(() => ({}));
+          if (mine !== seq) return;
+          if (!res.ok) return setStatus(data.error || 'Could not check right now.', 'bad');
+          if (data.available) setStatus(`playmist.app/@${data.handle} is available`, 'ok');
+          else setStatus(data.error || 'That handle isn’t available.', 'bad');
+        } catch (_) {
+          if (mine === seq) setStatus('', '');
+        }
+      }, 350);
+    });
+  })();
 </script>
 </body>
 </html>

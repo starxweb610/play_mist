@@ -10,6 +10,7 @@ const sharp  = require('sharp');
 const WEBP_PRESETS = {
   art:    { width: 1920, height: 1920 }, // game thumbnails, banners, screenshots, inline content
   avatar: { width: 512,  height: 512 },
+  header: { width: 2400, height: 1200 }, // developer profile cover, shown object-fit: cover
 };
 
 // Converted images are stored under unique keys (content hash / random id), so

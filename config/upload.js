@@ -78,6 +78,13 @@ const developerThumbnail = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
 });
 
+// ── Developer profile header / cover image (in-memory, 8 MB) ─────────────────
+const developerHeader = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: imageFilter,
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8 MB
+});
+
 // ── Developer document upload — PDF / TXT only (in-memory, 10 MB) ────────────
 const docFilter = (_req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
@@ -107,4 +114,4 @@ const developerDocImage = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
 
-module.exports = { upload, uploadImage, avatarUpload, uploadScreenshots, developerUpload, developerThumbnail, developerDoc, developerSketch, developerDocImage };
+module.exports = { upload, uploadImage, avatarUpload, uploadScreenshots, developerUpload, developerThumbnail, developerHeader, developerDoc, developerSketch, developerDocImage };

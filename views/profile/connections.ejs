@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', {
+        title,
+        description: `${kind === 'followers' ? 'Developers following' : 'Developers followed by'} ${dev.name} (@${dev.handle}) on ${appName}.`,
+        canonical: `${appUrl}/@${dev.handle}/${kind}`,
+        robots: 'noindex, follow', ogImage: dev.header_url || dev.avatar_url || null, ogType: 'website',
+      }) %>
+</head>
+<body>
+  <%- include('../partials/navbar', { appName, scrolled: true }) %>
+
+  <main class="pf-page pj-page">
+    <div class="container">
+      <nav class="pj-crumbs" aria-label="Breadcrumb">
+        <a href="/@<%= dev.handle %>" class="pj-crumb-dev">
+          <span class="pf-avatar pf-avatar--xxs">
+            <% if (dev.avatar_url) { %><img src="<%= dev.avatar_url %>" alt="" /><% } else { %><%= dev.name.charAt(0).toUpperCase() %><% } %>
+          </span>
+          <%= dev.name %>
+        </a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page"><%= kind === 'followers' ? 'Followers' : 'Following' %></span>
+      </nav>
+
+      <div class="pj-tabs" role="navigation">
+        <a class="pj-tab" href="/@<%= dev.handle %>/followers" aria-current="<%= kind === 'followers' ? 'page' : 'false' %>">Followers</a>
+        <a class="pj-tab" href="/@<%= dev.handle %>/following" aria-current="<%= kind === 'following' ? 'page' : 'false' %>">Following</a>
+      </div>
+
+      <% if (people.length) { %>
+        <div class="pf-people">
+          <% people.forEach(p => { %>
+            <a href="/@<%= p.handle %>" class="pf-person">
+              <span class="pf-avatar pf-avatar--sm">
+                <% if (p.avatar_url) { %><img src="<%= p.avatar_url %>" alt="" /><% } else { %><%= p.name.charAt(0).toUpperCase() %><% } %>
+              </span>
+              <span class="pf-person-text">
+                <span class="pf-person-name"><%= p.name %></span>
+                <span class="pf-person-sub">@<%= p.handle %><%= p.studio_name ? ' · ' + p.studio_name : '' %></span>
+                <% if (p.headline) { %><span class="pf-person-sub"><%= p.headline %></span><% } %>
+              </span>
+            </a>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <div class="pf-empty">
+          <%= kind === 'followers' ? `No one is following ${dev.name} yet.` : `${dev.name} isn’t following anyone yet.` %>
+        </div>
+      <% } %>
+    </div>
+  </main>
+
+  <%- include('../partials/footer', { appName }) %>
+  <script src="/js/main.js"></script>
+</body>
+</html>

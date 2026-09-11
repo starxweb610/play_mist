@@ -1,5 +1,7 @@
 const db = require('../config/database');
 const { formatImagePath } = require('../utils/images');
+const { GAME_FIELDS, toCardView } = require('../utils/gameCards');
+const { listGameComments, COMMENT_MAX_CHARS } = require('../utils/gameComments');
 
 const APP_URL = () => process.env.APP_URL || 'https://playmist.app';
 const ANDROID_PACKAGE = 'com.playmist.app';
@@ -21,33 +23,6 @@ function appIntentUrlForGame(host, slug) {
   const fallback = androidUrlForGame(slug);
   return `intent://${host}/games/${slug}#Intent;scheme=https;package=${ANDROID_PACKAGE};S.browser_fallback_url=${encodeURIComponent(fallback)};end`;
 }
-
-/**
- * Shape a DB game row into the fields the public templates need.
- */
-function toCardView(g) {
-  return {
-    id:          g.id,
-    title:       g.title,
-    slug:        g.slug,
-    genre:       g.genre || 'Game',
-    type:        g.type,
-    orientation: g.orientation || 'landscape',
-    shortDesc:   g.short_description || '',
-    thumbnail:   formatImagePath(g.promotional_thumbnail || g.thumbnail_url),
-    rating:      g.rating || null,
-    plays:       g.plays || null,
-    flag:        g.flag || null,
-    isFeatured:  !!g.is_featured,
-    playable:    g.type === 'webgl' && !!g.play_url,
-  };
-}
-
-const GAME_FIELDS = `
-  id, title, slug, short_description, long_description, genre, type, orientation,
-  version, play_url, trailer_url, thumbnail_url, secondary_thumbnail, promotional_thumbnail,
-  studio, size, plays, rating, credits_cost, flag, is_featured, created_at
-`;
 
 // The homepage leads with the instant-play grid. 20 fills it exactly at the
 // desktop width (5 columns x 4 rows) and still divides evenly at the narrower
@@ -209,7 +184,30 @@ exports.getGameDetail = async (req, res) => {
       screenshots: screenshotRows.map(s => formatImagePath(s.image_url)),
     };
 
+    // Developer credit + comments are extras: a failure here must never take
+    // the game page itself down, so they degrade to "none".
+    const viewer = req.session?.developer || null;
+    let developer = null;
+    let comments = { total: 0, comments: [] };
+    try {
+      if (g.developer_id) {
+        const [devRows] = await db.query(
+          'SELECT id, name, handle, avatar_url, headline, studio_name FROM developers WHERE id = ? AND is_active = 1',
+          [g.developer_id]
+        );
+        developer = devRows[0] || null;
+      }
+      comments = await listGameComments(g.id, { viewerId: viewer?.id || null, gameDeveloperId: g.developer_id });
+    } catch (err) {
+      console.error('game detail social data failed:', err.message);
+    }
+
     res.render('game-detail', {
+      developer,
+      comments:     comments.comments,
+      commentTotal: comments.total,
+      commentMax:   COMMENT_MAX_CHARS,
+      commenter:    viewer ? { name: viewer.name, handle: viewer.handle, avatarUrl: viewer.avatar_url } : null,
       title:       `${game.title} – ${res.locals.appName}`,
       appUrl:      APP_URL(),
       androidUrl:  androidUrlForGame(game.slug),
@@ -285,7 +283,19 @@ exports.getSitemap = async (req, res) => {
     // DB unavailable — serve static URLs only
   }
 
-  const allUrls = [...staticUrls, ...gameUrls];
+  // Developer profiles with something to show (a live game or a public project)
+  let profileUrls = [];
+  try {
+    const [rows] = await db.query(
+      `SELECT d.handle FROM developers d
+       WHERE d.is_active = 1 AND d.handle IS NOT NULL
+         AND (EXISTS (SELECT 1 FROM games g WHERE g.developer_id = d.id AND g.is_active = 1)
+           OR EXISTS (SELECT 1 FROM developer_projects p WHERE p.developer_id = d.id AND p.is_public = 1))`
+    );
+    profileUrls = rows.map(d => ({ loc: `${appUrl}/@${d.handle}`, changefreq: 'weekly', priority: '0.6' }));
+  } catch (_) {}
+
+  const allUrls = [...staticUrls, ...gameUrls, ...profileUrls];
 
   const xml = [
     '<?xml version="1.0" encoding="UTF-8"?>',
