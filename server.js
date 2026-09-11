@@ -110,9 +110,11 @@ app.use((err, req, res, _next) => {
 // ─── Start ───────────────────────────────────────────────────────────────────
 const { runMigrations } = require('./utils/migrate');
 const { startBackupScheduler } = require('./utils/backupScheduler');
+const { startNotificationScheduler } = require('./utils/notificationScheduler');
 
 runMigrations().then(() => {
   startBackupScheduler();
+  startNotificationScheduler();
   app.listen(PORT, '0.0.0.0', () => {
     const { networkInterfaces } = require('os');
     const lanIp = Object.values(networkInterfaces())

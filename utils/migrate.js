@@ -686,6 +686,28 @@ exports.runMigrations = async () => {
       )
     `);
 
+    // ── scheduled_notifications: admin broadcasts queued for a future time ────
+    // Kept apart from `notifications` (which the app lists to players) so a
+    // queued message never shows in-app before it is actually sent. The
+    // scheduler (utils/notificationScheduler.js) moves pending → sending → sent,
+    // storing the resulting notifications.id.
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS scheduled_notifications (
+        id              INT PRIMARY KEY AUTO_INCREMENT,
+        title           VARCHAR(255) NOT NULL,
+        body            TEXT         NOT NULL,
+        image_url       VARCHAR(500) DEFAULT NULL,
+        scheduled_at    DATETIME     NOT NULL,
+        status          ENUM('pending','sending','sent','failed','cancelled','missed') NOT NULL DEFAULT 'pending',
+        notification_id INT          DEFAULT NULL,
+        error           VARCHAR(500) DEFAULT NULL,
+        created_by      INT          DEFAULT NULL,
+        created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        processed_at    DATETIME     DEFAULT NULL,
+        KEY idx_status_scheduled (status, scheduled_at)
+      )
+    `);
+
     console.log('✅ DB migrations complete');
   } catch (err) {
     console.error('❌ Migration error:', err.message);

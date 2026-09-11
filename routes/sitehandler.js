@@ -146,6 +146,8 @@ router.post('/guidelines/image-upload',       uploadImage.single('image'), guide
 // Notifications
 router.get ('/notifications',              notificationsController.getIndex);
 router.post('/notifications/send',         notificationsController.postSend);
+router.post('/notifications/schedule',     notificationsController.postSchedule);
+router.post('/notifications/scheduled/:id/cancel', notificationsController.postCancelScheduled);
 router.post('/notifications/:id/delete',   notificationsController.postDelete);
 
 // Community Notes (Knowledge Sphere moderation)

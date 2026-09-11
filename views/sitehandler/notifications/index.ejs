@@ -41,16 +41,96 @@
             <label class="form-label">Message <span style="color:#e05c5c">*</span></label>
             <textarea name="body" class="form-control" rows="3" maxlength="300" placeholder="Tell users what's new…" required style="resize:vertical;"></textarea>
           </div>
-          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-            <button type="submit" class="btn-admin-primary" onclick="return confirm('Send this notification to ALL users?')">
+          <div style="display:grid;grid-template-columns:minmax(220px,320px) 1fr;gap:16px;align-items:end;margin-bottom:16px;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Schedule for <span style="opacity:.6;font-weight:400;">(optional · <%= serverTz %>)</span></label>
+              <input type="datetime-local" name="scheduled_at" id="scheduledAt" class="form-control" min="<%= minScheduleAt %>" />
+            </div>
+            <p style="margin:0 0 8px;font-size:.8rem;opacity:.6;">
+              Press <strong>Send now</strong> to push immediately, or pick a time and press <strong>Schedule</strong> — it is pushed automatically at that time.
+            </p>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <button type="submit" class="btn-admin-primary" onclick="return confirm('Send this notification to ALL users now?')">
               <svg style="width:13px;height:13px;vertical-align:-2px;margin-right:5px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                 <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
               </svg>
-              Send to all users
+              Send now
             </button>
-            <span style="font-size:0.82rem;opacity:.65;">This will push to all <%= tokenCount.toLocaleString() %> registered device<%= tokenCount !== 1 ? 's' : '' %>.</span>
+            <button type="submit" id="scheduleBtn" class="btn-admin-ghost" formaction="/sitehandler/notifications/schedule">
+              <svg style="width:13px;height:13px;vertical-align:-2px;margin-right:5px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/>
+              </svg>
+              Schedule
+            </button>
+            <span style="font-size:0.82rem;opacity:.65;">Goes to all <%= tokenCount.toLocaleString() %> registered device<%= tokenCount !== 1 ? 's' : '' %>.</span>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- ── Scheduled ─────────────────────────────────────────────────── -->
+    <div class="card" style="margin-bottom:28px;">
+      <div class="card-header">
+        <h3 class="card-title">Scheduled Notifications</h3>
+        <span class="admin-badge"><%= scheduled.filter(s => s.status === 'pending').length %> pending</span>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <% if (scheduled.length === 0) { %>
+          <div style="text-align:center;padding:32px 24px;opacity:.5;">No scheduled notifications.</div>
+        <% } else { %>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Title / Message</th>
+                <th>Scheduled for</th>
+                <th>Status</th>
+                <th>Created by</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% scheduled.forEach(function(s) {
+                   const badge = {
+                     pending:   ['badge--premium',  'Scheduled'],
+                     sending:   ['badge--premium',  'Sending…'],
+                     sent:      ['badge--active',   'Sent'],
+                     failed:    ['badge--inactive', 'Failed'],
+                     missed:    ['badge--inactive', 'Missed'],
+                     cancelled: ['badge--orient',   'Cancelled'],
+                   }[s.status] || ['badge--orient', s.status];
+              %>
+                <tr>
+                  <td>
+                    <div style="font-weight:600;font-size:.9rem;margin-bottom:3px;"><%= s.title %></div>
+                    <div style="font-size:.8rem;opacity:.65;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><%= s.body %></div>
+                  </td>
+                  <td style="font-size:.85rem;white-space:nowrap;"><%= formatServerTime(s.scheduled_at) %></td>
+                  <td>
+                    <span class="badge <%= badge[0] %>"><%= badge[1] %></span>
+                    <% if (s.status === 'sent' && s.processed_at) { %>
+                      <div class="text-dim text-sm" style="margin-top:4px;white-space:nowrap;">at <%= formatServerTime(s.processed_at) %></div>
+                    <% } %>
+                    <% if (s.error) { %>
+                      <div class="text-dim text-sm" style="margin-top:4px;max-width:260px;"><%= s.error %></div>
+                    <% } %>
+                  </td>
+                  <td style="font-size:.85rem;opacity:.7;"><%= s.created_by_name || '—' %></td>
+                  <td>
+                    <% if (s.status === 'pending') { %>
+                      <form action="/sitehandler/notifications/scheduled/<%= s.id %>/cancel" method="POST" style="display:inline;">
+                        <button type="submit" class="action-btn action-btn--danger"
+                          data-confirm="Cancel this scheduled notification? It will not be sent.">
+                          Cancel
+                        </button>
+                      </form>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        <% } %>
       </div>
     </div>
 
@@ -121,5 +201,21 @@
   </main>
 </div>
 <script src="/sitehandler/js/admin.js"></script>
+<script>
+(function () {
+  const btn   = document.getElementById('scheduleBtn');
+  const input = document.getElementById('scheduledAt');
+  if (!btn || !input) return;
+  btn.addEventListener('click', function (e) {
+    if (!input.value) {
+      e.preventDefault();
+      alert('Pick a date and time to schedule this notification.');
+      input.focus();
+      return;
+    }
+    if (!confirm('Schedule this notification for ' + input.value.replace('T', ' ') + ' (<%= serverTz %>)?')) e.preventDefault();
+  });
+})();
+</script>
 </body>
 </html>
