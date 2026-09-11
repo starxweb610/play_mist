@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('partials/head', { title }) %>
+  <style>
+    [hidden] { display: none !important; }
+    .pfo-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(280px, 1fr); gap: 18px; align-items: start; }
+    @media (max-width: 980px) { .pfo-layout { grid-template-columns: 1fr; } }
+    .pfo-card { padding: 22px; }
+    .pfo-section + .pfo-section { margin-top: 22px; padding-top: 22px; border-top: 1px solid var(--line); }
+    .pfo-section-title { display: flex; gap: 8px; align-items: baseline; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-4); margin: 0 0 14px; }
+    .pfo-section-title .opt { text-transform: none; letter-spacing: 0; font-weight: 400; }
+    .req { color: var(--danger); }
+
+    .pf-label { font-size: 12px; font-weight: 500; color: var(--ink-2); display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .pf-label .count { color: var(--ink-4); font-weight: 400; }
+    .pf-label .count.bad { color: var(--warn); }
+    .pf-label .count.ok  { color: var(--ok); }
+    .pf-field { margin-bottom: 16px; }
+    .pf-field:last-child { margin-bottom: 0; }
+    input.pf-input, textarea.pf-input {
+      display: block; width: 100%; padding: 9px 12px; box-sizing: border-box;
+      border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); color: var(--ink);
+      font-size: 13px; font-family: inherit; outline: none; transition: border-color .15s;
+    }
+    input.pf-input:focus, textarea.pf-input:focus { border-color: var(--accent); box-shadow: none; }
+    textarea.pf-input { min-height: 0; line-height: 1.55; }
+    .field-hint { font-size: 11.5px; color: var(--ink-4); margin-top: 6px; line-height: 1.5; }
+
+    .pfo-drop {
+      position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+      aspect-ratio: 16 / 9; padding: 16px; text-align: center; cursor: pointer; overflow: hidden;
+      border: 1.5px dashed var(--line-strong); border-radius: 12px; background: var(--surface-2); color: var(--ink-3);
+      transition: border-color .15s, background .15s;
+    }
+    .pfo-drop:hover, .pfo-drop.is-dragover { border-color: var(--accent); background: var(--accent-soft); }
+    .pfo-drop.is-invalid { border-color: var(--danger); }
+    .pfo-drop img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .pfo-drop-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 13px; }
+    .pfo-drop-empty small { color: var(--ink-4); font-size: 11.5px; }
+    .pfo-drop-change {
+      position: absolute; right: 10px; bottom: 10px; font-size: 12px; font-weight: 600; color: #fff;
+      background: rgba(20,22,28,.78); border: 1px solid rgba(255,255,255,.16); padding: 5px 10px; border-radius: 7px;
+    }
+    .pfo-image-error { font-size: 12px; color: var(--danger); margin-top: 6px; }
+
+    .pfo-video {
+      aspect-ratio: 16 / 9; margin-top: 10px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line);
+      background: var(--surface-2); display: flex; align-items: center; justify-content: center; color: var(--ink-4); font-size: 12px;
+    }
+    .pfo-video iframe { width: 100%; height: 100%; border: 0; display: block; }
+    .pfo-video.bad { color: var(--warn); }
+
+    .pfo-links { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 14px; }
+    @media (max-width: 620px) { .pfo-links { grid-template-columns: 1fr; } }
+    .pfo-links .pf-field { margin-bottom: 0; }
+    .pfo-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+    .pfo-aside { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 16px; }
+    .pfo-preview { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #15121F; }
+    .pfo-preview-media { aspect-ratio: 16 / 9; background: #1C1830; display: flex; align-items: center; justify-content: center; color: rgba(242,238,255,.36); font-size: 12px; }
+    .pfo-preview-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pfo-preview-body { padding: 13px 15px 15px; }
+    .pfo-preview-title { color: #F2EEFF; font-weight: 700; font-size: 15px; overflow-wrap: anywhere; }
+    .pfo-preview-desc { color: rgba(242,238,255,.58); font-size: 12.5px; line-height: 1.5; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+    .pfo-preview-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+    .pfo-preview-chips span { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: 2px 7px; border-radius: 4px; background: rgba(255,255,255,.06); color: rgba(242,238,255,.7); }
+    .pfo-tips { font-size: 12.5px; color: var(--ink-3); line-height: 1.65; margin: 0; padding-left: 18px; }
+  </style>
+  <link rel="icon" href="/favicon.ico" />
+</head>
+<body>
+<div class="container-app">
+  <%- include('partials/sidebar', { activePage: 'portfolio' }) %>
+
+  <main class="main-content">
+    <header class="topbar">
+      <button class="dev-menu-btn" id="devMenuBtn" aria-label="Open navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <span class="topbar-title"><%= item ? 'Edit portfolio item' : 'Add to portfolio' %></span>
+      <div class="top-actions">
+        <a href="/developer/portfolio" class="btn ghost sm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          Portfolio
+        </a>
+      </div>
+    </header>
+
+    <div class="page-content scroll">
+      <%- include('partials/flash') %>
+
+      <% if (errors.length) { %>
+        <div class="flash flash-error" style="margin-bottom:16px;" role="alert">
+          <% if (errors.length === 1) { %><%= errors[0] %>
+          <% } else { %><ul style="margin:0;padding-left:18px;"><% errors.forEach(e => { %><li><%= e %></li><% }); %></ul><% } %>
+        </div>
+      <% } %>
+
+      <form id="portfolioForm" method="POST" enctype="multipart/form-data"
+            action="<%= item ? '/developer/portfolio/' + item.id : '/developer/portfolio' %>">
+        <div class="pfo-layout">
+          <div class="card pfo-card">
+            <section class="pfo-section">
+              <h2 class="pfo-section-title">Primary image <span class="req">*</span></h2>
+              <label class="pfo-drop" for="pfImage" id="pfDrop">
+                <img id="pfImagePreview" alt="" src="<%= item ? item.image_url : '' %>" <%= item ? '' : 'hidden' %>>
+                <span class="pfo-drop-empty" id="pfDropEmpty" <%= item ? 'hidden' : '' %>>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  <strong>Click to choose or drop an image</strong>
+                  <small>JPG, PNG or WebP · up to 10 MB · a 16:9 cover looks best</small>
+                </span>
+                <span class="pfo-drop-change" id="pfDropChange" <%= item ? '' : 'hidden' %>>Change image</span>
+              </label>
+              <div class="pfo-image-error" id="pfImageError" hidden></div>
+              <% if (errors.length && !item) { %>
+                <div class="field-hint" style="color:var(--warn);">Please choose the image again — browsers don’t keep a selected file after a failed save.</div>
+              <% } %>
+            </section>
+
+            <section class="pfo-section">
+              <h2 class="pfo-section-title">About the project</h2>
+              <div class="pf-field">
+                <label class="pf-label" for="pfTitle"><span>Project / game name <span class="req">*</span></span><span class="count" data-count-for="pfTitle"></span></label>
+                <input type="text" id="pfTitle" name="title" class="pf-input" required maxlength="<%= limits.title %>" value="<%= form.title %>" autocomplete="off">
+              </div>
+              <div class="pf-field">
+                <label class="pf-label" for="pfDesc"><span>Description <span class="req">*</span></span><span class="count" id="pfDescCount"></span></label>
+                <textarea id="pfDesc" name="description" class="pf-input" rows="8" required maxlength="<%= limits.descriptionMax %>"
+                          placeholder="What is the game about? Genre, platforms, your role on the team, release date, awards, player numbers…"><%= form.description %></textarea>
+                <div class="field-hint">At least <%= limits.descriptionMin %> characters. Plain text — line breaks are kept.</div>
+              </div>
+            </section>
+
+            <section class="pfo-section">
+              <h2 class="pfo-section-title">Trailer video <span class="opt">optional</span></h2>
+              <div class="pf-field">
+                <label class="pf-label" for="pfVideo">YouTube or Vimeo link, or the embed code</label>
+                <textarea id="pfVideo" name="video" class="pf-input" rows="2" maxlength="<%= limits.videoInput %>" spellcheck="false"
+                          placeholder="https://www.youtube.com/watch?v=…  or  <iframe src='https://www.youtube.com/embed/…'></iframe>"><%= form.video %></textarea>
+                <div class="pfo-video" id="pfVideoPreview"><span>Paste a link to preview the player</span></div>
+                <div class="field-hint">We only keep the video itself — the player on your profile is generated by Play Mist.</div>
+              </div>
+            </section>
+
+            <section class="pfo-section">
+              <h2 class="pfo-section-title">Where players can find it <span class="opt">all optional</span></h2>
+              <div class="pfo-links">
+                <% links.forEach(l => { %>
+                  <div class="pf-field">
+                    <label class="pf-label" for="pf-<%= l.field %>"><%= l.name %></label>
+                    <input type="text" inputmode="url" id="pf-<%= l.field %>" name="<%= l.field %>" class="pf-input"
+                           maxlength="<%= limits.url %>" placeholder="<%= l.placeholder %>" value="<%= form[l.field] %>"
+                           data-link-label="<%= l.label %>" autocomplete="off" spellcheck="false">
+                  </div>
+                <% }) %>
+              </div>
+            </section>
+
+            <!-- Kept last so every text field is parsed before the file part of
+                 the multipart body (an oversized image aborts the parse). -->
+            <input type="file" id="pfImage" name="image" accept="image/jpeg,image/png,image/webp" hidden>
+
+            <div class="pfo-actions">
+              <a href="/developer/portfolio" class="btn ghost sm">Cancel</a>
+              <button type="submit" class="btn primary sm" id="pfSave"><%= item ? 'Save changes' : 'Add to portfolio' %></button>
+            </div>
+          </div>
+
+          <aside class="pfo-aside">
+            <div class="card" style="padding:18px;">
+              <div class="pfo-section-title" style="margin-bottom:12px;">Preview on your profile</div>
+              <div class="pfo-preview">
+                <div class="pfo-preview-media" id="pvMedia">
+                  <% if (item) { %><img src="<%= item.image_url %>" alt=""><% } else { %>Cover image<% } %>
+                </div>
+                <div class="pfo-preview-body">
+                  <div class="pfo-preview-title" id="pvTitle"><%= form.title || 'Project name' %></div>
+                  <div class="pfo-preview-desc" id="pvDesc"><%= form.description || 'Your description will appear here.' %></div>
+                  <div class="pfo-preview-chips" id="pvChips"></div>
+                </div>
+              </div>
+            </div>
+            <div class="card" style="padding:18px;">
+              <div class="pfo-section-title" style="margin-bottom:10px;">Tips</div>
+              <ul class="pfo-tips">
+                <li>Use your store capsule or key art as the image.</li>
+                <li>Mention your role if you worked in a team.</li>
+                <li>Store links must point to that store’s own website.</li>
+              </ul>
+            </div>
+          </aside>
+        </div>
+      </form>
+
+      <% if (item) { %>
+        <form method="POST" action="/developer/portfolio/<%= item.id %>/delete" style="margin-top:18px;"
+              onsubmit="return confirm('Remove this project from your portfolio? This cannot be undone.')">
+          <button type="submit" class="btn sm" style="background:var(--danger-soft);color:var(--danger);border:1px solid rgba(255,92,92,.25);">Delete from portfolio</button>
+        </form>
+      <% } %>
+    </div>
+  </main>
+</div>
+
+<script>
+  (function () {
+    const MAX_BYTES = 10 * 1024 * 1024;
+    const MIN_DESC  = <%= limits.descriptionMin %>;
+    const hasSavedImage = <%= item ? 'true' : 'false' %>;
+
+    const form     = document.getElementById('portfolioForm');
+    const input    = document.getElementById('pfImage');
+    const drop     = document.getElementById('pfDrop');
+    const preview  = document.getElementById('pfImagePreview');
+    const emptyEl  = document.getElementById('pfDropEmpty');
+    const changeEl = document.getElementById('pfDropChange');
+    const imgError = document.getElementById('pfImageError');
+    const pvMedia  = document.getElementById('pvMedia');
+
+    function showImageError(msg) {
+      imgError.textContent = msg || '';
+      imgError.hidden = !msg;
+      drop.classList.toggle('is-invalid', !!msg);
+    }
+
+    function useFile(file) {
+      if (!file) return;
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        input.value = '';
+        return showImageError('Please choose a JPG, PNG or WebP image.');
+      }
+      if (file.size > MAX_BYTES) {
+        input.value = '';
+        return showImageError('That image is larger than 10 MB.');
+      }
+      showImageError('');
+      const url = URL.createObjectURL(file);
+      preview.src = url;
+      preview.hidden = false;
+      emptyEl.hidden = true;
+      changeEl.hidden = false;
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = '';
+      pvMedia.replaceChildren(img);
+    }
+
+    input.addEventListener('change', () => useFile(input.files[0]));
+    ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('is-dragover'); }));
+    ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, () => drop.classList.remove('is-dragover')));
+    drop.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (!e.dataTransfer.files.length) return;
+      input.files = e.dataTransfer.files;
+      useFile(input.files[0]);
+    });
+
+    // Counters
+    const title = document.getElementById('pfTitle');
+    const desc  = document.getElementById('pfDesc');
+    const titleCount = document.querySelector('[data-count-for="pfTitle"]');
+    const descCount  = document.getElementById('pfDescCount');
+    const chars = (s) => [...s.trim()].length;
+    function updateCounts() {
+      titleCount.textContent = `${chars(title.value)} / ${title.maxLength}`;
+      const n = chars(desc.value);
+      descCount.textContent = n < MIN_DESC ? `${n} / ${MIN_DESC} minimum` : `${n} characters`;
+      descCount.className = 'count ' + (n < MIN_DESC ? 'bad' : 'ok');
+      document.getElementById('pvTitle').textContent = title.value.trim() || 'Project name';
+      document.getElementById('pvDesc').textContent  = desc.value.trim() || 'Your description will appear here.';
+    }
+    title.addEventListener('input', updateCounts);
+    desc.addEventListener('input', updateCounts);
+    updateCounts();
+
+    // Store chips in the preview
+    const linkInputs = [...document.querySelectorAll('[data-link-label]')];
+    function updateChips() {
+      const chips = document.getElementById('pvChips');
+      chips.replaceChildren(...linkInputs.filter((i) => i.value.trim()).map((i) => {
+        const s = document.createElement('span');
+        s.textContent = i.dataset.linkLabel;
+        return s;
+      }));
+    }
+    linkInputs.forEach((i) => i.addEventListener('input', updateChips));
+    updateChips();
+
+    // Video preview — mirrors utils/portfolio.js parseVideo; the server re-validates.
+    const video = document.getElementById('pfVideo');
+    const videoBox = document.getElementById('pfVideoPreview');
+    function embedFor(raw) {
+      let input = raw.trim();
+      if (!input) return '';
+      if (/<iframe/i.test(input)) {
+        const m = input.match(/\bsrc\s*=\s*["']([^"']+)["']/i);
+        if (!m) return null;
+        input = m[1].replace(/&amp;/g, '&');
+      }
+      if (input.startsWith('//')) input = 'https:' + input;
+      let url;
+      try { url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(input) ? input : 'https://' + input); } catch (_) { return null; }
+      const host = url.hostname.toLowerCase().replace(/^(www|m)\./, '');
+      const parts = url.pathname.split('/').filter(Boolean);
+      let id = null;
+      if (host === 'youtu.be') id = parts[0];
+      else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+        id = parts[0] === 'watch' ? url.searchParams.get('v') : (['embed', 'shorts', 'live', 'v'].includes(parts[0]) ? parts[1] : null);
+      }
+      if (id && /^[A-Za-z0-9_-]{11}$/.test(id)) return 'https://www.youtube-nocookie.com/embed/' + id + '?rel=0';
+      let vimeo = null;
+      if (host === 'vimeo.com') vimeo = [...parts].reverse().find((p) => /^\d+$/.test(p));
+      else if (host === 'player.vimeo.com' && parts[0] === 'video') vimeo = parts[1];
+      if (vimeo && /^\d{5,12}$/.test(vimeo)) return 'https://player.vimeo.com/video/' + vimeo + '?dnt=1';
+      return null;
+    }
+    let lastEmbed = '';
+    function updateVideo() {
+      const embed = embedFor(video.value);
+      if (embed === lastEmbed) return;
+      lastEmbed = embed;
+      videoBox.classList.toggle('bad', embed === null);
+      if (embed === '') {
+        videoBox.innerHTML = '<span>Paste a link to preview the player</span>';
+      } else if (embed === null) {
+        videoBox.innerHTML = '<span>That doesn’t look like a YouTube or Vimeo link or embed code.</span>';
+      } else {
+        const frame = document.createElement('iframe');
+        frame.src = embed;
+        frame.title = 'Trailer preview';
+        frame.allow = 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+        frame.allowFullscreen = true;
+        frame.referrerPolicy = 'strict-origin-when-cross-origin';
+        videoBox.replaceChildren(frame);
+      }
+    }
+    let videoTimer = null;
+    video.addEventListener('input', () => { clearTimeout(videoTimer); videoTimer = setTimeout(updateVideo, 400); });
+    updateVideo();
+
+    form.addEventListener('submit', (e) => {
+      if (!hasSavedImage && !input.files.length) {
+        e.preventDefault();
+        showImageError('A primary portfolio image is required.');
+        drop.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      if (chars(desc.value) < MIN_DESC) {
+        e.preventDefault();
+        desc.focus();
+        descCount.textContent = `${chars(desc.value)} / ${MIN_DESC} minimum — please write a little more`;
+        return;
+      }
+      document.getElementById('pfSave').disabled = true;
+    });
+  })();
+</script>
+</body>
+</html>

@@ -805,6 +805,31 @@ exports.runMigrations = async () => {
       )
     `);
 
+    // External Portfolio: games a developer shipped outside Play Mist (Steam,
+    // mobile stores, itch.io…). Video is stored as provider + id only — never
+    // as pasted embed markup (utils/portfolio.js builds the player URL).
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS developer_portfolio_items (
+        id             INT PRIMARY KEY AUTO_INCREMENT,
+        developer_id   INT           NOT NULL,
+        title          VARCHAR(150)  NOT NULL,
+        description    TEXT          NOT NULL,
+        image_url      VARCHAR(500)  NOT NULL,
+        video_provider ENUM('youtube','vimeo') DEFAULT NULL,
+        video_id       VARCHAR(20)   DEFAULT NULL,
+        play_store_url VARCHAR(500)  DEFAULT NULL,
+        app_store_url  VARCHAR(500)  DEFAULT NULL,
+        steam_url      VARCHAR(500)  DEFAULT NULL,
+        itch_url       VARCHAR(500)  DEFAULT NULL,
+        drive_url      VARCHAR(500)  DEFAULT NULL,
+        position       INT           NOT NULL DEFAULT 0,
+        created_at     TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        updated_at     TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        KEY idx_developer_position (developer_id, position),
+        FOREIGN KEY (developer_id) REFERENCES developers(id) ON DELETE CASCADE
+      )
+    `);
+
     console.log('✅ DB migrations complete');
   } catch (err) {
     console.error('❌ Migration error:', err.message);

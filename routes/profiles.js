@@ -7,6 +7,7 @@ const profilesController = require('../controllers/profilesController');
 router.get('/@:handle',                                      profilesController.getProfile);
 router.get('/@:handle/followers',                            profilesController.getConnections('followers'));
 router.get('/@:handle/following',                            profilesController.getConnections('following'));
+router.get('/@:handle/portfolio/:itemId',                    profilesController.getPortfolioItem);
 router.get('/@:handle/projects/:projectId',                  profilesController.getProject);
 router.get('/@:handle/projects/:projectId/docs/:docId',      profilesController.getDoc);
 router.get('/@:handle/projects/:projectId/docs/:docId/content', profilesController.getDocContent);

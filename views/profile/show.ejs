@@ -8,6 +8,9 @@
     const joined  = new Date(dev.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     let websiteHost = null;
     if (dev.website_url) { try { websiteHost = new URL(dev.website_url).host.replace(/^www\./, ''); } catch (_) {} }
+    // Sections render only when they have something in them, so the next one
+    // moves up: Play Mist Games → Projects → External Portfolio.
+    const hasAnything = games.length > 0 || projects.length > 0 || portfolio.length > 0;
     const ld = {
       '@context': 'https://schema.org',
       '@type': 'ProfilePage',
@@ -100,76 +103,99 @@
           <% if (viewer.isSelf) { %>
             <section class="pf-card pf-card--tip">
               <h2 class="pf-card-title">This is your public profile</h2>
-              <p class="pf-muted">Share <strong>playmist.app/@<%= dev.handle %></strong> anywhere — it always shows your latest published games and public projects.</p>
+              <p class="pf-muted">Share <strong>playmist.app/@<%= dev.handle %></strong> anywhere. Sections with nothing in them stay hidden from visitors.</p>
+              <div class="pf-owner-links">
+                <a href="/developer/submit">+ Submit a game</a>
+                <a href="/developer/projects">+ Share a project</a>
+                <a href="/developer/portfolio/new">+ Add to portfolio</a>
+              </div>
             </section>
           <% } %>
         </aside>
 
         <div class="pf-main">
-          <section class="pf-section">
+          <% if (!hasAnything) { %>
+            <div class="pf-empty pf-empty--all">
+              This developer has not published any game/project/portfolio yet, please check back later.
+            </div>
+          <% } %>
+
+          <% if (games.length) { %>
+          <section class="pf-section" id="games">
             <div class="pf-section-head">
-              <h2 class="pf-section-title">Games</h2>
+              <h2 class="pf-section-title">Play Mist Games</h2>
               <span class="pf-count"><%= games.length %> published</span>
             </div>
-            <% if (games.length) { %>
-              <div class="games-grid library-grid pf-games">
-                <% games.forEach(g => { %>
-                  <a href="/games/<%= g.slug %>" class="game-card lib-card">
-                    <div class="game-thumb game-thumb--img">
-                      <% if (g.thumbnail) { %>
-                        <img src="<%= g.thumbnail %>" alt="<%= g.title %>" loading="lazy" />
-                      <% } else { %>
-                        <div class="game-thumb-fallback">🎮</div>
-                      <% } %>
-                      <% if (g.playable) { %><span class="play-overlay">▶ Play Now</span><% } %>
-                    </div>
-                    <div class="game-info">
-                      <h4><%= g.title %></h4>
-                      <span class="game-genre"><%= g.genre %></span>
-                    </div>
-                    <% if (g.type === 'premium') { %><div class="game-badge game-badge--premium">OFFLINE</div><% } %>
-                  </a>
-                <% }) %>
-              </div>
-            <% } else { %>
-              <div class="pf-empty">
-                <% if (viewer.isSelf) { %>
-                  Your published games will appear here. <a href="/developer/submit">Submit a game</a>
-                <% } else { %>
-                  No published games yet.
-                <% } %>
-              </div>
-            <% } %>
+            <div class="games-grid library-grid pf-games">
+              <% games.forEach(g => { %>
+                <a href="/games/<%= g.slug %>" class="game-card lib-card">
+                  <div class="game-thumb game-thumb--img">
+                    <% if (g.thumbnail) { %>
+                      <img src="<%= g.thumbnail %>" alt="<%= g.title %>" loading="lazy" />
+                    <% } else { %>
+                      <div class="game-thumb-fallback">🎮</div>
+                    <% } %>
+                    <% if (g.playable) { %><span class="play-overlay">▶ Play Now</span><% } %>
+                  </div>
+                  <div class="game-info">
+                    <h4><%= g.title %></h4>
+                    <span class="game-genre"><%= g.genre %></span>
+                  </div>
+                  <% if (g.type === 'premium') { %><div class="game-badge game-badge--premium">OFFLINE</div><% } %>
+                </a>
+              <% }) %>
+            </div>
           </section>
+          <% } %>
 
-          <% if (projects.length || viewer.isSelf) { %>
-          <section class="pf-section">
+          <% if (projects.length) { %>
+          <section class="pf-section" id="projects">
             <div class="pf-section-head">
               <h2 class="pf-section-title">Projects</h2>
               <span class="pf-count"><%= projects.length %> public</span>
             </div>
-            <% if (projects.length) { %>
-              <div class="pf-projects">
-                <% projects.forEach(p => { %>
-                  <a href="/@<%= dev.handle %>/projects/<%= p.id %>" class="pf-project">
-                    <div class="pf-project-top">
-                      <span class="pf-pill pf-pill--<%= p.status %>"><%= p.statusLabel %></span>
-                      <span class="pf-count">Updated <%= new Date(p.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
-                    </div>
-                    <h3><%= p.name %></h3>
-                    <% if (p.description) { %><p><%= p.description %></p><% } %>
-                    <div class="pf-project-progress">
-                      <div class="pf-bar"><i style="width:<%= p.pct %>%"></i></div>
-                      <span class="pf-count"><%= p.done_count %>/<%= p.task_count %> tasks · <%= p.pct %>%</span>
-                    </div>
-                  </a>
-                <% }) %>
-              </div>
-            <% } else { %>
-              <div class="pf-empty">
-                None of your projects are public. Open a project and switch on <strong>Make project public</strong> to share its storyboards, tasks and docs here.
-              </div>
-            <% } %>
+            <div class="pf-projects">
+              <% projects.forEach(p => { %>
+                <a href="/@<%= dev.handle %>/projects/<%= p.id %>" class="pf-project">
+                  <div class="pf-project-top">
+                    <span class="pf-pill pf-pill--<%= p.status %>"><%= p.statusLabel %></span>
+                    <span class="pf-count">Updated <%= new Date(p.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
+                  </div>
+                  <h3><%= p.name %></h3>
+                  <% if (p.description) { %><p><%= p.description %></p><% } %>
+                  <div class="pf-project-progress">
+                    <div class="pf-bar"><i style="width:<%= p.pct %>%"></i></div>
+                    <span class="pf-count"><%= p.done_count %>/<%= p.task_count %> tasks · <%= p.pct %>%</span>
+                  </div>
+                </a>
+              <% }) %>
+            </div>
+          </section>
+          <% } %>
+
+          <% if (portfolio.length) { %>
+          <section class="pf-section" id="portfolio">
+            <div class="pf-section-head">
+              <h2 class="pf-section-title">External Portfolio</h2>
+              <span class="pf-count"><%= portfolio.length %> <%= portfolio.length === 1 ? 'project' : 'projects' %></span>
+            </div>
+            <div class="pf-folio-grid">
+              <% portfolio.forEach(f => { %>
+                <a href="/@<%= dev.handle %>/portfolio/<%= f.id %>" class="pf-folio">
+                  <span class="pf-folio-media">
+                    <img src="<%= f.image_url %>" alt="<%= f.title %>" loading="lazy" />
+                    <% if (f.embedUrl) { %><span class="pf-folio-play">▶ Trailer</span><% } %>
+                  </span>
+                  <span class="pf-folio-body">
+                    <span class="pf-folio-title"><%= f.title %></span>
+                    <span class="pf-folio-desc"><%= f.description %></span>
+                    <% if (f.links.length) { %>
+                      <span class="pf-folio-links"><% f.links.forEach(l => { %><span class="pf-chip"><%= l.label %></span><% }) %></span>
+                    <% } %>
+                  </span>
+                </a>
+              <% }) %>
+            </div>
           </section>
           <% } %>
         </div>

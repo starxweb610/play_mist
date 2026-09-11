@@ -2,7 +2,7 @@ const express      = require('express');
 const router       = express.Router();
 const rateLimit    = require('express-rate-limit');
 const { isDeveloper, checkBanned, blockCrossSite } = require('../middleware/developerAuth');
-const { developerUpload, developerThumbnail, developerHeader, developerDoc, developerSketch, developerDocImage } = require('../config/upload');
+const { developerUpload, developerThumbnail, developerHeader, developerPortfolioImage, developerDoc, developerSketch, developerDocImage } = require('../config/upload');
 
 const authController        = require('../controllers/developer/authController');
 const dashboardController   = require('../controllers/developer/dashboardController');
@@ -14,6 +14,7 @@ const profileController     = require('../controllers/developer/profileControlle
 const projectDocsController = require('../controllers/developer/projectDocsController');
 const storyboardController  = require('../controllers/developer/storyboardController');
 const socialController      = require('../controllers/developer/socialController');
+const portfolioController   = require('../controllers/developer/portfolioController');
 
 // ── Rate limiters ─────────────────────────────────────────────────────────────
 
@@ -95,6 +96,28 @@ const jsonUpload = (uploader, field) => (req, res, next) =>
     const error = err.code === 'LIMIT_FILE_SIZE' ? 'That image is too large.' : (err.message || 'Upload failed.');
     res.status(400).json({ error });
   });
+
+// Image uploads from a regular <form> post: record multer's error for the
+// controller to show on the re-rendered form, instead of failing the request.
+// (Those forms put the file input last, so text fields are already parsed.)
+const formUpload = (uploader, field) => (req, res, next) =>
+  uploader.single(field)(req, res, (err) => {
+    if (err) {
+      req.uploadError = err.code === 'LIMIT_FILE_SIZE'
+        ? 'That image is too large — the limit is 10 MB.'
+        : (err.message || 'Image upload failed.');
+    }
+    next();
+  });
+
+const portfolioLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, max: 40, keyGenerator: byDeveloper,
+  handler: (req, res) => {
+    req.flash('error_msg', 'Too many portfolio changes. Please try again in a little while.');
+    res.redirect('/developer/portfolio');
+  },
+  standardHeaders: true, legacyHeaders: false,
+});
 const jsonLimit   = (message) => (req, res) => res.status(429).json({ error: message });
 
 const followLimiter = rateLimit({
@@ -161,6 +184,15 @@ router.post  ('/follow/:handle',                      followLimiter, socialContr
 router.delete('/follow/:handle',                      followLimiter, socialController.unfollow);
 router.post  ('/games/:gameId/comments',              commentLimiter, socialController.postComment);
 router.delete('/game-comments/:commentId',            socialController.deleteComment);
+
+// External Portfolio — games shipped outside Play Mist, shown on /@handle
+router.get ('/portfolio',                             portfolioController.getPortfolio);
+router.get ('/portfolio/new',                         portfolioController.getNew);
+router.post('/portfolio',                             portfolioLimiter, formUpload(developerPortfolioImage, 'image'), portfolioController.postCreate);
+router.put ('/portfolio/reorder',                     projectMutateLimiter, portfolioController.putReorder);
+router.get ('/portfolio/:id/edit',                    portfolioController.getEdit);
+router.post('/portfolio/:id',                         portfolioLimiter, formUpload(developerPortfolioImage, 'image'), portfolioController.postUpdate);
+router.post('/portfolio/:id/delete',                  portfolioController.postDelete);
 
 // Projects — page
 router.get ('/projects',                              projectsController.getProjects);

@@ -12,6 +12,10 @@ const r2 = require('../config/r2');
 const { GAME_FIELDS, toCardView } = require('../utils/gameCards');
 const { normalizeHandle, isHandleShape } = require('../utils/handles');
 const { formatBytes, formatCount } = require('../utils/format');
+const { itemView: portfolioItemView } = require('../utils/portfolio');
+
+const PORTFOLIO_FIELDS = `id, title, description, image_url, video_provider, video_id,
+  play_store_url, app_store_url, steam_url, itch_url, drive_url, updated_at`;
 
 const APP_URL = () => process.env.APP_URL || 'https://playmist.app';
 
@@ -112,6 +116,11 @@ exports.getProfile = async (req, res) => {
        GROUP BY p.id ORDER BY p.updated_at DESC`,
       [dev.id]
     );
+    const [portfolioRows] = await db.query(
+      `SELECT ${PORTFOLIO_FIELDS} FROM developer_portfolio_items
+       WHERE developer_id = ? ORDER BY position ASC, created_at DESC`,
+      [dev.id]
+    );
     const [[counts]] = await db.query(
       `SELECT (SELECT COUNT(*) FROM developer_follows WHERE following_id = ?) AS followers,
               (SELECT COUNT(*) FROM developer_follows WHERE follower_id  = ?) AS following,
@@ -141,6 +150,7 @@ exports.getProfile = async (req, res) => {
         statusLabel: STATUS_LABEL[p.status] || p.status,
         pct: Number(p.task_count) ? Math.round((Number(p.done_count) / Number(p.task_count)) * 100) : 0,
       })),
+      portfolio: portfolioRows.map(portfolioItemView),
       stats: {
         games:     games.length,
         followers: formatCount(counts.followers),
@@ -149,10 +159,44 @@ exports.getProfile = async (req, res) => {
       },
       viewer: { ...viewer, isFollowing },
       // Empty profiles stay out of search results (thin content).
-      indexable: games.length > 0 || projects.length > 0 || !!dev.bio,
+      indexable: games.length > 0 || projects.length > 0 || portfolioRows.length > 0 || !!dev.bio,
     });
   } catch (err) {
     console.error('getProfile error:', err);
+    res.status(500).send('Something went wrong.');
+  }
+};
+
+// ── GET /@:handle/portfolio/:itemId ─────────────────────────────────────────
+
+exports.getPortfolioItem = async (req, res) => {
+  try {
+    const dev = await resolveDeveloper(req, res);
+    if (!dev) return;
+    if (!/^\d{1,10}$/.test(req.params.itemId)) return notFound(req, res);
+
+    const [rows] = await db.query(
+      `SELECT ${PORTFOLIO_FIELDS} FROM developer_portfolio_items WHERE id = ? AND developer_id = ?`,
+      [Number(req.params.itemId), dev.id]
+    );
+    if (!rows.length) return notFound(req, res);
+
+    const [others] = await db.query(
+      `SELECT id, title, image_url FROM developer_portfolio_items
+       WHERE developer_id = ? AND id <> ? ORDER BY position ASC, created_at DESC LIMIT 6`,
+      [dev.id, rows[0].id]
+    );
+
+    res.render('profile/portfolio-item', {
+      title: `${rows[0].title} by ${dev.name} – ${res.locals.appName}`,
+      appUrl: APP_URL(),
+      dev,
+      item: portfolioItemView(rows[0]),
+      others,
+      viewer: viewerOf(req, dev),
+    });
+  } catch (err) {
+    console.error('getPortfolioItem error:', err);
     res.status(500).send('Something went wrong.');
   }
 };

@@ -283,16 +283,29 @@ exports.getSitemap = async (req, res) => {
     // DB unavailable — serve static URLs only
   }
 
-  // Developer profiles with something to show (a live game or a public project)
+  // Developer profiles with something to show (a live game, a public project
+  // or an external portfolio item), plus each portfolio item's own page.
   let profileUrls = [];
   try {
     const [rows] = await db.query(
       `SELECT d.handle FROM developers d
        WHERE d.is_active = 1 AND d.handle IS NOT NULL
          AND (EXISTS (SELECT 1 FROM games g WHERE g.developer_id = d.id AND g.is_active = 1)
-           OR EXISTS (SELECT 1 FROM developer_projects p WHERE p.developer_id = d.id AND p.is_public = 1))`
+           OR EXISTS (SELECT 1 FROM developer_projects p WHERE p.developer_id = d.id AND p.is_public = 1)
+           OR EXISTS (SELECT 1 FROM developer_portfolio_items f WHERE f.developer_id = d.id))`
     );
     profileUrls = rows.map(d => ({ loc: `${appUrl}/@${d.handle}`, changefreq: 'weekly', priority: '0.6' }));
+
+    const [items] = await db.query(
+      `SELECT f.id, f.updated_at, d.handle FROM developer_portfolio_items f
+       JOIN developers d ON d.id = f.developer_id AND d.is_active = 1 AND d.handle IS NOT NULL`
+    );
+    profileUrls.push(...items.map(f => ({
+      loc:        `${appUrl}/@${f.handle}/portfolio/${f.id}`,
+      changefreq: 'monthly',
+      priority:   '0.5',
+      lastmod:    f.updated_at ? new Date(f.updated_at).toISOString().split('T')[0] : null,
+    })));
   } catch (_) {}
 
   const allUrls = [...staticUrls, ...gameUrls, ...profileUrls];

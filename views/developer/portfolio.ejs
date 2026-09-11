@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('partials/head', { title: 'Portfolio' }) %>
+  <style>
+    .fo-intro {
+      display: flex; gap: 18px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+      padding: 18px 20px; margin-bottom: 18px; border-radius: 14px; border: 1px solid var(--line);
+      background: linear-gradient(135deg, var(--purple-soft), transparent 60%), var(--surface); box-shadow: var(--shadow-card);
+    }
+    .fo-intro h2 { margin: 0; font-size: 17px; font-weight: 700; color: var(--ink); }
+    .fo-intro p { margin: 4px 0 0; font-size: 13px; color: var(--ink-3); line-height: 1.6; max-width: 70ch; }
+    .fo-count { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+
+    .fo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+    .fo-card {
+      display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line);
+      border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-card); transition: border-color .15s;
+    }
+    .fo-card:hover { border-color: var(--line-strong); }
+    .fo-card.fo-ghost { opacity: .4; }
+    .fo-media { position: relative; aspect-ratio: 16 / 9; background: var(--surface-3); }
+    .fo-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .fo-handle {
+      position: absolute; top: 8px; left: 8px; width: 30px; height: 30px; border-radius: 8px; cursor: grab;
+      display: flex; align-items: center; justify-content: center; color: #fff;
+      background: rgba(20,22,28,.7); border: 1px solid rgba(255,255,255,.15);
+    }
+    .fo-handle:active { cursor: grabbing; }
+    .fo-video {
+      position: absolute; bottom: 8px; left: 8px; font-size: 11px; font-weight: 600; color: #fff;
+      background: rgba(20,22,28,.75); padding: 3px 8px; border-radius: 99px;
+    }
+    .fo-body { padding: 13px 15px 15px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+    .fo-title { font-size: 14px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+    .fo-desc { font-size: 12.5px; color: var(--ink-3); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .fo-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .fo-chip { font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 5px; background: var(--surface-3); color: var(--ink-2); }
+    .fo-actions { display: flex; gap: 6px; margin-top: auto; padding-top: 4px; }
+    .fo-actions form { margin: 0; }
+    .fo-empty { text-align: center; padding: 56px 24px; color: var(--ink-3); border: 1px dashed var(--line-strong); border-radius: 14px; }
+    .fo-empty h3 { color: var(--ink); margin: 0 0 6px; font-size: 16px; }
+    .fo-empty p { margin: 0 auto 16px; max-width: 52ch; font-size: 13px; line-height: 1.6; }
+  </style>
+  <link rel="icon" href="/favicon.ico" />
+</head>
+<body>
+<div class="container-app">
+  <%- include('partials/sidebar', { activePage: 'portfolio' }) %>
+
+  <main class="main-content">
+    <header class="topbar">
+      <button class="dev-menu-btn" id="devMenuBtn" aria-label="Open navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <span class="topbar-title">External Portfolio</span>
+      <div class="top-actions">
+        <% if (developer.handle && items.length) { %>
+          <a href="/@<%= developer.handle %>" target="_blank" rel="noopener" class="btn ghost sm">View on profile</a>
+        <% } %>
+        <% if (items.length < maxItems) { %>
+          <a href="/developer/portfolio/new" class="btn primary sm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add project
+          </a>
+        <% } %>
+      </div>
+    </header>
+
+    <div class="page-content scroll">
+      <%- include('partials/flash') %>
+
+      <section class="fo-intro">
+        <div>
+          <h2>Showcase games you’ve shipped elsewhere</h2>
+          <p>Add games and projects that weren’t built or published on Play Mist — on Steam, Google Play, the App Store, itch.io and more. They appear in the <strong>External Portfolio</strong> section of your public profile<%= developer.handle ? ' at playmist.app/@' + developer.handle : '' %>.</p>
+        </div>
+        <span class="fo-count"><%= items.length %> / <%= maxItems %> items<%= items.length > 1 ? ' · drag to reorder' : '' %></span>
+      </section>
+
+      <% if (items.length) { %>
+        <div class="fo-grid" id="foGrid">
+          <% items.forEach(item => { %>
+            <article class="fo-card" data-id="<%= item.id %>">
+              <div class="fo-media">
+                <img src="<%= item.image_url %>" alt="" loading="lazy">
+                <% if (items.length > 1) { %>
+                  <span class="fo-handle" title="Drag to reorder" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
+                  </span>
+                <% } %>
+                <% if (item.embedUrl) { %><span class="fo-video">▶ Trailer</span><% } %>
+              </div>
+              <div class="fo-body">
+                <div class="fo-title"><%= item.title %></div>
+                <div class="fo-desc"><%= item.description %></div>
+                <% if (item.links.length) { %>
+                  <div class="fo-chips"><% item.links.forEach(l => { %><span class="fo-chip"><%= l.label %></span><% }) %></div>
+                <% } %>
+                <div class="fo-actions">
+                  <a href="/developer/portfolio/<%= item.id %>/edit" class="btn sm">Edit</a>
+                  <% if (developer.handle) { %>
+                    <a href="/@<%= developer.handle %>/portfolio/<%= item.id %>" target="_blank" rel="noopener" class="btn ghost sm">View</a>
+                  <% } %>
+                  <form method="POST" action="/developer/portfolio/<%= item.id %>/delete" style="margin-left:auto;"
+                        onsubmit="return confirm('Remove this project from your portfolio? This cannot be undone.')">
+                    <button type="submit" class="btn ghost sm" style="color:var(--danger);">Delete</button>
+                  </form>
+                </div>
+              </div>
+            </article>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <div class="fo-empty">
+          <h3>Your portfolio is empty</h3>
+          <p>Published a game on Steam, the Play Store or itch.io? Add it here with a cover image, trailer and store links so everyone visiting your profile can find it.</p>
+          <a href="/developer/portfolio/new" class="btn primary sm">Add your first project</a>
+        </div>
+      <% } %>
+    </div>
+  </main>
+</div>
+
+<% if (items.length > 1) { %>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script>
+  (function () {
+    const grid = document.getElementById('foGrid');
+    if (!grid || typeof Sortable === 'undefined') return;
+    Sortable.create(grid, {
+      animation: 150,
+      handle: '.fo-handle',
+      ghostClass: 'fo-ghost',
+      async onEnd() {
+        const order = [...grid.querySelectorAll('.fo-card')].map((c) => c.dataset.id);
+        try {
+          const res = await fetch('/developer/portfolio/reorder', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order }),
+          });
+          if (!res.ok) throw new Error();
+        } catch (_) {
+          alert('Could not save the new order. Please refresh and try again.');
+        }
+      },
+    });
+  })();
+</script>
+<% } %>
+</body>
+</html>
