@@ -1,4 +1,5 @@
 const db = require('../../config/database');
+const { toLocalDateStr } = require('../../utils/dates');
 
 exports.getIndex = async (req, res) => {
   let users = [];
@@ -18,6 +19,7 @@ exports.getIndex = async (req, res) => {
     title: 'Manage Players',
     activePage: 'users',
     users,
+    toLocalDateStr,
   });
 };
 
