@@ -6,6 +6,7 @@ const path   = require('path');
 const PATHS  = require('../../config/paths');
 const r2     = require('../../config/r2');
 const { formatBytes } = require('../../utils/format');
+const { toWebp, IMMUTABLE_CACHE } = require('../../utils/images');
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 /**
@@ -448,10 +449,11 @@ exports.postUploadImage = async (req, res) => {
   }
 
   try {
-    const key = `images/games/game-${id}${path.extname(imgFile.originalname).toLowerCase()}`;
-    const publicUrl = await r2.uploadBuffer(key, imgFile.buffer, imgFile.mimetype);
+    const { buffer, hash } = await toWebp(imgFile.buffer);
+    const key = `images/games/game-${id}-${hash}.webp`;
+    const publicUrl = await r2.uploadBuffer(key, buffer, 'image/webp', IMMUTABLE_CACHE);
 
-    // Delete old thumbnail from R2 if it had a different key (different extension)
+    // Delete old thumbnail from R2 if it had a different key (different image content)
     const [rows] = await db.query('SELECT thumbnail_url FROM games WHERE id = ?', [id]);
     const oldKey = rows.length ? r2.keyFromUrl(rows[0].thumbnail_url) : null;
     if (oldKey && oldKey !== key) await r2.deleteObject(oldKey).catch(() => {});
@@ -476,8 +478,9 @@ exports.postUploadSecondaryImage = async (req, res) => {
   }
 
   try {
-    const key = `images/games/game-${id}-secondary${path.extname(imgFile.originalname).toLowerCase()}`;
-    const publicUrl = await r2.uploadBuffer(key, imgFile.buffer, imgFile.mimetype);
+    const { buffer, hash } = await toWebp(imgFile.buffer);
+    const key = `images/games/game-${id}-secondary-${hash}.webp`;
+    const publicUrl = await r2.uploadBuffer(key, buffer, 'image/webp', IMMUTABLE_CACHE);
 
     const [rows] = await db.query('SELECT secondary_thumbnail FROM games WHERE id = ?', [id]);
     const oldKey = rows.length ? r2.keyFromUrl(rows[0].secondary_thumbnail) : null;
@@ -503,8 +506,9 @@ exports.postUploadPromotionalImage = async (req, res) => {
   }
 
   try {
-    const key = `images/games/game-${id}-promo${path.extname(imgFile.originalname).toLowerCase()}`;
-    const publicUrl = await r2.uploadBuffer(key, imgFile.buffer, imgFile.mimetype);
+    const { buffer, hash } = await toWebp(imgFile.buffer);
+    const key = `images/games/game-${id}-promo-${hash}.webp`;
+    const publicUrl = await r2.uploadBuffer(key, buffer, 'image/webp', IMMUTABLE_CACHE);
 
     const [rows] = await db.query('SELECT promotional_thumbnail FROM games WHERE id = ?', [id]);
     const oldKey = rows.length ? r2.keyFromUrl(rows[0].promotional_thumbnail) : null;
@@ -596,8 +600,9 @@ exports.postUploadScreenshots = async (req, res) => {
     const values = [];
     for (const file of files) {
       const uid = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
-      const key = `images/screenshots/screenshot-${id}-${uid}${path.extname(file.originalname).toLowerCase()}`;
-      const publicUrl = await r2.uploadBuffer(key, file.buffer, file.mimetype);
+      const { buffer } = await toWebp(file.buffer);
+      const key = `images/screenshots/screenshot-${id}-${uid}.webp`;
+      const publicUrl = await r2.uploadBuffer(key, buffer, 'image/webp', IMMUTABLE_CACHE);
       values.push([id, publicUrl]);
     }
     await db.query('INSERT INTO game_screenshots (game_id, image_url) VALUES ?', [values]);

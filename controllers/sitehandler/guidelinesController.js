@@ -1,6 +1,7 @@
 const db = require('../../config/database');
 const r2 = require('../../config/r2');
 const crypto = require('crypto');
+const { toWebp, IMMUTABLE_CACHE } = require('../../utils/images');
 
 exports.getEdit = async (req, res) => {
   let content = '';
@@ -34,10 +35,10 @@ exports.postSave = async (req, res) => {
 // Image upload endpoint for the Quill editor (uses memory storage)
 exports.postImageUpload = async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
-  const ext = req.file.originalname.split('.').pop().toLowerCase();
-  const key = `site-content/guidelines/${crypto.randomBytes(12).toString('hex')}.${ext}`;
+  const key = `site-content/guidelines/${crypto.randomBytes(12).toString('hex')}.webp`;
   try {
-    const url = await r2.uploadBuffer(key, req.file.buffer, req.file.mimetype);
+    const { buffer } = await toWebp(req.file.buffer);
+    const url = await r2.uploadBuffer(key, buffer, 'image/webp', IMMUTABLE_CACHE);
     res.json({ url });
   } catch (err) {
     res.status(500).json({ error: err.message });

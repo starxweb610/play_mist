@@ -93,12 +93,13 @@ function keyFromUrl(url) {
 }
 
 // ── Upload helpers ────────────────────────────────────────────────────────────
-async function uploadBuffer(key, buffer, contentType) {
+async function uploadBuffer(key, buffer, contentType, cacheControl) {
   await s3.send(new PutObjectCommand({
     Bucket: BUCKET,
     Key: key,
     Body: buffer,
     ContentType: contentType,
+    ...(cacheControl ? { CacheControl: cacheControl } : {}),
   }));
   return getPublicUrl(key);
 }

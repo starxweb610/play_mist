@@ -14,6 +14,7 @@
 const crypto = require('crypto');
 const db = require('../../config/database');
 const { uploadBuffer, deleteObject, keyFromUrl } = require('../../config/r2');
+const { toWebp, IMMUTABLE_CACHE } = require('../../utils/images');
 const { grantAchievement } = require('../../utils/achievements');
 const { sendMail } = require('../../utils/mailer');
 const templates = require('../../utils/emailTemplates');
@@ -72,7 +73,8 @@ exports.updateProfile = async (req, res) => {
 
 /**
  * POST /api/v1/user/avatar — multipart, field "avatar" (jpeg/png/webp ≤ 5 MB,
- * enforced by the route's multer config). Replaces any previous custom avatar.
+ * enforced by the route's multer config). Stored as a 512px WebP. Replaces any
+ * previous custom avatar.
  */
 exports.uploadAvatar = async (req, res) => {
   try {
@@ -81,14 +83,22 @@ exports.uploadAvatar = async (req, res) => {
       return res.status(400).json({ error: 'No image uploaded' });
     }
 
-    const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[req.file.mimetype];
-    if (!ext) return res.status(400).json({ error: 'Only JPG, PNG, or WebP images are accepted' });
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(req.file.mimetype)) {
+      return res.status(400).json({ error: 'Only JPG, PNG, or WebP images are accepted' });
+    }
 
     const [rows] = await db.query('SELECT avatar FROM users WHERE id = ?', [userId]);
     if (!rows.length) return res.status(404).json({ error: 'User not found' });
 
-    const key = `avatars/u${userId}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
-    const url = await uploadBuffer(key, req.file.buffer, req.file.mimetype);
+    let webp;
+    try {
+      ({ buffer: webp } = await toWebp(req.file.buffer, 'avatar'));
+    } catch (e) {
+      return res.status(400).json({ error: 'That file is not a readable image' });
+    }
+
+    const key = `avatars/u${userId}-${crypto.randomBytes(4).toString('hex')}.webp`;
+    const url = await uploadBuffer(key, webp, 'image/webp', IMMUTABLE_CACHE);
     await db.query('UPDATE users SET avatar = ? WHERE id = ?', [url, userId]);
 
     // Remove the old custom avatar from R2 (Google-hosted PGS photos are

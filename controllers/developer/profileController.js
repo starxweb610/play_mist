@@ -1,6 +1,7 @@
 const bcrypt    = require('bcryptjs');
 const db        = require('../../config/database');
 const r2        = require('../../config/r2');
+const { toWebp, IMMUTABLE_CACHE } = require('../../utils/images');
 const mailer    = require('../../utils/mailer');
 const templates = require('../../utils/emailTemplates');
 
@@ -122,18 +123,19 @@ exports.postAvatar = async (req, res) => {
   }
 
   const devId = req.session.developer.id;
-  const ext   = req.file.originalname.split('.').pop().toLowerCase() || 'jpg';
-  const key   = `developers/avatars/${devId}.${ext}`;
 
   try {
-    // Delete old avatar from R2 if it exists
+    const { buffer, hash } = await toWebp(req.file.buffer, 'avatar');
+    const key = `developers/avatars/${devId}-${hash}.webp`;
+
+    // Delete old avatar from R2 if it exists (and isn't this very same image)
     const [rows] = await db.query('SELECT avatar_url FROM developers WHERE id = ?', [devId]);
     if (rows.length && rows[0].avatar_url) {
       const oldKey = r2.keyFromUrl(rows[0].avatar_url);
-      if (oldKey) await r2.deleteObject(oldKey).catch(() => {});
+      if (oldKey && oldKey !== key) await r2.deleteObject(oldKey).catch(() => {});
     }
 
-    const url = await r2.uploadBuffer(key, req.file.buffer, req.file.mimetype);
+    const url = await r2.uploadBuffer(key, buffer, 'image/webp', IMMUTABLE_CACHE);
 
     await db.query('UPDATE developers SET avatar_url = ? WHERE id = ?', [url, devId]);
     req.session.developer.avatar_url = url;

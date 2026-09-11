@@ -2,8 +2,8 @@
  * config/upload.js
  * Multer configurations for game file uploads.
  *   upload             — .zip game builds (600 MB), staged on disk before R2 upload
- *   uploadImage        — thumbnail images (jpg / png / webp, 10 MB), in-memory for R2
- *   uploadScreenshots  — screenshot images, in-memory for R2
+ *   uploadImage        — thumbnail images (jpg / png / webp, 10 MB), in-memory; converted to WebP before R2
+ *   uploadScreenshots  — screenshot images, in-memory; converted to WebP before R2
  */
 const multer = require('multer');
 const path   = require('path');
