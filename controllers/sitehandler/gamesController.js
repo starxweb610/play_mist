@@ -53,7 +53,9 @@ async function uniqueSlug(base, excludeId = null) {
 // ── GET /sitehandler/games ───────────────────────────────────────────────────
 exports.getIndex = async (req, res) => {
   const { type, genre, status, q } = req.query;
-  let sql = `SELECT g.*, a.name AS creator
+  // play_count uses the same all-time analytics_games count the app API shows as `plays`
+  let sql = `SELECT g.*, a.name AS creator,
+               (SELECT COUNT(*) FROM analytics_games ag WHERE ag.game_id = g.id) AS play_count
              FROM games g LEFT JOIN admins a ON g.created_by = a.id WHERE 1=1`;
   const params = [];
   if (type)   { sql += ' AND g.type = ?';  params.push(type); }

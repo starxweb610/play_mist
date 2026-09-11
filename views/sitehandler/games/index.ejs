@@ -53,6 +53,7 @@
               <th>Genre</th>
               <th>Orientation</th>
               <th>Version</th>
+              <th title="All-time launches recorded in analytics">Plays</th>
               <th>Files</th>
               <th>Status</th>
               <th>Actions</th>
@@ -76,6 +77,7 @@
                 <td><%= game.genre || '—' %></td>
                 <td><span class="badge badge--orient"><%= game.orientation || '—' %></span></td>
                 <td><%= game.version || '1.0.0' %></td>
+                <td class="<%= Number(game.play_count) ? 'fw-600' : 'text-dim' %>"><%= Number(game.play_count || 0).toLocaleString('en-US') %></td>
                 <td>
                   <% if (game.file_path) { %>
                     <span class="badge badge--active">✓ Uploaded</span>
