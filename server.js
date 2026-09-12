@@ -15,7 +15,9 @@ process.on('unhandledRejection', (reason) => {
 });
 
 const express = require('express');
+const crypto = require('crypto');
 const path    = require('path');
+const fs      = require('fs');
 const morgan  = require('morgan');
 const helmet  = require('helmet');
 const session = require('express-session');
@@ -80,6 +82,26 @@ app.use(session({
 
 // ─── Flash ───────────────────────────────────────────────────────────────────
 app.use(flash());
+
+// ─── Asset cache busting ─────────────────────────────────────────────────────
+// /css/*.css is served with a 4h max-age and the <link> tags carry no version,
+// so after a deploy a returning visitor could get NEW html with OLD css. That
+// is exactly how the portfolio store buttons rendered broken on mobile: the
+// markup shipped with a `.fo-link-logo` sizing rule the cached stylesheet did
+// not have. The stamp changes whenever any stylesheet changes, so a deploy
+// invalidates them. app.locals (not res.locals) so it is defined for every
+// render, including any that bypasses the per-request middleware.
+app.locals.assetV = (() => {
+  try {
+    const dir = path.join(__dirname, 'public', 'css');
+    const sig = fs.readdirSync(dir).filter((f) => f.endsWith('.css')).sort()
+      .map((f) => { const st = fs.statSync(path.join(dir, f)); return `${f}:${st.size}:${st.mtimeMs}`; })
+      .join('|');
+    return crypto.createHash('sha1').update(sig).digest('hex').slice(0, 8);
+  } catch (_) {
+    return String(Date.now()); // never block boot over a cache buster
+  }
+})();
 
 // ─── Global Template Locals ───────────────────────────────────────────────────
 app.use((req, res, next) => {

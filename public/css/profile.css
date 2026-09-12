@@ -377,13 +377,27 @@ a.gc-author:hover { color: var(--lime); }
 /* ── Portfolio item page ──────────────────────────────────────────────── */
 .fo-byline { color: var(--lime); }
 .fo-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 28px; align-items: start; margin-top: 26px; }
-@media (max-width: 920px) { .fo-layout { grid-template-columns: 1fr; } }
+/* Explicit placement, because the DOM order is media -> store links -> description:
+   that is the order we want when this collapses to one column on mobile (the
+   download buttons sit directly under the trailer). On desktop the links go
+   back to the right-hand sidebar spanning both rows. */
+.fo-col-media { grid-column: 1; grid-row: 1; min-width: 0; }
+.fo-col-desc  { grid-column: 1; grid-row: 2; min-width: 0; }
+.fo-aside     { grid-column: 2; grid-row: 1 / span 2; }
+@media (max-width: 920px) {
+  .fo-layout { grid-template-columns: 1fr; }
+  .fo-col-media, .fo-col-desc, .fo-aside { grid-column: 1; grid-row: auto; }
+  /* The cover image would sit between the trailer and the buttons, pushing
+     the download area back down — the opposite of the intent. */
+  .fo-aside-img { display: none; }
+  .fo-col-desc .fo-heading { margin-top: 20px; }
+}
 .fo-media { aspect-ratio: 16 / 9; overflow: hidden; border-radius: var(--r-md); border: 1px solid var(--line); background: #000; }
 .fo-media iframe, .fo-media img { display: block; width: 100%; height: 100%; border: 0; object-fit: cover; }
 .fo-heading { font-family: var(--ff-display); font-size: 1.2rem; font-weight: 800; margin: 28px 0 10px; }
 .fo-desc { color: var(--text-muted); font-size: .98rem; line-height: 1.8; white-space: pre-line; overflow-wrap: anywhere; }
 .fo-aside { position: sticky; top: calc(var(--nav-h) + 16px); }
-@media (max-width: 920px) { .fo-aside { position: static; } }
+@media (max-width: 920px) { .fo-aside { position: static; grid-column: 1; grid-row: auto; } }
 .fo-aside-img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--r-sm); margin-bottom: 16px; }
 .fo-links { display: flex; flex-direction: column; gap: 10px; }
 

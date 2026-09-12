@@ -79,7 +79,7 @@
       </header>
 
       <div class="fo-layout">
-        <div style="min-width:0;">
+        <div class="fo-col-media">
           <div class="fo-media">
             <% if (item.embedUrl) { %>
               <iframe src="<%= item.embedUrl %>" title="<%= item.title %> trailer" loading="lazy"
@@ -90,8 +90,6 @@
               <img src="<%= item.image_url %>" alt="<%= item.title %>" />
             <% } %>
           </div>
-          <h2 class="fo-heading">About this project</h2>
-          <p class="fo-desc"><%= item.description %></p>
         </div>
 
         <aside class="pf-card fo-aside">
@@ -101,7 +99,7 @@
             <div class="fo-links">
               <% item.links.forEach(l => { let host = ''; try { host = new URL(l.url).hostname.replace(/^www\./, ''); } catch (_) {} %>
                 <a class="fo-link fo-link--<%= l.brand %>" href="<%= l.url %>" target="_blank" rel="noopener nofollow ugc">
-                  <svg class="fo-link-logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><use href="#brand-<%= l.brand %>"></use></svg>
+                  <svg class="fo-link-logo" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><use href="#brand-<%= l.brand %>"></use></svg>
                   <span class="fo-link-text"><%= l.cta %> <%= l.label %><small><%= host %></small></span>
                   <svg class="fo-link-go" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                 </a>
@@ -112,6 +110,11 @@
           <% } %>
           <p class="fo-note">Links open external websites not operated by <%= appName %>.</p>
         </aside>
+
+        <div class="fo-col-desc">
+          <h2 class="fo-heading">About this project</h2>
+          <p class="fo-desc"><%= item.description %></p>
+        </div>
       </div>
 
       <% if (others.length) { %>
