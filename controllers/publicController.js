@@ -2,6 +2,7 @@ const db = require('../config/database');
 const { formatImagePath } = require('../utils/images');
 const { GAME_FIELDS, toCardView } = require('../utils/gameCards');
 const { listGameComments, COMMENT_MAX_CHARS } = require('../utils/gameComments');
+const { formatCount } = require('../utils/format');
 
 const APP_URL = () => process.env.APP_URL || 'https://playmist.app';
 const ANDROID_PACKAGE = 'com.playmist.app';
@@ -50,20 +51,29 @@ async function fetchGenres() {
  * Public landing page (moved from inline server.js)
  */
 exports.getHome = async (req, res) => {
-  let stats = { totalGames: 50, totalUsers: '10K+', rating: '4.8' };
+  // Counted live. This used to default to { totalGames: 50, totalUsers: '10K+',
+  // rating: '4.8' } and only override from a `site_stats` row — which is empty,
+  // so the homepage was quoting those three invented figures to every visitor
+  // (the real numbers at the time were 25 games and 806 users). There is no
+  // fallback now: if the count fails, the strip is left out rather than filled
+  // with something made up.
+  let stats = null;
   let webglGames = [];
   let premiumGames = [];
   let genres = [];
 
   try {
-    const [statRows] = await db.query('SELECT * FROM site_stats WHERE id = 1');
-    if (statRows.length > 0) {
-      stats = {
-        totalGames: statRows[0].total_games || stats.totalGames,
-        totalUsers: statRows[0].total_users || stats.totalUsers,
-        rating:     statRows[0].rating      || stats.rating,
-      };
-    }
+    const [[counts]] = await db.query(
+      `SELECT
+         (SELECT COUNT(*) FROM games WHERE is_active = 1) AS total_games,
+         (SELECT COUNT(*) FROM users)                     AS total_users,
+         (SELECT COUNT(*) FROM analytics_games)           AS total_plays`
+    );
+    stats = {
+      totalGames: Number(counts.total_games) || 0,
+      totalUsers: formatCount(counts.total_users),
+      totalPlays: formatCount(counts.total_plays),
+    };
 
     const [games] = await db.query(
       `SELECT ${GAME_FIELDS} FROM games
@@ -176,9 +186,11 @@ exports.getGameDetail = async (req, res) => {
       ...toCardView(g),
       longDesc:    g.long_description || g.short_description || '',
       controls:    g.controls || '',
-      studio:      g.studio || 'Tiny Bear',
+      // No stand-in studio name: an unattributed game shows no studio rather
+      // than being credited to "Tiny Bear".
+      studio:      g.studio || null,
       version:     g.version || '1.0.0',
-      size:        g.size || null,
+      // `size` already comes from toCardView, measured from size_bytes.
       creditsCost: g.credits_cost || 0,
       trailerUrl:  g.trailer_url || null,
       tags:        tagRows.map(t => t.name),

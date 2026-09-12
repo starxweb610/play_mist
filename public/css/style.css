@@ -2170,6 +2170,10 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
 .info-row dt { color: var(--text-dim); font-family: var(--ff-mono); font-size: 0.78rem; }
 .info-row dd { color: var(--text); font-weight: 600; font-family: var(--ff-display); }
 
+/* Sample size next to an average, so a 4.0 from one vote cannot read like a
+   4.0 from two hundred. */
+.info-sub { color: var(--text-dim); font-weight: 500; font-size: 0.82em; }
+
 .related-section { padding-top: 0; }
 
 /* ════════════════════════════════════════════════════════════════════════════

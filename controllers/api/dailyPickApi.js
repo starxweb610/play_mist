@@ -45,7 +45,10 @@ exports.getDailyPick = async (req, res) => {
         gametype:             g.type,
         genre:                g.genre  || '',
         studio:               g.studio || '',
-        size:                 g.size_bytes ? formatBytes(g.size_bytes) : (g.size || ''),
+        // Measured from the uploaded build only. The legacy manual `size` column
+    // defaults to the string '24MB', so falling back to it quoted a made-up
+    // size for every game that never had one entered.
+    size:                 g.size_bytes ? formatBytes(g.size_bytes) : '',
         plays:                formatCount(g.play_count),
         rating:               formatRating(g.avg_rating),
         creditsCost:          0,

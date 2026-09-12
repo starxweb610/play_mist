@@ -1017,6 +1017,33 @@ exports.runMigrations = async () => {
     await migrateIndex('developer_project_docs', 'uniq_doc_slug',
       'ADD UNIQUE KEY uniq_doc_slug (project_id, slug)');
 
+    // ── Stop the games table inventing its own data ──────────────────────────
+    // `plays`, `rating`, `size` and `studio` are legacy hand-entered varchars,
+    // and their column DEFAULTS were the literals '1.2M', '4.8', '24MB' and
+    // 'Tiny Bear'. Every game inserted without explicit values therefore
+    // claimed 1.2 million plays and 4.8 stars from the moment it was created,
+    // and the public site read those columns straight onto the page. The site
+    // and the API now compute all of it from analytics_games, game_ratings and
+    // size_bytes, so the only job left here is to stop future rows being born
+    // with a made-up number in them.
+    //
+    // The column TYPE is read back and reused rather than restated: writing a
+    // literal MODIFY here risks narrowing a column that differs between
+    // environments — a hardcoded VARCHAR(120) would silently truncate the
+    // varchar(200) studio names that are live in production. Existing values
+    // are left untouched; nothing reads them any more.
+    for (const column of ['plays', 'rating', 'size', 'studio']) {
+      const [[col]] = await db.query(
+        `SELECT COLUMN_TYPE AS type, COLUMN_DEFAULT AS def, IS_NULLABLE AS nullable
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'games' AND COLUMN_NAME = ?`,
+        [column]
+      );
+      if (!col || col.def === null || col.nullable !== 'YES') continue;
+      await db.query(`ALTER TABLE games MODIFY \`${column}\` ${col.type} DEFAULT NULL`);
+      console.log(`  ✅ games.${column} default '${col.def}' removed (was fabricating data)`);
+    }
+
     console.log('✅ DB migrations complete');
   } catch (err) {
     console.error('❌ Migration error:', err.message);

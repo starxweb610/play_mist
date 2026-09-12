@@ -137,7 +137,10 @@ async function mapGameRow(g, tagsMap, screenshotsMap) {
     genre:                g.genre || '',
     studio:               g.studio || '',
     // size_bytes (auto-captured at upload) wins; legacy manual `size` is the fallback
-    size:                 g.size_bytes ? formatBytes(g.size_bytes) : (g.size || ''),
+    // Measured from the uploaded build only. The legacy manual `size` column
+    // defaults to the string '24MB', so falling back to it quoted a made-up
+    // size for every game that never had one entered.
+    size:                 g.size_bytes ? formatBytes(g.size_bytes) : '',
     plays:                formatCount(g.play_count),
     rating:               formatRating(g.avg_rating),
     ratingCount:          Number(g.rating_count) || 0,

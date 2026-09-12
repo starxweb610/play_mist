@@ -116,7 +116,7 @@
             <span class="meta-item"><strong><%= game.genre %></strong> Genre</span>
             <% if (game.rating) { %><span class="meta-item"><strong>⭐ <%= game.rating %></strong> Rating</span><% } %>
             <% if (game.plays) { %><span class="meta-item"><strong><%= game.plays %></strong> Plays</span><% } %>
-            <span class="meta-item"><strong><%= game.studio %></strong> Studio</span>
+            <% if (game.studio) { %><span class="meta-item"><strong><%= game.studio %></strong> Studio</span><% } %>
           </div>
           <% if (developer && developer.handle) { %>
             <a href="/@<%= developer.handle %>" class="dev-credit">
@@ -185,13 +185,13 @@
             <div class="info-row"><dt>Type</dt><dd><%= game.type === 'premium' ? 'Premium (Offline)' : 'Instant (WebGL)' %></dd></div>
             <div class="info-row"><dt>Genre</dt><dd><%= game.genre %></dd></div>
             <div class="info-row"><dt>Orientation</dt><dd><%= game.orientation === 'portrait' ? '📱 Portrait' : '🖥️ Landscape' %></dd></div>
-            <div class="info-row"><dt>Studio</dt><dd><%= game.studio %></dd></div>
+            <% if (game.studio) { %><div class="info-row"><dt>Studio</dt><dd><%= game.studio %></dd></div><% } %>
             <% if (developer && developer.handle) { %>
               <div class="info-row"><dt>Developer</dt><dd><a href="/@<%= developer.handle %>" class="info-link">@<%= developer.handle %></a></dd></div>
             <% } %>
             <div class="info-row"><dt>Version</dt><dd><%= game.version %></dd></div>
             <% if (game.size) { %><div class="info-row"><dt>Size</dt><dd><%= game.size %></dd></div><% } %>
-            <% if (game.rating) { %><div class="info-row"><dt>Rating</dt><dd>⭐ <%= game.rating %></dd></div><% } %>
+            <% if (game.rating) { %><div class="info-row"><dt>Rating</dt><dd>⭐ <%= game.rating %> <span class="info-sub">(<%= game.ratingCount %> <%= game.ratingCount === 1 ? 'rating' : 'ratings' %>)</span></dd></div><% } %>
             <% if (game.type === 'webgl' && game.creditsCost > 0) { %>
               <div class="info-row"><dt>Credits</dt><dd><%= game.creditsCost %> / play in-app</dd></div>
             <% } %>

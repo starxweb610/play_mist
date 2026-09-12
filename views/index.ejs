@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title><%= appName %> – Play Free Games in Your Browser</title>
-  <meta name="description" content="Playmist is a free web gaming portal. Play 50+ instant WebGL games right in your browser — no download, no account needed. Also available on Android." />
+  <meta name="description" content="Playmist is a free web gaming portal. Play <%= stats ? stats.totalGames + ' ' : '' %>instant WebGL games right in your browser — no download, no account needed. Also available on Android." />
   <meta name="keywords" content="playmist, play games online, free browser games, webgl games, instant play games, gaming portal" />
   <meta name="author" content="Playmist" />
   <meta name="robots" content="index, follow" />
@@ -14,7 +14,7 @@
 
   <!-- Open Graph -->
   <meta property="og:title" content="<%= appName %> – Play Free Games in Your Browser" />
-  <meta property="og:description" content="Jump into 50+ instant games right in your browser. No download, no account. Always free." />
+  <meta property="og:description" content="Jump into <%= stats ? stats.totalGames + ' ' : '' %>instant games right in your browser. No download, no account. Always free." />
   <meta property="og:url" content="<%= appUrl %>" />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="<%= appUrl %>/images/og-default.png" />
@@ -25,7 +25,7 @@
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Playmist – Free Browser Gaming Portal" />
-  <meta name="twitter:description" content="Play 50+ instant games in your browser. No download required." />
+  <meta name="twitter:description" content="Play <%= stats ? stats.totalGames + ' ' : '' %>instant games in your browser. No download required." />
   <meta name="twitter:image" content="<%= appUrl %>/images/og-default.png" />
 
   <!-- JSON-LD: WebSite + Organization -->
@@ -38,7 +38,7 @@
         "@id": "<%= appUrl %>/#website",
         "url": "<%= appUrl %>",
         "name": "<%= appName %>",
-        "description": "Free web gaming portal — play 50+ instant WebGL games in your browser. Also available on Android.",
+        "description": "Free web gaming portal — play <%= stats ? stats.totalGames + ' ' : '' %>instant WebGL games in your browser. Also available on Android.",
         "potentialAction": {
           "@type": "SearchAction",
           "target": {
@@ -221,24 +221,30 @@
             </a>
           </div>
 
-          <div class="hero-stats" data-aos="fade-up" data-aos-delay="290">
-            <div class="stat-item">
-              <span class="stat-value" data-count="<%= stats.totalGames %>" data-suffix="+"><%= stats.totalGames %>+</span>
-              <span class="stat-label">Games</span>
+          <%# Every figure here is counted from the database on each request.
+              The old "Rating" tile is gone: it printed a flat 4.8 while the
+              whole site held a single user rating, so there was no average to
+              quote. Real play count takes its place. %>
+          <% if (stats) { %>
+            <div class="hero-stats" data-aos="fade-up" data-aos-delay="290">
+              <div class="stat-item">
+                <span class="stat-value" data-count="<%= stats.totalGames %>"><%= stats.totalGames %></span>
+                <span class="stat-label">Games</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-value"><%= stats.totalUsers %></span>
+                <span class="stat-label">Players</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-value"><%= stats.totalPlays %></span>
+                <span class="stat-label">Plays</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-value">Free</span>
+                <span class="stat-label">Always</span>
+              </div>
             </div>
-            <div class="stat-item">
-              <span class="stat-value"><%= stats.totalUsers %></span>
-              <span class="stat-label">Players</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-value" data-count="<%= stats.rating %>" data-suffix=" ★" data-decimals="1"><%= stats.rating %> ★</span>
-              <span class="stat-label">Rating</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-value">Free</span>
-              <span class="stat-label">Always</span>
-            </div>
-          </div>
+          <% } %>
         </div>
 
         <div class="intro-video" data-aos="power-on" data-aos-delay="120">
