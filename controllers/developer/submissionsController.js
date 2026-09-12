@@ -6,6 +6,9 @@ const fs     = require('fs');
 const crypto = require('crypto');
 const r2     = require('../../config/r2');
 const PATHS  = require('../../config/paths');
+const { toWebp, IMMUTABLE_CACHE } = require('../../utils/images');
+const { parseVideo, watchUrl }    = require('../../utils/portfolio');
+const { REFERENCE_IMAGE_MAX_BYTES } = require('../../config/upload');
 
 const ALLOWED_EXTENSIONS = new Set([
   'html','htm','css','js','mjs','json','wasm',
@@ -113,7 +116,10 @@ exports.getSubmit = async (req, res) => {
 const CONTENT_RATINGS = new Set(['everyone', 'teen', 'mature']);
 
 exports.postSubmit = async (req, res) => {
-  const zipFile = req.file;
+  // .fields() rather than .single(): the form carries the build plus an
+  // optional art-direction image.
+  const zipFile   = req.files?.game_zip?.[0]        || null;
+  const imageFile = req.files?.reference_image?.[0] || null;
   const {
     title, short_description, description, controls, genre,
     orientation, version, content_rating,
@@ -129,11 +135,14 @@ exports.postSubmit = async (req, res) => {
     has_external_links: flag(req.body.has_external_links),
     requires_internet:  flag(req.body.requires_internet),
     rights_confirmed:   flag(req.body.rights_confirmed),
+    // A file input can't be repopulated, so only the link survives a re-render.
+    reference_video_url: req.body.reference_video_url,
   };
   const developer = req.session.developer;
 
   const renderError = async (errors) => {
-    if (zipFile) await fse.remove(zipFile.path).catch(() => {});
+    if (zipFile)   await fse.remove(zipFile.path).catch(() => {});
+    if (imageFile) await fse.remove(imageFile.path).catch(() => {});
     const [[genres], guidelines] = await Promise.all([
       db.query('SELECT * FROM genres ORDER BY name ASC'),
       fetchGuidelines(),
@@ -148,6 +157,10 @@ exports.postSubmit = async (req, res) => {
     });
   };
 
+  // A multer failure (oversized build, wrong file type) is reported before
+  // anything else — the rest of the form can't be judged without the files.
+  if (req.uploadError) return renderError([req.uploadError]);
+
   const errors = [];
   if (!title?.trim())             errors.push('Game title is required.');
   if (!short_description?.trim()) errors.push('Short description is required.');
@@ -158,6 +171,18 @@ exports.postSubmit = async (req, res) => {
   if (!CONTENT_RATINGS.has(content_rating)) errors.push('Please select a content rating.');
   if (!form.rights_confirmed)     errors.push('You must confirm you own or have licensed everything in this submission.');
   if (!zipFile)                   errors.push('A ZIP file is required.');
+
+  // Optional art direction. The multer instance is sized for the build, so the
+  // image's own cap is enforced here.
+  let referenceVideoUrl = null;
+  const video = parseVideo(req.body.reference_video_url);
+  if (video.error) errors.push(video.error);
+  else if (video.value) referenceVideoUrl = watchUrl(video.value.provider, video.value.id);
+
+  if (imageFile && imageFile.size > REFERENCE_IMAGE_MAX_BYTES) {
+    errors.push(`The reference image must be ${Math.round(REFERENCE_IMAGE_MAX_BYTES / (1024 * 1024))} MB or smaller.`);
+  }
+
   if (errors.length) return renderError(errors);
 
   try {
@@ -173,10 +198,21 @@ exports.postSubmit = async (req, res) => {
   const previewPrefix = `developer-previews/${developer.id}/${slug}`;
   let extractDir = null;
   let insertId = null;
+  let referenceImageKey = null;
 
   try {
     // Upload ZIP to R2
     await r2.uploadFile(r2Key, zipFile.path, 'application/zip');
+
+    // Art-direction image, if one came with the form. Normalised to WebP like
+    // every other upload, and keyed under the submission so it is cleaned up
+    // with it. Stored for the review team only — never published.
+    let referenceImageUrl = null;
+    if (imageFile) {
+      const { buffer, hash } = await toWebp(await fse.readFile(imageFile.path));
+      referenceImageKey = `developer-submissions/${developer.id}/${uuid}/reference-${hash}.webp`;
+      referenceImageUrl = await r2.uploadBuffer(referenceImageKey, buffer, 'image/webp', IMMUTABLE_CACHE);
+    }
 
     // Extract to temp dir and upload preview files to R2
     extractDir = path.join(PATHS.TEMP_DIR, `devpreview_${Date.now()}_${uuid}`);
@@ -204,8 +240,9 @@ exports.postSubmit = async (req, res) => {
           orientation, version, content_rating,
           has_ads, has_iap, has_external_links, requires_internet,
           rights_confirmed, rights_confirmed_at,
+          reference_image_url, reference_video_url,
           zip_r2_key, zip_size, preview_play_url, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), ?, ?, ?, 'draft')`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), ?, ?, ?, ?, ?, 'draft')`,
       [
         developer.id,
         title.trim(),
@@ -221,6 +258,8 @@ exports.postSubmit = async (req, res) => {
         form.has_iap,
         form.has_external_links,
         form.requires_internet,
+        referenceImageUrl,
+        referenceVideoUrl,
         r2Key,
         zipFile.size,
         previewPlayUrl,
@@ -232,11 +271,13 @@ exports.postSubmit = async (req, res) => {
     res.redirect(`/developer/submissions/${insertId}`);
   } catch (err) {
     await r2.deleteObject(r2Key).catch(() => {});
+    if (referenceImageKey) await r2.deleteObject(referenceImageKey).catch(() => {});
     await r2.deletePrefix(`${previewPrefix}/`).catch(() => {});
     return renderError(['Upload failed. Please try again.']);
   } finally {
     if (extractDir) await fse.remove(extractDir).catch(() => {});
     await fse.remove(zipFile.path).catch(() => {});
+    if (imageFile) await fse.remove(imageFile.path).catch(() => {});
   }
 };
 

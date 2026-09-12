@@ -190,6 +190,42 @@
           </div>
         </div>
 
+        <!-- Art direction (optional) -->
+        <div class="card">
+          <div class="card-header" style="margin-bottom:0;padding-bottom:16px;border-bottom:1px solid var(--line);">
+            <div class="card-title">Art Direction <span class="optional-label">(optional)</span></div>
+          </div>
+          <div style="padding-top:18px;">
+            <p style="font-size:.85rem;color:var(--ink-3);margin-bottom:18px;line-height:1.6;">
+              If you have a look in mind for your game, show us now. This goes to the review
+              team only — it is never published, and it doesn't replace the store listing
+              artwork you'll add after approval. Leave it blank and we'll work from the build.
+            </p>
+
+            <div class="form-group">
+              <label for="reference_video_url">Video Link</label>
+              <input type="text" id="reference_video_url" name="reference_video_url"
+                     value="<%= form.reference_video_url || '' %>"
+                     placeholder="https://www.youtube.com/watch?v=…" />
+              <div class="field-hint">A YouTube or Vimeo link — gameplay, a teaser, or a mood reference.</div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Reference Image</label>
+              <div class="art-slot art-slot-banner art-slot--contain" id="refSlot" style="max-width:420px;">
+                <input type="file" name="reference_image" id="reference_image" accept="image/jpeg,image/png,image/webp" />
+                <div class="art-slot-empty" id="refEmpty">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  <span>Choose an image</span>
+                  <small>Key art, a mood board, or a screenshot you're proud of</small>
+                </div>
+                <img id="refPreview" alt="" hidden />
+              </div>
+              <div class="field-hint">JPG, PNG or WebP · max 5 MB. <span id="refName"></span></div>
+            </div>
+          </div>
+        </div>
+
         <div class="submit-progress" id="submitProgress">
           <div class="spinner"></div>
           <span>Uploading your game — this may take a moment for large files...</span>
@@ -262,6 +298,28 @@
     progress.style.display = 'flex';
     submitBtn.disabled = true;
     submitBtn.textContent = 'Uploading...';
+  });
+
+  // Preview the reference image locally — it only uploads with the form.
+  const refInput   = document.getElementById('reference_image');
+  const refSlot    = document.getElementById('refSlot');
+  const refEmpty   = document.getElementById('refEmpty');
+  const refPreview = document.getElementById('refPreview');
+  const refName    = document.getElementById('refName');
+  refInput.addEventListener('change', () => {
+    const file = refInput.files[0];
+    if (!file) {
+      refPreview.hidden = true;
+      refEmpty.hidden = false;
+      refSlot.classList.remove('filled');
+      refName.textContent = '';
+      return;
+    }
+    refPreview.src = URL.createObjectURL(file);
+    refPreview.hidden = false;
+    refEmpty.hidden = true;
+    refSlot.classList.add('filled');
+    refName.textContent = file.name;
   });
 
   function toggleGuidelines(btn) {

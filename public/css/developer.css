@@ -48,6 +48,9 @@ body {
   letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
 }
+/* An explicit `display` anywhere in this sheet outranks the UA's [hidden]
+   rule, so toggling el.hidden silently did nothing on flex/block elements. */
+[hidden] { display: none !important; }
 a { text-decoration: none; color: inherit; }
 button { font-family: inherit; }
 ::selection { background: var(--accent-soft); color: var(--ink); }
@@ -721,6 +724,10 @@ select option { background: var(--surface-2); }
   opacity: 0; cursor: pointer; width: 100%; height: 100%; z-index: 2;
 }
 .art-slot img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* A reference image can be any shape (key art, a mood board), so show all of
+   it rather than cropping to the slot. */
+.art-slot--contain { background: var(--bg-2); }
+.art-slot--contain img { object-fit: contain; }
 .art-slot-empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 6px; height: 100%; padding: 20px; text-align: center;

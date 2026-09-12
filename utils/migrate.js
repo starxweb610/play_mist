@@ -369,6 +369,13 @@ exports.runMigrations = async () => {
     await migrateColumn('developer_submissions', 'rights_confirmed',    'TINYINT(1) NOT NULL DEFAULT 0 AFTER requires_internet');
     await migrateColumn('developer_submissions', 'rights_confirmed_at', 'DATETIME DEFAULT NULL AFTER rights_confirmed');
 
+    // Optional art-direction reference, offered on the submit form. Purely
+    // material for the review team — it is never published and never becomes
+    // the store listing's icon. A developer who cares how their game is
+    // presented can say so up front instead of hoping we guess right.
+    await migrateColumn('developer_submissions', 'reference_image_url', 'VARCHAR(600) DEFAULT NULL AFTER rights_confirmed_at');
+    await migrateColumn('developer_submissions', 'reference_video_url', 'VARCHAR(500) DEFAULT NULL AFTER reference_image_url');
+
     // Gate 2 — the store listing itself. `thumbnail_url` already existed here
     // unused; it is now the square icon. banner_url feeds secondary_thumbnail.
     // promotional_thumbnail is deliberately absent: featured art stays ours.

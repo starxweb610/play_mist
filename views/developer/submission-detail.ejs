@@ -111,6 +111,31 @@
           </div>
           <% } %>
 
+          <% if (submission.reference_image_url || submission.reference_video_url) { %>
+          <div class="card">
+            <div class="card-header" style="margin-bottom:16px;">
+              <div class="card-title">Art Direction</div>
+              <span class="badge-under-review"><span class="badge-dot"></span>Reference only</span>
+            </div>
+            <% if (submission.reference_image_url) { %>
+            <a href="<%= submission.reference_image_url %>" target="_blank" rel="noopener"
+               class="art-slot art-slot-banner art-slot--contain filled" style="display:block;">
+              <img src="<%= submission.reference_image_url %>" alt="Art direction reference" loading="lazy" />
+            </a>
+            <% } %>
+            <% if (submission.reference_video_url) { %>
+            <p style="margin:<%= submission.reference_image_url ? '12px' : '0' %> 0 0;font-size:.85rem;">
+              <a href="<%= submission.reference_video_url %>" target="_blank" rel="noopener"
+                 style="color:var(--accent);word-break:break-all;"><%= submission.reference_video_url %></a>
+            </p>
+            <% } %>
+            <p style="margin:12px 0 0;font-size:.8rem;color:var(--ink-3);line-height:1.6;">
+              What you sent us to show the look you're after. Our team sees this during review —
+              it isn't published, and it's separate from your store listing artwork.
+            </p>
+          </div>
+          <% } %>
+
           <% if (submission.status === 'rejected' && submission.rejection_reason) { %>
           <div class="card">
             <div class="card-title" style="margin-bottom:12px;color:var(--danger);">Rejection Reason</div>

@@ -64,11 +64,56 @@ const uploadScreenshots = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
 
-// ── Developer submission zip (250 MB hard cap) ───────────────────────────────
-const developerUpload = multer({
-  storage: tempStorage,
-  fileFilter: zipFilter,
-  limits: { fileSize: 250 * 1024 * 1024 }, // 250 MB
+// ── Developer submission: the build zip plus an optional reference image ─────
+// Both land on disk because the zip is far too large to buffer. multer's size
+// limit is per-instance, not per-field, so the cap here is the zip's and the
+// controller enforces REFERENCE_IMAGE_MAX_BYTES on the image separately.
+const REFERENCE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+const submissionFilter = (_req, file, cb) => {
+  if (file.fieldname === 'reference_image') return imageFilter(_req, file, cb);
+  return zipFilter(_req, file, cb);
+};
+
+/**
+ * Disk storage that records every path it is about to write on
+ * `req._tempFilePaths`, so the route wrapper can sweep uploads/temp afterwards.
+ *
+ * When multer rejects one file of a multi-field upload it abandons the request
+ * with `req.files` empty AND destroys the stream of whatever it was writing —
+ * leaving a truncated build on disk whose completion callback never fires. So
+ * the path has to be recorded before the first byte lands; anything recorded
+ * later misses exactly the case that leaks. (uploads/temp still holds
+ * leftovers from before this existed.)
+ */
+const trackedTempStorage = {
+  _handleFile(req, file, cb) {
+    const uid       = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+    const filename  = uid + path.extname(file.originalname);
+    const finalPath = path.join(TEMP_DIR, filename);
+
+    if (!req._tempFilePaths) req._tempFilePaths = [];
+    req._tempFilePaths.push(finalPath);
+
+    const out = fs.createWriteStream(finalPath);
+    out.on('error', cb);
+    out.on('finish', () => cb(null, {
+      destination: TEMP_DIR,
+      filename,
+      path: finalPath,
+      size: out.bytesWritten,
+    }));
+    file.stream.pipe(out);
+  },
+  _removeFile(_req, file, cb) {
+    fs.unlink(file.path, cb);
+  },
+};
+
+const developerSubmissionFiles = multer({
+  storage: trackedTempStorage,
+  fileFilter: submissionFilter,
+  limits: { fileSize: 250 * 1024 * 1024 }, // 250 MB — the zip's ceiling
 });
 
 // ── Developer thumbnail (in-memory, 5 MB) ────────────────────────────────────
@@ -121,4 +166,4 @@ const developerDocImage = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
 
-module.exports = { upload, uploadImage, avatarUpload, uploadScreenshots, developerUpload, developerThumbnail, developerHeader, developerPortfolioImage, developerDoc, developerSketch, developerDocImage };
+module.exports = { upload, uploadImage, avatarUpload, uploadScreenshots, developerSubmissionFiles, REFERENCE_IMAGE_MAX_BYTES, developerThumbnail, developerHeader, developerPortfolioImage, developerDoc, developerSketch, developerDocImage };

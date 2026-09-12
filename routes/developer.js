@@ -1,8 +1,9 @@
 const express      = require('express');
 const router       = express.Router();
 const rateLimit    = require('express-rate-limit');
+const fse          = require('fs-extra');
 const { isDeveloper, checkBanned, blockCrossSite } = require('../middleware/developerAuth');
-const { developerUpload, developerThumbnail, developerHeader, developerPortfolioImage, developerDoc, developerSketch, developerDocImage, uploadScreenshots } = require('../config/upload');
+const { developerSubmissionFiles, developerThumbnail, developerHeader, developerPortfolioImage, developerDoc, developerSketch, developerDocImage, uploadScreenshots } = require('../config/upload');
 
 const authController        = require('../controllers/developer/authController');
 const dashboardController   = require('../controllers/developer/dashboardController');
@@ -111,6 +112,35 @@ const formUpload = (uploader, field) => (req, res, next) =>
     next();
   });
 
+// The submit form posts a build zip plus an optional reference image. Errors
+// here (oversized zip, wrong file type) used to fall through to the generic
+// 500 page, losing everything the developer had typed; recording them lets the
+// controller re-render the form with the message and the fields intact.
+const submissionUpload = (req, res, next) => {
+  // Backstop for uploads/temp. The controller removes the files it was handed,
+  // but a rejected upload never reaches it: multer abandons the request with
+  // req.files empty, and can still be writing the *next* file when its error
+  // callback fires — so sweeping there loses the race. The storage engine
+  // records each path as it writes (config/upload.js); running the sweep once
+  // the response is done catches every one of them. Removing a path the
+  // controller already cleaned is a no-op.
+  res.on('finish', () => {
+    for (const p of req._tempFilePaths || []) fse.remove(p).catch(() => {});
+  });
+
+  return developerSubmissionFiles.fields([
+    { name: 'game_zip',        maxCount: 1 },
+    { name: 'reference_image', maxCount: 1 },
+  ])(req, res, (err) => {
+    if (err) {
+      req.uploadError = err.code === 'LIMIT_FILE_SIZE'
+        ? 'That file is too large — builds are capped at 250 MB.'
+        : (err.message || 'Upload failed.');
+    }
+    next();
+  });
+};
+
 // Same contract as formUpload, for inputs that accept several files at once.
 const formUploadMany = (uploader, field, max) => (req, res, next) =>
   uploader.array(field, max)(req, res, (err) => {
@@ -185,7 +215,7 @@ router.use(isDeveloper, checkBanned);
 router.get ('/dashboard',                             dashboardController.getDashboard);
 router.get ('/submissions/:id',                       dashboardController.getSubmissionDetail);
 router.get ('/submit',                                submissionsController.getSubmit);
-router.post('/submit',                                uploadLimiter, developerUpload.single('game_zip'), submissionsController.postSubmit);
+router.post('/submit',                                uploadLimiter, submissionUpload, submissionsController.postSubmit);
 router.post('/submissions/:id/submit-review',         submissionsController.postSubmitReview);
 
 // Store Listing — the second gate, opened once a build passes review
