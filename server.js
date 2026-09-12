@@ -86,11 +86,25 @@ app.use((req, res, next) => {
   res.locals.appName     = process.env.APP_NAME || 'Playmist';
   // Lets the public navbar mark which nav item matches the current page.
   res.locals.currentPath = req.path;
-  res.locals.success_msg = req.flash('success_msg');
-  res.locals.error_msg   = req.flash('error_msg');
-  res.locals.error       = req.flash('error');
+  // connect-flash's req.flash(type) runs `session.flash = session.flash || {}`
+  // even when it is only *reading*. That marks the session dirty, which
+  // defeats saveUninitialized:false — every anonymous visitor was given a
+  // persisted `sessions` row and a Set-Cookie. Only read when something was
+  // actually flashed; req.flash() returns [] for a missing key anyway.
+  const hasFlash = !!(req.session && req.session.flash);
+  res.locals.success_msg = hasFlash ? req.flash('success_msg') : [];
+  res.locals.error_msg   = hasFlash ? req.flash('error_msg')   : [];
+  res.locals.error       = hasFlash ? req.flash('error')       : [];
+
   res.locals.admin       = req.session.admin || null;
   res.locals.developer   = req.session.developer || null;
+  // Who is *logged in*, for the public navbar. Kept separate from `developer`
+  // because controllers pass their own `developer` local meaning something
+  // else entirely — the game detail page passes the game's AUTHOR — and a
+  // template local shadows res.locals. That shadowing made the navbar show
+  // "My Dashboard" to anonymous visitors on every game with an author.
+  // Nothing but this line ever sets authDeveloper.
+  res.locals.authDeveloper = req.session.developer || null;
   next();
 });
 
