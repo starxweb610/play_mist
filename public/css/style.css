@@ -1959,6 +1959,17 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
   align-items: start;
 }
 
+/* Art column: the thumbnail with the call to action directly beneath it, so the
+   Play button sits with the artwork rather than at the foot of the copy. */
+.game-hero-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  /* A grid item defaults to min-content width; without this the long button
+     label would widen the whole column past its 300px track. */
+  min-width: 0;
+}
+
 .game-hero-thumb {
   border-radius: var(--r-lg);
   overflow: hidden;
@@ -2048,6 +2059,24 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
 .game-hero-hint {
   font-size: 0.85rem;
   color: var(--text-muted);
+}
+
+/* In the narrow art column two buttons side by side would wrap mid-row, so
+   stack them full width. Below 768px the hero is a single column and they go
+   back to a centred row under the art (see the responsive block). */
+@media (min-width: 769px) {
+  .game-hero-aside .game-hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .game-hero-aside .game-hero-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .game-hero-aside .game-hero-hint { text-align: center; }
 }
 
 .game-detail-section { padding-top: 0; }
@@ -2931,6 +2960,7 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
 
   .game-hero-main { grid-template-columns: 1fr; }
   .game-hero-thumb { max-width: 200px; margin: 0 auto; }
+  .game-hero-aside { gap: 16px; }
   .game-hero-content { text-align: center; }
   .game-hero-badges, .game-hero-meta, .game-hero-tags, .game-hero-actions { justify-content: center; }
   .screenshot-grid { grid-template-columns: 1fr; }
