@@ -153,12 +153,32 @@ button { font-family: inherit; }
   text-transform: uppercase;
   letter-spacing: -0.02em;
   background: var(--accent);
+  background-clip: padding-box;
   box-sizing: content-box;
+  overflow: hidden;
 }
+/* Fills for the initial-letter placeholder. These live here rather than in a
+   style="" attribute so the :has(img) rule below can switch them off. */
+.avatar--brand  { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--accent-ink); }
+.avatar--violet { background: linear-gradient(135deg, var(--purple), var(--info)); color: #fff; }
+/* A fill left painted behind a photo showed through the circle's antialiased
+   edge as a green ring, so drop it as soon as there is a real image. */
+.avatar:has(img) { background: none; }
 .avatar.xl { width: 64px; height: 64px; font-size: 26px; }
 .avatar.md { width: 28px; height: 28px; font-size: 11px; }
 .avatar.sm { width: 22px; height: 22px; font-size: 10px; }
-.avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+/* A percentage HEIGHT doesn't resolve against the grid area, so `height: 100%`
+   fell back to auto and a portrait photo kept its own ratio, stretching the
+   circle into an oval and spilling the accent background out as a ring.
+   Width percentages do resolve, so size off the width and pin the square with
+   aspect-ratio; overflow:hidden clips anything that still tries to escape. */
+.avatar img {
+  grid-area: 1 / 1;
+  width: 100%; height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover; object-position: center;
+  border-radius: 50%; display: block;
+}
 
 /* ─── Main pane ──────────────────────────────────────────────────────── */
 .main-content {

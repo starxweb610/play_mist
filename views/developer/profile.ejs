@@ -87,6 +87,14 @@
     .handle-prefix { padding: 9px 0 9px 12px; color: var(--ink-3); font-size: 13px; white-space: nowrap; user-select: none; }
     .handle-field input.pf-input { border: none !important; background: transparent !important; padding-left: 1px; min-width: 0; }
     .handle-status { font-size: 12px; margin-top: 6px; min-height: 16px; color: var(--ink-3); }
+    .handle-lock {
+      display: flex; align-items: flex-start; gap: 8px;
+      margin-top: 8px; padding: 9px 11px; border-radius: 9px;
+      background: var(--warn-soft); border: 1px solid rgba(255,181,71,.25);
+      color: var(--warn); font-size: 12.5px; line-height: 1.45;
+    }
+    .handle-lock svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 1px; }
+    .handle-lock b { font-weight: 700; }
     .handle-status.ok  { color: var(--ok); }
     .handle-status.bad { color: var(--danger); }
 
@@ -141,7 +149,7 @@
       <!-- Identity -->
       <div class="profile-hero">
         <div class="avatar-wrap" id="avatarWrap">
-          <div class="avatar xl" id="profileAvatar" style="background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--accent-ink);">
+          <div class="avatar xl avatar--brand" id="profileAvatar">
             <% if (devProfile.avatar_url) { %>
               <img src="<%= devProfile.avatar_url %>" alt="<%= devProfile.name %>">
             <% } else { %>
@@ -196,14 +204,25 @@
                          autocapitalize="none" maxlength="30" value="<%= form.handle || '' %>"
                          data-current="<%= devProfile.handle || '' %>" <%= nextHandleChange ? 'readonly' : '' %> />
                 </div>
+                <% if (nextHandleChange) {
+                     const daysLeft = Math.max(1, Math.ceil((nextHandleChange - new Date()) / 86400000)); %>
+                  <div class="handle-lock">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                    <span>
+                      Handle locked for <b><%= daysLeft %> more <%= daysLeft === 1 ? 'day' : 'days' %></b>.
+                      You changed it recently, so it can only be changed again on
+                      <b><%= nextHandleChange.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) %></b>.
+                    </span>
+                  </div>
+                <% } %>
                 <div class="handle-status" id="handleStatus" aria-live="polite"></div>
-                <div class="field-hint">
-                  <% if (nextHandleChange) { %>
-                    You changed your handle recently. You can change it again on <%= nextHandleChange.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) %>.
-                  <% } else { %>
+                <% if (!nextHandleChange) { %>
+                  <div class="field-hint">
                     Lowercase letters, numbers and underscores, starting with a letter. After a change you’ll need to wait <%= handleCooldownDays %> days to change it again; old links keep redirecting to your new handle.
-                  <% } %>
-                </div>
+                  </div>
+                <% } %>
               </div>
 
               <div class="pf-row">

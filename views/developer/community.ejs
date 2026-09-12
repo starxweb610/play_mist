@@ -104,7 +104,7 @@
 
       <!-- You -->
       <section class="cm-hero">
-        <div class="avatar" style="background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--accent-ink);">
+        <div class="avatar avatar--brand">
           <% if (profile.avatar_url) { %><img src="<%= profile.avatar_url %>" alt=""><% } else { %><%= initial(profile.name) %><% } %>
         </div>
         <div class="cm-id">
@@ -213,7 +213,7 @@
             <% people.forEach(p => { %>
               <div class="cm-person">
                 <a class="cm-person-head" href="/@<%= p.handle %>" target="_blank" rel="noopener">
-                  <span class="avatar" style="background:linear-gradient(135deg,var(--purple),var(--info));color:#fff;">
+                  <span class="avatar avatar--violet">
                     <% if (p.avatar_url) { %><img src="<%= p.avatar_url %>" alt=""><% } else { %><%= initial(p.name) %><% } %>
                   </span>
                   <span style="min-width:0;">
