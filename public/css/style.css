@@ -2147,13 +2147,43 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
    IN-BROWSER PLAYER PAGE
    ════════════════════════════════════════════════════════════════════════════ */
 
+/* The player fills exactly the *visible* viewport.
+
+   `100vh` on iOS Safari is the LARGE viewport — it measures the page as if the
+   browser chrome were hidden, so the bottom toolbar sits on top of the last
+   ~50-90px of the layout and clips the game. The chain below resolves, in
+   order of preference, to the height that is actually on screen:
+     1. `--app-h`  — px measured by JS (covers iOS 15.0-15.3, which has no dvh)
+     2. `100dvh`   — dynamic viewport height, correct on every modern browser
+   `100vh` stays as the no-JS / legacy floor. */
 .play-body {
   height: 100vh;
+  height: var(--app-h, 100vh);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   background: #000;
+  /* viewport-fit=cover lets the page run under the notch and home indicator,
+     so pull the chrome back inside the safe area. */
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+           env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  /* Stop iOS rubber-banding: a bounce here re-expands the Safari toolbars and
+     makes the stage jump mid-game. */
+  overscroll-behavior: none;
+  touch-action: manipulation;
 }
+
+@supports (height: 100dvh) {
+  .play-body { height: 100dvh; }
+}
+
+/* The aurora layers are fixed, full-screen and permanently animating. They are
+   invisible behind the opaque player but still cost GPU time every frame, so
+   drop them while a game is running. */
+.play-root::before,
+.play-root::after,
+.play-body::before,
+.play-body::after { display: none; animation: none; }
 
 .player-bar {
   height: 52px;
@@ -2180,6 +2210,13 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
   transition: all var(--ease);
 }
 
+/* iPhone Safari exposes no element Fullscreen API; the button is neutralised
+   rather than removed so it still reserves its slot in the bar. */
+.player-fullscreen.is-unavailable {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .player-back:hover, .player-fullscreen:hover {
   color: var(--text);
   background: rgba(255,255,255,0.05);
@@ -2201,6 +2238,9 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
 
 .player-stage {
   flex: 1;
+  /* Without this a flex item refuses to shrink below its content's intrinsic
+     height, which would push the stage past the bottom of the viewport again. */
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2219,7 +2259,18 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
   width: auto;
   height: 100%;
   max-width: 100%;
+  max-height: 100%;
   aspect-ratio: 9 / 16;
+}
+
+/* On a phone the stage is already portrait and every pixel counts, so let the
+   frame fill it rather than letterboxing to 9:16. */
+@media (max-width: 768px) and (orientation: portrait) {
+  .player-stage--portrait .player-frame {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -2728,6 +2779,20 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
   .screenshot-grid { grid-template-columns: 1fr; }
 
   .player-back-text, .player-fullscreen-text { display: none; }
+
+  /* Hand the game back the 8px the bar was spending on labels. */
+  .player-bar { height: 44px; padding: 0 10px; }
+  .player-back, .player-fullscreen { padding: 7px 9px; }
+  .player-title { font-size: 0.85rem; min-width: 0; }
+}
+
+/* A phone held sideways is wider than 768px but only ~330px tall, so the bar
+   has to shrink on viewport *height* as well or it eats a sixth of the game. */
+@media (max-height: 500px) {
+  .player-bar { height: 40px; padding: 0 10px; }
+  .player-back-text, .player-fullscreen-text { display: none; }
+  .player-back, .player-fullscreen { padding: 6px 9px; }
+  .player-title { font-size: 0.82rem; min-width: 0; }
 }
 
 @media (max-width: 480px) {

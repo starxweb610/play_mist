@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="play-root">
 <head>
   <meta charset="UTF-8" />
   <%- include('partials/analytics') %>
@@ -24,7 +24,11 @@
 <body class="play-body">
 
   <!-- ─── PLAYER BAR ───────────────────────────────────────────────────── -->
-  <header class="player-bar" data-aos="fade-down">
+  <!-- No data-aos here on purpose: [data-aos] starts at opacity:0 and is only
+       revealed by main.js's IntersectionObserver. On every other page that is a
+       nicety, but this bar holds the only way out of a game — if main.js fails
+       to load the player would be trapped on an invisible header. -->
+  <header class="player-bar">
     <a href="/games/<%= game.slug %>" class="player-back" aria-label="Back to game details">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
       <span class="player-back-text">Back</span>
@@ -56,20 +60,68 @@
   <script src="/js/main.js"></script>
   <script>
     (function () {
-      const btn = document.getElementById('fullscreenBtn');
+      const btn   = document.getElementById('fullscreenBtn');
       const stage = document.getElementById('playerStage');
+      const root  = document.documentElement;
 
-      btn.addEventListener('click', () => {
-        if (!document.fullscreenElement) {
-          (stage.requestFullscreen || stage.webkitRequestFullscreen || stage.msRequestFullscreen).call(stage);
-        } else {
-          (document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen).call(document);
-        }
-      });
+      /* ── Visible-viewport height ──────────────────────────────────────────
+         iOS Safari reports `100vh` as the viewport it *would* have with the
+         toolbars hidden, so the bottom bar overlaps the game. Publish the real
+         on-screen height as `--app-h` for browsers without `dvh` support
+         (iOS 15.0-15.3); everywhere else the CSS `@supports (height: 100dvh)`
+         rule takes over and this value is simply ignored. */
+      const setAppHeight = () => {
+        const vv = window.visualViewport;
+        // visualViewport excludes the browser chrome; innerHeight is the fallback.
+        const h = vv ? vv.height : window.innerHeight;
+        root.style.setProperty('--app-h', h + 'px');
+      };
 
-      document.addEventListener('fullscreenchange', () => {
-        stage.classList.toggle('is-fullscreen', !!document.fullscreenElement);
+      setAppHeight();
+      window.addEventListener('resize', setAppHeight);
+      window.addEventListener('orientationchange', () => {
+        // Safari reports stale metrics until after the rotation settles.
+        setAppHeight();
+        setTimeout(setAppHeight, 250);
       });
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', setAppHeight);
+      }
+
+      /* Swallow page-level touch drags so a swipe on the game never
+         rubber-bands the document or re-animates the Safari toolbars. The
+         iframe gets its own events, so the game itself is unaffected. */
+      document.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1) e.preventDefault();
+      }, { passive: false });
+
+      /* ── Fullscreen ───────────────────────────────────────────────────────
+         iPhone Safari has no element-level Fullscreen API (video only), so the
+         button would throw on tap. Hide it when there is nothing to call. */
+      const request = stage.requestFullscreen || stage.webkitRequestFullscreen || stage.msRequestFullscreen;
+      const exit    = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+
+      if (!request) {
+        // Keep the element in the flex row so the centred title stays centred.
+        btn.classList.add('is-unavailable');
+      } else {
+        btn.addEventListener('click', () => {
+          const active = document.fullscreenElement || document.webkitFullscreenElement;
+          if (active) {
+            if (exit) exit.call(document);
+          } else {
+            Promise.resolve(request.call(stage)).catch(() => {});
+          }
+        });
+      }
+
+      const onFsChange = () => {
+        const active = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        stage.classList.toggle('is-fullscreen', active);
+        setAppHeight();
+      };
+      document.addEventListener('fullscreenchange', onFsChange);
+      document.addEventListener('webkitfullscreenchange', onFsChange);
     })();
   </script>
 </body>
