@@ -6,7 +6,7 @@ const path   = require('path');
 const PATHS  = require('../../config/paths');
 const r2     = require('../../config/r2');
 const { formatBytes } = require('../../utils/format');
-const { toWebp, IMMUTABLE_CACHE } = require('../../utils/images');
+const { toWebp, presetSize, ImageTooSmallError, IMMUTABLE_CACHE } = require('../../utils/images');
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 /**
@@ -183,6 +183,8 @@ exports.getDetail = async (req, res) => {
     res.render('sitehandler/games/detail', {
       title: game.title, activePage: 'games',
       game, genres, tags, selectedTagIds, screenshots: mappedScreenshots, developers,
+      // So the upload hints state the exact sizes the converter enforces.
+      artSizes: { thumbnail: presetSize('gameThumb'), banner: presetSize('gameBanner') },
       liveStats: {
         playCount:   playStats.playCount,
         avgRating:   ratingStats.avgRating ? Number(ratingStats.avgRating).toFixed(1) : null,
@@ -451,6 +453,26 @@ exports.postDemoToggle = async (req, res) => {
   res.redirect(`/sitehandler/games/${id}`);
 };
 
+/**
+ * Deletes a superseded image, unless a developer's store listing still points
+ * at it. Listings that predate the copy-on-sync behaviour share their object
+ * with the game; removing it here would leave that developer's listing page
+ * showing a dead image for artwork they still own.
+ */
+async function deleteUnlessListingUses(key) {
+  if (!key) return;
+  const url = r2.getPublicUrl(key);
+  const [[{ n }]] = await db.query(
+    `SELECT
+       (SELECT COUNT(*) FROM developer_submissions
+         WHERE thumbnail_url = ? OR banner_url = ? OR reference_image_url = ?)
+     + (SELECT COUNT(*) FROM developer_submission_screenshots WHERE image_url = ?) AS n`,
+    [url, url, url, url]
+  );
+  if (Number(n) > 0) return;
+  await r2.deleteObject(key).catch(() => {});
+}
+
 // ── POST /sitehandler/games/:id/upload-image ─────────────────────────────────
 exports.postUploadImage = async (req, res) => {
   const { id } = req.params;
@@ -462,20 +484,22 @@ exports.postUploadImage = async (req, res) => {
   }
 
   try {
-    const { buffer, hash } = await toWebp(imgFile.buffer);
+    // Exactly 1024x1536 — the shape every card and rail is laid out for.
+    const { buffer, hash } = await toWebp(imgFile.buffer, 'gameThumb');
     const key = `images/games/game-${id}-${hash}.webp`;
     const publicUrl = await r2.uploadBuffer(key, buffer, 'image/webp', IMMUTABLE_CACHE);
 
     // Delete old thumbnail from R2 if it had a different key (different image content)
     const [rows] = await db.query('SELECT thumbnail_url FROM games WHERE id = ?', [id]);
     const oldKey = rows.length ? r2.keyFromUrl(rows[0].thumbnail_url) : null;
-    if (oldKey && oldKey !== key) await r2.deleteObject(oldKey).catch(() => {});
+    if (oldKey && oldKey !== key) await deleteUnlessListingUses(oldKey);
 
     await db.query('UPDATE games SET thumbnail_url = ? WHERE id = ?', [publicUrl, id]);
     req.flash('success_msg', '✅ Game thumbnail updated.');
     res.redirect(`/sitehandler/games/${id}`);
   } catch (err) {
-    req.flash('error_msg', 'Image upload failed: ' + err.message);
+    req.flash('error_msg', err instanceof ImageTooSmallError
+      ? `Thumbnail: ${err.message}` : 'Image upload failed: ' + err.message);
     res.redirect(`/sitehandler/games/${id}`);
   }
 };
@@ -491,19 +515,21 @@ exports.postUploadSecondaryImage = async (req, res) => {
   }
 
   try {
-    const { buffer, hash } = await toWebp(imgFile.buffer);
+    // Exactly 1536x1024 — the wide companion to the portrait thumbnail.
+    const { buffer, hash } = await toWebp(imgFile.buffer, 'gameBanner');
     const key = `images/games/game-${id}-secondary-${hash}.webp`;
     const publicUrl = await r2.uploadBuffer(key, buffer, 'image/webp', IMMUTABLE_CACHE);
 
     const [rows] = await db.query('SELECT secondary_thumbnail FROM games WHERE id = ?', [id]);
     const oldKey = rows.length ? r2.keyFromUrl(rows[0].secondary_thumbnail) : null;
-    if (oldKey && oldKey !== key) await r2.deleteObject(oldKey).catch(() => {});
+    if (oldKey && oldKey !== key) await deleteUnlessListingUses(oldKey);
 
     await db.query('UPDATE games SET secondary_thumbnail = ? WHERE id = ?', [publicUrl, id]);
     req.flash('success_msg', '✅ Secondary thumbnail updated.');
     res.redirect(`/sitehandler/games/${id}`);
   } catch (err) {
-    req.flash('error_msg', 'Secondary image upload failed: ' + err.message);
+    req.flash('error_msg', err instanceof ImageTooSmallError
+      ? `Banner: ${err.message}` : 'Secondary image upload failed: ' + err.message);
     res.redirect(`/sitehandler/games/${id}`);
   }
 };
@@ -525,7 +551,7 @@ exports.postUploadPromotionalImage = async (req, res) => {
 
     const [rows] = await db.query('SELECT promotional_thumbnail FROM games WHERE id = ?', [id]);
     const oldKey = rows.length ? r2.keyFromUrl(rows[0].promotional_thumbnail) : null;
-    if (oldKey && oldKey !== key) await r2.deleteObject(oldKey).catch(() => {});
+    if (oldKey && oldKey !== key) await deleteUnlessListingUses(oldKey);
 
     await db.query('UPDATE games SET promotional_thumbnail = ? WHERE id = ?', [publicUrl, id]);
     req.flash('success_msg', '✅ Promotional thumbnail updated.');

@@ -64,12 +64,16 @@ async function uniqueSlug(table, scopeColumn, scopeValue, base, excludeId = null
  * Builds the `WHERE` fragment that resolves a :param which may be a slug or
  * a legacy numeric id. Returns null when the param is neither shape, so the
  * caller can 404 without touching the database.
+ *
+ * Pass `alias` when the query joins another table that also has `id`/`slug`
+ * columns, so the fragment reads `s.slug = ?` instead of an ambiguous `slug`.
  */
-function matchClause(param) {
+function matchClause(param, alias = '') {
   const value = String(param ?? '');
-  if (isSlugShape(value)) return { sql: '(slug = ?' + (isIdShape(value) ? ' OR id = ?)' : ')'),
+  const col = (name) => (alias ? `${alias}.${name}` : name);
+  if (isSlugShape(value)) return { sql: `(${col('slug')} = ?` + (isIdShape(value) ? ` OR ${col('id')} = ?)` : ')'),
                                    params: isIdShape(value) ? [value, Number(value)] : [value] };
-  if (isIdShape(value))   return { sql: 'id = ?', params: [Number(value)] };
+  if (isIdShape(value))   return { sql: `${col('id')} = ?`, params: [Number(value)] };
   return null;
 }
 

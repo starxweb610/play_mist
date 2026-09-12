@@ -15,7 +15,7 @@
       </button>
       <span class="topbar-title" style="max-width:360px;overflow:hidden;text-overflow:ellipsis;">Store Listing — <%= submission.title %></span>
       <div class="top-actions">
-        <a href="/developer/submissions/<%= submission.id %>" class="btn ghost sm">
+        <a href="/developer/submissions/<%= submission.slug %>" class="btn ghost sm">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
           Back
         </a>
@@ -58,7 +58,7 @@
       <div class="detail-grid">
         <!-- Left: the listing form -->
         <div>
-          <form method="POST" action="/developer/submissions/<%= submission.id %>/listing" id="listingForm">
+          <form method="POST" action="/developer/submissions/<%= submission.slug %>/listing" id="listingForm">
 
             <!-- Text -->
             <div class="card">
@@ -151,27 +151,31 @@
 
               <div class="form-row" style="align-items:start;">
                 <div class="form-group">
-                  <label>Square Icon <span style="color:var(--danger);">*</span></label>
-                  <form method="POST" action="/developer/submissions/<%= submission.id %>/listing/icon" enctype="multipart/form-data" class="art-upload-form">
-                    <div class="art-slot art-slot-icon <%= submission.thumbnail_url ? 'filled' : '' %>">
-                      <input type="file" name="icon" accept="image/jpeg,image/png,image/webp" />
+                  <label>Game Thumbnail <span style="color:var(--danger);">*</span></label>
+                  <form method="POST" action="/developer/submissions/<%= submission.slug %>/listing/thumbnail" enctype="multipart/form-data" class="art-upload-form">
+                    <div class="art-slot art-slot-thumb <%= submission.thumbnail_url ? 'filled' : '' %>">
+                      <input type="file" name="thumbnail" accept="image/jpeg,image/png,image/webp" />
                       <% if (submission.thumbnail_url) { %>
-                        <img src="<%= submission.thumbnail_url %>" alt="Game icon" />
+                        <img src="<%= submission.thumbnail_url %>" alt="Game thumbnail" />
                       <% } else { %>
                         <div class="art-slot-empty">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                          <span>Upload icon</span>
-                          <small>Square, 512×512 or larger</small>
+                          <span>Upload thumbnail</span>
+                          <small>Portrait, <%= ART_SIZES.thumbnail.width %>×<%= ART_SIZES.thumbnail.height %></small>
                         </div>
                       <% } %>
                     </div>
                   </form>
-                  <div class="field-hint">The image on every card and rail. JPG, PNG or WebP, max 5 MB.</div>
+                  <div class="field-hint">
+                    The image on every card and rail. Stored at exactly
+                    <%= ART_SIZES.thumbnail.width %>×<%= ART_SIZES.thumbnail.height %> — anything
+                    larger is centre-cropped, anything smaller is rejected. JPG, PNG or WebP, max 5 MB.
+                  </div>
                 </div>
 
                 <div class="form-group">
                   <label>Feature Banner <span class="optional-label">(optional)</span></label>
-                  <form method="POST" action="/developer/submissions/<%= submission.id %>/listing/banner" enctype="multipart/form-data" class="art-upload-form">
+                  <form method="POST" action="/developer/submissions/<%= submission.slug %>/listing/banner" enctype="multipart/form-data" class="art-upload-form">
                     <div class="art-slot art-slot-banner <%= submission.banner_url ? 'filled' : '' %>">
                       <input type="file" name="banner" accept="image/jpeg,image/png,image/webp" />
                       <% if (submission.banner_url) { %>
@@ -180,12 +184,15 @@
                         <div class="art-slot-empty">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                           <span>Upload banner</span>
-                          <small>16:9, 1920×1080 recommended</small>
+                          <small>Landscape, <%= ART_SIZES.banner.width %>×<%= ART_SIZES.banner.height %></small>
                         </div>
                       <% } %>
                     </div>
                   </form>
-                  <div class="field-hint">Wide art used on larger layouts. Max 10 MB.</div>
+                  <div class="field-hint">
+                    Wide art used on larger layouts. Stored at exactly
+                    <%= ART_SIZES.banner.width %>×<%= ART_SIZES.banner.height %>. Max 10 MB.
+                  </div>
                 </div>
               </div>
 
@@ -200,7 +207,7 @@
                   <% screenshots.forEach(s => { %>
                   <div class="shot-tile">
                     <img src="<%= s.image_url %>" alt="Screenshot" loading="lazy" />
-                    <form method="POST" action="/developer/submissions/<%= submission.id %>/listing/screenshots/<%= s.id %>/delete" style="margin:0;">
+                    <form method="POST" action="/developer/submissions/<%= submission.slug %>/listing/screenshots/<%= s.public_id %>/delete" style="margin:0;">
                       <button type="submit" class="shot-del" title="Remove screenshot"
                               onclick="return confirm('Remove this screenshot?')">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -212,7 +219,7 @@
                 <% } %>
 
                 <% if (screenshots.length < MAX_SCREENSHOTS) { %>
-                <form method="POST" action="/developer/submissions/<%= submission.id %>/listing/screenshots" enctype="multipart/form-data" id="shotForm">
+                <form method="POST" action="/developer/submissions/<%= submission.slug %>/listing/screenshots" enctype="multipart/form-data" id="shotForm">
                   <div class="upload-zone" id="shotZone">
                     <input type="file" name="screenshots" id="shotInput" accept="image/jpeg,image/png,image/webp" multiple />
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
@@ -264,11 +271,11 @@
           <div class="card">
             <div class="card-title" style="margin-bottom:12px;">Preview</div>
             <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface-2);">
-              <div style="aspect-ratio:1/1;background:var(--bg-2);">
+              <div style="aspect-ratio:<%= ART_SIZES.thumbnail.width %>/<%= ART_SIZES.thumbnail.height %>;background:var(--bg-2);">
                 <% if (submission.thumbnail_url) { %>
                   <img src="<%= submission.thumbnail_url %>" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" />
                 <% } else { %>
-                  <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--ink-4);font-size:.78rem;">No icon yet</div>
+                  <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--ink-4);font-size:.78rem;">No thumbnail yet</div>
                 <% } %>
               </div>
               <div style="padding:12px 14px;">

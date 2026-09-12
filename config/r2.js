@@ -12,6 +12,7 @@ const {
   DeleteObjectsCommand,
   ListObjectsV2Command,
   GetObjectCommand,
+  CopyObjectCommand,
 } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 
@@ -169,6 +170,23 @@ async function listPrefix(prefix) {
   return keys;
 }
 
+/**
+ * Server-side copy within the bucket — the bytes never travel through us.
+ * Used to give a game its own copy of a developer's listing artwork, so the
+ * two owners can replace or delete their images without breaking each other.
+ */
+async function copyObject(srcKey, destKey, { contentType, cacheControl } = {}) {
+  await s3.send(new CopyObjectCommand({
+    Bucket: BUCKET,
+    CopySource: `${BUCKET}/${srcKey}`,
+    Key: destKey,
+    ...(contentType || cacheControl
+      ? { MetadataDirective: 'REPLACE', ContentType: contentType, CacheControl: cacheControl }
+      : {}),
+  }));
+  return getPublicUrl(destKey);
+}
+
 async function downloadStream(key) {
   const response = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
   return response.Body;
@@ -185,4 +203,5 @@ module.exports = {
   deletePrefix,
   listPrefix,
   downloadStream,
+  copyObject,
 };

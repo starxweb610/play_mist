@@ -123,7 +123,7 @@
                   </td>
                   <td class="table-sub"><%= new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %></td>
                   <td>
-                    <a href="/developer/submissions/<%= s.id %>" class="btn ghost sm">Details</a>
+                    <a href="/developer/submissions/<%= s.slug %>" class="btn ghost sm">Details</a>
                   </td>
                 </tr>
                 <% }); %>

@@ -13,9 +13,11 @@
  * never leak onto a game page.
  */
 const db     = require('../../config/database');
+const crypto = require('crypto');
 const r2     = require('../../config/r2');
-const { toWebp, IMMUTABLE_CACHE } = require('../../utils/images');
+const { toWebp, presetSize, ImageTooSmallError, IMMUTABLE_CACHE } = require('../../utils/images');
 const { parseVideo, watchUrl }    = require('../../utils/portfolio');
+const { matchClause, shouldRedirectToSlug } = require('../../utils/slugs');
 
 const MIN_SCREENSHOTS = 3;
 const MAX_SCREENSHOTS = 8;
@@ -26,23 +28,41 @@ const SHORT_DESC_MAX  = 200;
 // developer can fix a typo or swap a screenshot after the game is published.
 const EDITABLE = new Set(['listing_pending', 'approved']);
 
+// The two pieces of art a listing carries, and the exact size each is stored
+// at. The views read these so the copy can never drift from what we enforce.
+const ART_SLOTS = {
+  thumbnail: { column: 'thumbnail_url', preset: 'gameThumb',  label: 'Game thumbnail', field: 'thumb' },
+  banner:    { column: 'banner_url',    preset: 'gameBanner', label: 'Banner',         field: 'banner' },
+};
+const ART_SIZES = {
+  thumbnail: presetSize('gameThumb'),
+  banner:    presetSize('gameBanner'),
+};
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Loads a submission the signed-in developer actually owns, or null. */
-async function loadOwned(developerId, id) {
+/**
+ * Loads a submission the signed-in developer actually owns, or null.
+ * Addressed by slug so no database id appears in a portal URL; a bare numeric
+ * id still resolves, because approval emails sent before this carry one.
+ */
+async function loadOwned(developerId, idOrSlug) {
+  // Aliased: the games join brings its own id/slug columns into scope.
+  const match = matchClause(idOrSlug, 's');
+  if (!match) return null;
   const [rows] = await db.query(
     `SELECT s.*, g.is_active AS game_is_active, g.slug AS game_slug
      FROM developer_submissions s
      LEFT JOIN games g ON s.game_id = g.id
-     WHERE s.id = ? AND s.developer_id = ?`,
-    [id, developerId]
+     WHERE ${match.sql} AND s.developer_id = ?`,
+    [...match.params, developerId]
   );
   return rows[0] || null;
 }
 
 async function loadScreenshots(submissionId) {
   const [rows] = await db.query(
-    `SELECT id, image_url, position FROM developer_submission_screenshots
+    `SELECT id, public_id, image_url, position FROM developer_submission_screenshots
      WHERE submission_id = ? ORDER BY position ASC, id ASC`,
     [submissionId]
   );
@@ -53,13 +73,40 @@ async function loadScreenshots(submissionId) {
 function checklist(sub, screenshots) {
   return [
     { key: 'short_description', label: 'Short description',                      done: !!sub.short_description },
-    { key: 'icon',              label: 'Square icon',                            done: !!sub.thumbnail_url },
+    { key: 'thumbnail',         label: `Game thumbnail (${ART_SIZES.thumbnail.width}×${ART_SIZES.thumbnail.height})`, done: !!sub.thumbnail_url },
     { key: 'screenshots',       label: `${MIN_SCREENSHOTS} or more screenshots`, done: screenshots.length >= MIN_SCREENSHOTS },
     { key: 'tags',              label: 'At least one tag',                       done: !!(sub.listing_tags || '').trim() },
   ];
 }
 
 const isComplete = (sub, screenshots) => checklist(sub, screenshots).every(i => i.done);
+
+// Game-owned keys are derived from the listing object's content hash, so a
+// re-sync of unchanged art lands on the same key and costs nothing.
+const GAME_OWNED_PREFIXES = ['images/games/', 'images/screenshots/'];
+const isGameOwnedKey = (key) => !!key && GAME_OWNED_PREFIXES.some(p => key.startsWith(p));
+
+/**
+ * Gives the game its own copy of one listing image and returns its URL.
+ *
+ * The game row must never point at an object under images/listings/: the admin
+ * image handlers delete whatever the game currently references when they
+ * replace it, which would destroy the developer's listing artwork and leave
+ * the listing showing a dead image. Two owners, two objects.
+ */
+async function copyToGame(listingUrl, destKey) {
+  const srcKey = r2.keyFromUrl(listingUrl);
+  if (!srcKey) return null;
+  if (isGameOwnedKey(srcKey)) return listingUrl; // already a game-owned copy
+  return r2.copyObject(srcKey, destKey, { contentType: 'image/webp', cacheControl: IMMUTABLE_CACHE });
+}
+
+/** The content-hash tail of a listing key, for naming its game-owned copy. */
+const hashTail = (url) => {
+  const key = r2.keyFromUrl(url) || '';
+  const name = key.split('/').pop().replace(/\.webp$/, '');
+  return name.split('-').pop();
+};
 
 /**
  * Copies a finished listing onto the public `games` row. Runs only once the
@@ -72,6 +119,18 @@ const isComplete = (sub, screenshots) => checklist(sub, screenshots).every(i => 
 async function syncToGame(sub, screenshots) {
   if (!sub.game_id) return;
 
+  const [[game]] = await db.query(
+    'SELECT thumbnail_url, secondary_thumbnail FROM games WHERE id = ?', [sub.game_id]
+  );
+
+  // Artwork: the game gets its own copies, named the way the admin handlers
+  // name theirs so replacing one from the Games panel behaves normally.
+  const thumbnailUrl = await copyToGame(
+    sub.thumbnail_url, `images/games/game-${sub.game_id}-${hashTail(sub.thumbnail_url)}.webp`);
+  const bannerUrl = sub.banner_url
+    ? await copyToGame(sub.banner_url, `images/games/game-${sub.game_id}-secondary-${hashTail(sub.banner_url)}.webp`)
+    : null;
+
   await db.query(
     `UPDATE games
      SET short_description = ?, long_description = ?, controls = ?,
@@ -81,20 +140,42 @@ async function syncToGame(sub, screenshots) {
       sub.short_description,
       sub.description,
       sub.controls || null,
-      sub.thumbnail_url,
-      sub.banner_url || null,
+      thumbnailUrl,
+      bannerUrl,
       sub.game_id,
     ]
   );
 
-  // Screenshots: mirror the submission's set onto the game. The R2 objects are
-  // shared, so this copies URLs only — nothing is re-uploaded or orphaned.
+  // Retire the game's previous copies once they are no longer referenced.
+  for (const [oldUrl, newUrl] of [[game?.thumbnail_url, thumbnailUrl], [game?.secondary_thumbnail, bannerUrl]]) {
+    const oldKey = r2.keyFromUrl(oldUrl);
+    if (oldKey && isGameOwnedKey(oldKey) && oldKey !== r2.keyFromUrl(newUrl)) {
+      await r2.deleteObject(oldKey).catch(() => {});
+    }
+  }
+
+  // Screenshots: mirror the submission's set onto the game, again as the
+  // game's own objects. Superseded copies are removed so nothing is orphaned.
+  const [oldShots] = await db.query('SELECT image_url FROM game_screenshots WHERE game_id = ?', [sub.game_id]);
+  const copied = [];
+  for (const shot of screenshots) {
+    const url = await copyToGame(shot.image_url, `images/screenshots/screenshot-${sub.game_id}-${shot.public_id}.webp`);
+    if (url) copied.push(url);
+  }
+
   await db.query('DELETE FROM game_screenshots WHERE game_id = ?', [sub.game_id]);
-  if (screenshots.length) {
+  if (copied.length) {
     await db.query(
       'INSERT INTO game_screenshots (game_id, image_url) VALUES ?',
-      [screenshots.map(s => [sub.game_id, s.image_url])]
+      [copied.map(url => [sub.game_id, url])]
     );
+  }
+  const kept = new Set(copied.map(u => r2.keyFromUrl(u)));
+  for (const row of oldShots) {
+    const oldKey = r2.keyFromUrl(row.image_url);
+    if (oldKey && isGameOwnedKey(oldKey) && !kept.has(oldKey)) {
+      await r2.deleteObject(oldKey).catch(() => {});
+    }
   }
 
   // Tags resolve against the curated `tags` vocabulary — a developer picks from
@@ -113,9 +194,9 @@ async function syncToGame(sub, screenshots) {
 }
 
 /** Replaces one image on the submission, deleting the object it supersedes. */
-async function replaceImage(sub, column, file, slot) {
-  const { buffer, hash } = await toWebp(file.buffer);
-  const key = `images/listings/sub-${sub.id}-${slot}-${hash}.webp`;
+async function replaceImage(sub, { column, preset, field }, file) {
+  const { buffer, hash } = await toWebp(file.buffer, preset);
+  const key = `images/listings/sub-${sub.id}-${field}-${hash}.webp`;
   const publicUrl = await r2.uploadBuffer(key, buffer, 'image/webp', IMMUTABLE_CACHE);
 
   const oldKey = r2.keyFromUrl(sub[column]);
@@ -129,16 +210,16 @@ async function replaceImage(sub, column, file, slot) {
  * Re-syncs an already-approved listing after an edit. While a submission is
  * still 'listing_pending' nothing is published yet, so edits stay local.
  */
-async function resyncIfApproved(submissionId, developerId) {
-  const fresh = await loadOwned(developerId, submissionId);
+async function resyncIfApproved(submissionRef, developerId) {
+  const fresh = await loadOwned(developerId, submissionRef);
   if (!fresh || fresh.status !== 'approved') return;
-  const shots = await loadScreenshots(submissionId);
+  const shots = await loadScreenshots(fresh.id);
   if (isComplete(fresh, shots)) {
     await syncToGame(fresh, shots);
   } else {
     // Nothing should be able to make a submitted listing incomplete — the edit
     // paths all refuse it. Leave the published game untouched and flag it.
-    console.warn(`[listing] submission ${submissionId} is approved but incomplete; skipped game sync`);
+    console.warn(`[listing] submission ${fresh.id} is approved but incomplete; skipped game sync`);
   }
 }
 
@@ -146,7 +227,7 @@ async function resyncIfApproved(submissionId, developerId) {
 exports.getListings = async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT s.id, s.title, s.status, s.thumbnail_url, s.short_description,
+      `SELECT s.id, s.slug, s.title, s.status, s.thumbnail_url, s.short_description,
               s.listing_tags, s.listing_submitted_at, s.reviewed_at,
               g.is_active AS game_is_active, g.slug AS game_slug,
               (SELECT COUNT(*) FROM developer_submission_screenshots ss
@@ -182,14 +263,19 @@ exports.getListings = async (req, res) => {
 // ── GET /developer/submissions/:id/listing ───────────────────────────────────
 exports.getListing = async (req, res) => {
   try {
-    const sub = await loadOwned(req.session.developer.id, req.params.id);
+    const sub = await loadOwned(req.session.developer.id, req.params.slug);
     if (!sub) {
       req.flash('error_msg', 'Submission not found.');
       return res.redirect('/developer/listings');
     }
+    // A link from an approval email sent before slugs carries the numeric id;
+    // send it to the canonical URL rather than serving two addresses.
+    if (shouldRedirectToSlug(req.params.slug, sub)) {
+      return res.redirect(`/developer/submissions/${sub.slug}/listing`);
+    }
     if (!EDITABLE.has(sub.status)) {
       req.flash('error_msg', 'The store listing opens once your game has passed review.');
-      return res.redirect(`/developer/submissions/${sub.id}`);
+      return res.redirect(`/developer/submissions/${sub.slug}`);
     }
 
     const screenshots = await loadScreenshots(sub.id);
@@ -206,6 +292,7 @@ exports.getListing = async (req, res) => {
       checklist: checklist(sub, screenshots),
       complete: isComplete(sub, screenshots),
       errors: req.flash('listing_errors'),
+      ART_SIZES,
       MIN_SCREENSHOTS,
       MAX_SCREENSHOTS,
       MAX_TAGS,
@@ -221,18 +308,20 @@ exports.getListing = async (req, res) => {
 // Saves the text half of the listing. `action=submit` additionally promotes a
 // complete listing to 'approved' and publishes it onto the game row.
 exports.postListing = async (req, res) => {
-  const { id } = req.params;
-  const back = `/developer/submissions/${id}/listing`;
+  const ref = req.params.slug;
+  let back = '/developer/listings';
 
   try {
-    const sub = await loadOwned(req.session.developer.id, id);
+    const sub = await loadOwned(req.session.developer.id, ref);
     if (!sub) {
       req.flash('error_msg', 'Submission not found.');
       return res.redirect('/developer/listings');
     }
+    // The URL carries a slug now; every write below must use the resolved row.
+    back = `/developer/submissions/${sub.slug}/listing`;
     if (!EDITABLE.has(sub.status)) {
       req.flash('error_msg', 'This listing is not open for editing.');
-      return res.redirect(`/developer/submissions/${id}`);
+      return res.redirect(`/developer/submissions/${sub.slug}`);
     }
 
     const errors = [];
@@ -278,11 +367,11 @@ exports.postListing = async (req, res) => {
       `UPDATE developer_submissions
        SET short_description = ?, description = ?, controls = ?, listing_tags = ?, trailer_url = ?
        WHERE id = ?`,
-      [shortDesc, longDesc, controls, tags.join(', ') || null, trailer, id]
+      [shortDesc, longDesc, controls, tags.join(', ') || null, trailer, sub.id]
     );
 
-    const fresh = await loadOwned(req.session.developer.id, id);
-    const screenshots = await loadScreenshots(id);
+    const fresh = await loadOwned(req.session.developer.id, sub.id);
+    const screenshots = await loadScreenshots(sub.id);
 
     if (req.body.action === 'submit') {
       if (!isComplete(fresh, screenshots)) {
@@ -294,13 +383,13 @@ exports.postListing = async (req, res) => {
         await db.query(
           `UPDATE developer_submissions
            SET status = 'approved', listing_submitted_at = NOW() WHERE id = ?`,
-          [id]
+          [sub.id]
         );
         req.flash('success_msg', 'Store listing submitted! Your game is queued for publishing — we’ll email you the moment it goes live.');
       } else {
         req.flash('success_msg', 'Store listing updated.');
       }
-      return res.redirect(`/developer/submissions/${id}`);
+      return res.redirect(`/developer/submissions/${sub.slug}`);
     }
 
     if (fresh.status === 'approved' && isComplete(fresh, screenshots)) {
@@ -314,49 +403,55 @@ exports.postListing = async (req, res) => {
   }
 };
 
-// ── POST /developer/submissions/:id/listing/icon | /banner ───────────────────
-const imageUploader = (column, slot, label) => async (req, res) => {
-  const { id } = req.params;
-  const back = `/developer/submissions/${id}/listing`;
+// ── POST /developer/submissions/:slug/listing/thumbnail | /banner ────────────
+const imageUploader = (slotKey) => async (req, res) => {
+  const slot = ART_SLOTS[slotKey];
+  const size = ART_SIZES[slotKey];
+  let back = '/developer/listings';
 
   try {
-    const sub = await loadOwned(req.session.developer.id, id);
+    const sub = await loadOwned(req.session.developer.id, req.params.slug);
     if (!sub || !EDITABLE.has(sub.status)) {
       req.flash('error_msg', 'This listing is not open for editing.');
       return res.redirect('/developer/listings');
     }
+    back = `/developer/submissions/${sub.slug}/listing`;
     if (req.uploadError) { req.flash('error_msg', req.uploadError); return res.redirect(back); }
-    if (!req.file)       { req.flash('error_msg', `Choose a ${label} image to upload.`); return res.redirect(back); }
+    if (!req.file)       { req.flash('error_msg', `Choose a ${slot.label.toLowerCase()} image to upload.`); return res.redirect(back); }
 
-    await replaceImage(sub, column, req.file, slot);
-    await resyncIfApproved(id, req.session.developer.id);
-    req.flash('success_msg', `${label} updated.`);
+    await replaceImage(sub, slot, req.file);
+    await resyncIfApproved(sub.id, req.session.developer.id);
+    req.flash('success_msg', `${slot.label} updated — stored at ${size.width}×${size.height}.`);
   } catch (err) {
-    req.flash('error_msg', `${label} upload failed: ${err.message}`);
+    // An undersized image is the developer's to fix, so say exactly what's
+    // wrong rather than burying it in a generic upload failure.
+    req.flash('error_msg', err instanceof ImageTooSmallError
+      ? `${slot.label}: ${err.message}`
+      : `${slot.label} upload failed: ${err.message}`);
   }
   res.redirect(back);
 };
 
-exports.postIcon   = imageUploader('thumbnail_url', 'icon',   'Icon');
-exports.postBanner = imageUploader('banner_url',    'banner', 'Banner');
+exports.postThumbnail = imageUploader('thumbnail');
+exports.postBanner    = imageUploader('banner');
 
 // ── POST /developer/submissions/:id/listing/screenshots ──────────────────────
 exports.postScreenshots = async (req, res) => {
-  const { id } = req.params;
-  const back = `/developer/submissions/${id}/listing`;
+  let back = '/developer/listings';
 
   try {
-    const sub = await loadOwned(req.session.developer.id, id);
+    const sub = await loadOwned(req.session.developer.id, req.params.slug);
     if (!sub || !EDITABLE.has(sub.status)) {
       req.flash('error_msg', 'This listing is not open for editing.');
       return res.redirect('/developer/listings');
     }
+    back = `/developer/submissions/${sub.slug}/listing`;
     if (req.uploadError) { req.flash('error_msg', req.uploadError); return res.redirect(back); }
 
     const files = req.files || [];
     if (!files.length) { req.flash('error_msg', 'Choose at least one screenshot to upload.'); return res.redirect(back); }
 
-    const existing = await loadScreenshots(id);
+    const existing = await loadScreenshots(sub.id);
     const room = MAX_SCREENSHOTS - existing.length;
     if (room <= 0) {
       req.flash('error_msg', `You already have the maximum of ${MAX_SCREENSHOTS} screenshots. Remove one first.`);
@@ -369,15 +464,17 @@ exports.postScreenshots = async (req, res) => {
     for (const file of accepted) {
       const uid = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
       const { buffer } = await toWebp(file.buffer);
-      const key = `images/listings/sub-${id}-shot-${uid}.webp`;
+      const key = `images/listings/sub-${sub.id}-shot-${uid}.webp`;
       const publicUrl = await r2.uploadBuffer(key, buffer, 'image/webp', IMMUTABLE_CACHE);
-      values.push([id, publicUrl, position++]);
+      // public_id addresses the row in the delete URL, so no database id is
+      // ever put in a form action.
+      values.push([sub.id, crypto.randomBytes(8).toString('hex'), publicUrl, position++]);
     }
     await db.query(
-      'INSERT INTO developer_submission_screenshots (submission_id, image_url, position) VALUES ?',
+      'INSERT INTO developer_submission_screenshots (submission_id, public_id, image_url, position) VALUES ?',
       [values]
     );
-    await resyncIfApproved(id, req.session.developer.id);
+    await resyncIfApproved(sub.id, req.session.developer.id);
 
     req.flash('success_msg', files.length > accepted.length
       ? `${accepted.length} screenshot(s) added — the rest exceeded the ${MAX_SCREENSHOTS}-image limit.`
@@ -388,38 +485,41 @@ exports.postScreenshots = async (req, res) => {
   res.redirect(back);
 };
 
-// ── POST /developer/submissions/:id/listing/screenshots/:shotId/delete ───────
+// ── POST /developer/submissions/:slug/listing/screenshots/:shotId/delete ─────
 exports.postDeleteScreenshot = async (req, res) => {
-  const { id, shotId } = req.params;
-  const back = `/developer/submissions/${id}/listing`;
+  const { shotId } = req.params;
+  let back = '/developer/listings';
 
   try {
-    const sub = await loadOwned(req.session.developer.id, id);
+    const sub = await loadOwned(req.session.developer.id, req.params.slug);
     if (!sub || !EDITABLE.has(sub.status)) {
       req.flash('error_msg', 'This listing is not open for editing.');
       return res.redirect('/developer/listings');
     }
+    back = `/developer/submissions/${sub.slug}/listing`;
 
     // Once a listing is submitted its images are what the public game page
     // shows. Deleting below the minimum there would strip a live listing and
     // leave the game page holding whatever was synced last, so refuse instead.
     if (sub.status === 'approved') {
-      const current = await loadScreenshots(id);
+      const current = await loadScreenshots(sub.id);
       if (current.length <= MIN_SCREENSHOTS) {
         req.flash('error_msg', `A published listing needs at least ${MIN_SCREENSHOTS} screenshots. Upload a replacement first, then remove this one.`);
         return res.redirect(back);
       }
     }
 
+    // Addressed by public_id: opaque, and still scoped to this submission so
+    // one developer's id can never reach another's row.
     const [rows] = await db.query(
-      'SELECT image_url FROM developer_submission_screenshots WHERE id = ? AND submission_id = ?',
-      [shotId, id]
+      'SELECT id, image_url FROM developer_submission_screenshots WHERE public_id = ? AND submission_id = ?',
+      [shotId, sub.id]
     );
     if (rows.length) {
-      await db.query('DELETE FROM developer_submission_screenshots WHERE id = ?', [shotId]);
+      await db.query('DELETE FROM developer_submission_screenshots WHERE id = ?', [rows[0].id]);
       const key = r2.keyFromUrl(rows[0].image_url);
       if (key) await r2.deleteObject(key).catch(() => {});
-      await resyncIfApproved(id, req.session.developer.id);
+      await resyncIfApproved(sub.id, req.session.developer.id);
     }
     req.flash('success_msg', 'Screenshot removed.');
   } catch (err) {

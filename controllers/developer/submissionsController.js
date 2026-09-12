@@ -9,6 +9,7 @@ const PATHS  = require('../../config/paths');
 const { toWebp, IMMUTABLE_CACHE } = require('../../utils/images');
 const { parseVideo, watchUrl }    = require('../../utils/portfolio');
 const { REFERENCE_IMAGE_MAX_BYTES } = require('../../config/upload');
+const { matchClause } = require('../../utils/slugs');
 
 const ALLOWED_EXTENSIONS = new Set([
   'html','htm','css','js','mjs','json','wasm',
@@ -268,7 +269,7 @@ exports.postSubmit = async (req, res) => {
     insertId = result.insertId;
 
     req.flash('success_msg', `"${title.trim()}" uploaded! Test your game below, then submit for review when you're ready.`);
-    res.redirect(`/developer/submissions/${insertId}`);
+    res.redirect(`/developer/submissions/${slug}`);
   } catch (err) {
     await r2.deleteObject(r2Key).catch(() => {});
     if (referenceImageKey) await r2.deleteObject(referenceImageKey).catch(() => {});
@@ -282,33 +283,40 @@ exports.postSubmit = async (req, res) => {
 };
 
 exports.postSubmitReview = async (req, res) => {
-  const { id } = req.params;
+  const ref = req.params.slug;
   const developer = req.session.developer;
+  let back = '/developer/dashboard';
 
   try {
+    const match = matchClause(ref);
+    if (!match) {
+      req.flash('error_msg', 'Submission not found.');
+      return res.redirect('/developer/dashboard');
+    }
     const [rows] = await db.query(
-      'SELECT id, title, status FROM developer_submissions WHERE id = ? AND developer_id = ?',
-      [id, developer.id]
+      `SELECT id, slug, title, status FROM developer_submissions WHERE ${match.sql} AND developer_id = ?`,
+      [...match.params, developer.id]
     );
     if (!rows.length) {
       req.flash('error_msg', 'Submission not found.');
       return res.redirect('/developer/dashboard');
     }
     const sub = rows[0];
+    back = `/developer/submissions/${sub.slug}`;
     if (sub.status !== 'draft') {
       req.flash('error_msg', 'Only draft submissions can be submitted for review.');
-      return res.redirect(`/developer/submissions/${id}`);
+      return res.redirect(back);
     }
 
     await db.query(
       `UPDATE developer_submissions SET status = 'pending' WHERE id = ?`,
-      [id]
+      [sub.id]
     );
 
     req.flash('success_msg', `"${sub.title}" has been submitted for review. We'll get back to you soon!`);
-    res.redirect(`/developer/submissions/${id}`);
+    res.redirect(back);
   } catch (err) {
     req.flash('error_msg', 'Failed to submit for review. Please try again.');
-    res.redirect(`/developer/submissions/${id}`);
+    res.redirect(back);
   }
 };

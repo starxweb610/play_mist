@@ -262,11 +262,11 @@ exports.submissionStatusChanged = ({ name, gameTitle, status, rejectionReason, d
           <tr><td style="padding:18px 20px;">
             <p style="margin:0 0 12px;font-size:12px;color:#a78bfa;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">What your listing needs</p>
             <table cellpadding="0" cellspacing="0" role="presentation" width="100%">
-              <tr><td style="padding:0 0 8px;font-size:14px;color:#d1d5db;line-height:1.6;">&bull;&nbsp; A <strong style="color:#e5e7eb">square icon</strong> — 512&times;512 or larger</td></tr>
+              <tr><td style="padding:0 0 8px;font-size:14px;color:#d1d5db;line-height:1.6;">&bull;&nbsp; A <strong style="color:#e5e7eb">portrait thumbnail</strong> — 1024&times;1536</td></tr>
               <tr><td style="padding:0 0 8px;font-size:14px;color:#d1d5db;line-height:1.6;">&bull;&nbsp; <strong style="color:#e5e7eb">3 or more screenshots</strong> from actual gameplay</td></tr>
               <tr><td style="padding:0 0 8px;font-size:14px;color:#d1d5db;line-height:1.6;">&bull;&nbsp; A <strong style="color:#e5e7eb">short description</strong> — one line for your game card</td></tr>
               <tr><td style="padding:0 0 8px;font-size:14px;color:#d1d5db;line-height:1.6;">&bull;&nbsp; <strong style="color:#e5e7eb">Tags</strong> that describe your game (up to 5)</td></tr>
-              <tr><td style="padding:0;font-size:14px;color:#9ca3af;line-height:1.6;">&bull;&nbsp; Optional: a 16:9 feature banner and a trailer link</td></tr>
+              <tr><td style="padding:0;font-size:14px;color:#9ca3af;line-height:1.6;">&bull;&nbsp; Optional: a 1536&times;1024 feature banner and a trailer link</td></tr>
             </table>
             <p style="margin:14px 0 0;font-size:13px;color:#9ca3af;line-height:1.6;">
               Your progress saves as you go, so you can come back and finish later.

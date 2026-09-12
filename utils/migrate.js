@@ -400,6 +400,23 @@ exports.runMigrations = async () => {
       )
     `);
 
+    // Screenshots have no title to slug, so they carry a random public_id
+    // instead — it is what the delete form posts to, keeping primary keys out
+    // of portal URLs entirely.
+    await migrateColumn('developer_submission_screenshots', 'public_id', 'CHAR(16) DEFAULT NULL AFTER submission_id');
+    const [shotsMissingPublicId] = await db.query(
+      'SELECT id FROM developer_submission_screenshots WHERE public_id IS NULL OR public_id = \'\''
+    );
+    for (const row of shotsMissingPublicId) {
+      await db.query('UPDATE developer_submission_screenshots SET public_id = ? WHERE id = ?',
+        [require('crypto').randomBytes(8).toString('hex'), row.id]);
+    }
+    if (shotsMissingPublicId.length) {
+      console.log(`   ↳ backfilled public_id on ${shotsMissingPublicId.length} listing screenshot(s)`);
+    }
+    await migrateIndex('developer_submission_screenshots', 'uniq_shot_public_id',
+      'ADD UNIQUE KEY uniq_shot_public_id (public_id)');
+
     // Submissions approved before the two-gate split have no listing of their
     // own, but their game already carries artwork an admin made. Seed the
     // listing from that game once, so the developer opens an accurate listing

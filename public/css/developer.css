@@ -735,8 +735,10 @@ select option { background: var(--surface-2); }
 .art-slot-empty svg { width: 26px; height: 26px; color: var(--accent); }
 .art-slot-empty span { font-size: .8rem; font-weight: 600; color: var(--ink-2); }
 .art-slot-empty small { font-size: .72rem; color: var(--ink-3); }
-.art-slot-icon   { aspect-ratio: 1 / 1;  max-width: 190px; }
-.art-slot-banner { aspect-ratio: 16 / 9; }
+/* Slot shapes mirror exactly what the converter stores, so what a developer
+   frames in the picker is what ends up on the card. */
+.art-slot-thumb  { aspect-ratio: 1024 / 1536; max-width: 220px; }
+.art-slot-banner { aspect-ratio: 1536 / 1024; }
 
 /* Screenshot grid */
 /* Tiles mirror the game's own orientation, so the grid previews screenshots

@@ -91,7 +91,7 @@
               <% if (l.game_is_active && l.game_slug) { %>
               <a href="/games/<%= l.game_slug %>" target="_blank" rel="noopener" class="btn ghost sm">View</a>
               <% } %>
-              <a href="/developer/submissions/<%= l.id %>/listing" class="btn <%= l.remaining > 0 ? 'primary' : 'ghost' %> sm">
+              <a href="/developer/submissions/<%= l.slug %>/listing" class="btn <%= l.remaining > 0 ? 'primary' : 'ghost' %> sm">
                 <%= l.remaining > 0 ? 'Complete Listing' : 'Edit Listing' %>
               </a>
             </div>

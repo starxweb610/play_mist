@@ -254,7 +254,7 @@ exports.postApprove = async (req, res) => {
           name: developer_name,
           gameTitle: sub.title,
           status: 'listing_pending',
-          listingUrl: `${(process.env.BASE_URL || 'https://playmist.app').replace(/\/$/, '')}/developer/submissions/${id}/listing`,
+          listingUrl: `${(process.env.BASE_URL || 'https://playmist.app').replace(/\/$/, '')}/developer/submissions/${sub.slug}/listing`,
         }),
       }).catch(err => console.error('listing_pending email failed:', err.message));
     }

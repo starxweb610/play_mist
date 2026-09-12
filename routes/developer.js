@@ -102,11 +102,15 @@ const jsonUpload = (uploader, field) => (req, res, next) =>
 // Image uploads from a regular <form> post: record multer's error for the
 // controller to show on the re-rendered form, instead of failing the request.
 // (Those forms put the file input last, so text fields are already parsed.)
+// Each uploader has its own cap, so read it off the instance rather than
+// quoting a number that may not be this field's.
+const sizeLimitMb = (uploader) => Math.round((uploader?.limits?.fileSize || 0) / (1024 * 1024));
+
 const formUpload = (uploader, field) => (req, res, next) =>
   uploader.single(field)(req, res, (err) => {
     if (err) {
       req.uploadError = err.code === 'LIMIT_FILE_SIZE'
-        ? 'That image is too large — the limit is 10 MB.'
+        ? `That image is too large — the limit is ${sizeLimitMb(uploader)} MB.`
         : (err.message || 'Image upload failed.');
     }
     next();
@@ -146,7 +150,7 @@ const formUploadMany = (uploader, field, max) => (req, res, next) =>
   uploader.array(field, max)(req, res, (err) => {
     if (err) {
       req.uploadError = err.code === 'LIMIT_FILE_SIZE'
-        ? 'One of those images is too large — the limit is 10 MB each.'
+        ? `One of those images is too large — the limit is ${sizeLimitMb(uploader)} MB each.`
         : (err.message || 'Image upload failed.');
     }
     next();
@@ -213,19 +217,22 @@ router.use(isDeveloper, checkBanned);
 
 // Dashboard & Submissions
 router.get ('/dashboard',                             dashboardController.getDashboard);
-router.get ('/submissions/:id',                       dashboardController.getSubmissionDetail);
+// Submissions are addressed by slug — no database id in a portal URL. Each
+// resolver still accepts a bare numeric id and redirects, because approval
+// emails sent before this carry one.
+router.get ('/submissions/:slug',                     dashboardController.getSubmissionDetail);
 router.get ('/submit',                                submissionsController.getSubmit);
 router.post('/submit',                                uploadLimiter, submissionUpload, submissionsController.postSubmit);
-router.post('/submissions/:id/submit-review',         submissionsController.postSubmitReview);
+router.post('/submissions/:slug/submit-review',       submissionsController.postSubmitReview);
 
 // Store Listing — the second gate, opened once a build passes review
 router.get ('/listings',                              listingController.getListings);
-router.get ('/submissions/:id/listing',               listingController.getListing);
-router.post('/submissions/:id/listing',               listingLimiter, listingController.postListing);
-router.post('/submissions/:id/listing/icon',          listingLimiter, formUpload(developerThumbnail, 'icon'), listingController.postIcon);
-router.post('/submissions/:id/listing/banner',        listingLimiter, formUpload(developerPortfolioImage, 'banner'), listingController.postBanner);
-router.post('/submissions/:id/listing/screenshots',   listingLimiter, formUploadMany(uploadScreenshots, 'screenshots', 8), listingController.postScreenshots);
-router.post('/submissions/:id/listing/screenshots/:shotId/delete', listingLimiter, listingController.postDeleteScreenshot);
+router.get ('/submissions/:slug/listing',             listingController.getListing);
+router.post('/submissions/:slug/listing',             listingLimiter, listingController.postListing);
+router.post('/submissions/:slug/listing/thumbnail',   listingLimiter, formUpload(developerThumbnail, 'thumbnail'), listingController.postThumbnail);
+router.post('/submissions/:slug/listing/banner',      listingLimiter, formUpload(developerPortfolioImage, 'banner'), listingController.postBanner);
+router.post('/submissions/:slug/listing/screenshots', listingLimiter, formUploadMany(uploadScreenshots, 'screenshots', 8), listingController.postScreenshots);
+router.post('/submissions/:slug/listing/screenshots/:shotId/delete', listingLimiter, listingController.postDeleteScreenshot);
 
 // Guidelines
 router.get ('/guidelines',                            guidelinesController.getGuidelines);

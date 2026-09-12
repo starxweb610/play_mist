@@ -404,7 +404,8 @@
                      accept="image/jpeg,image/png,image/webp" required class="drop-input" />
               <div class="drop-text">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                <span>JPG · PNG · WebP — max 10 MB · saved as WebP</span>
+                <span>JPG · PNG · WebP — saved as WebP at <%= artSizes.thumbnail.width %>×<%= artSizes.thumbnail.height %></span>
+                <span class="drop-sub">Larger is centre-cropped; smaller is rejected</span>
                 <span class="drop-sub" id="imgFilename"></span>
               </div>
             </div>
@@ -444,7 +445,8 @@
                      accept="image/jpeg,image/png,image/webp" required class="drop-input" />
               <div class="drop-text">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                <span>JPG · PNG · WebP — max 10 MB · saved as WebP</span>
+                <span>JPG · PNG · WebP — saved as WebP at <%= artSizes.banner.width %>×<%= artSizes.banner.height %></span>
+                <span class="drop-sub">Larger is centre-cropped; smaller is rejected</span>
                 <span class="drop-sub" id="secondaryImgFilename"></span>
               </div>
             </div>
