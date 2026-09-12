@@ -93,10 +93,20 @@ app.use(flash());
 // render, including any that bypasses the per-request middleware.
 app.locals.assetV = (() => {
   try {
-    const dir = path.join(__dirname, 'public', 'css');
-    const sig = fs.readdirSync(dir).filter((f) => f.endsWith('.css')).sort()
-      .map((f) => { const st = fs.statSync(path.join(dir, f)); return `${f}:${st.size}:${st.mtimeMs}`; })
-      .join('|');
+    // Both stylesheet roots: the admin panel's CSS lives apart from the site's,
+    // and leaving it out meant an admin.css-only change produced no new stamp.
+    const dirs = [
+      path.join(__dirname, 'public', 'css'),
+      path.join(__dirname, 'public', 'sitehandler', 'css'),
+    ];
+    const sig = dirs.flatMap((dir) => {
+      let files = [];
+      try { files = fs.readdirSync(dir); } catch (_) { return []; }
+      return files.filter((f) => f.endsWith('.css')).sort().map((f) => {
+        const st = fs.statSync(path.join(dir, f));
+        return `${path.basename(dir)}/${f}:${st.size}:${st.mtimeMs}`;
+      });
+    }).join('|');
     return crypto.createHash('sha1').update(sig).digest('hex').slice(0, 8);
   } catch (_) {
     return String(Date.now()); // never block boot over a cache buster

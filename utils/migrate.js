@@ -128,6 +128,10 @@ exports.runMigrations = async () => {
     await migrateColumn('games', 'demo_enabled', 'TINYINT(1) DEFAULT 0 AFTER demo_version');
     await migrateColumn('games', 'demo_size_bytes', 'BIGINT DEFAULT NULL AFTER demo_enabled');
 
+    // How to play — supplied by the developer on the submit form and synced
+    // over when their store listing is submitted. Rendered on the game page.
+    await migrateColumn('games', 'controls', 'TEXT DEFAULT NULL AFTER long_description');
+
     // ── users columns ─────────────────────────────────────────────────────────
     await migrateColumn('users', 'credits',         'INT DEFAULT 1000 AFTER avatar');
     await db.query('UPDATE users SET credits = 1000 WHERE credits IS NULL');
@@ -335,6 +339,107 @@ exports.runMigrations = async () => {
         `ALTER TABLE developer_submissions
          MODIFY COLUMN status ENUM('draft','pending','under_review','approved','rejected') DEFAULT 'draft'`
       );
+    }
+
+    // ── Store Listing: the metadata a developer supplies AFTER review ────────
+    // Review decides whether a build ships; the listing decides how it looks in
+    // the store. Splitting them means art work only happens on games we have
+    // already decided to publish, and the catalog stops waiting on an admin to
+    // draw four images per title. 'listing_pending' is the state between the
+    // two: the build passed, the shop window is still empty.
+    if (subStatusCol.length && !subStatusCol[0].COLUMN_TYPE.includes('listing_pending')) {
+      await db.query(
+        `ALTER TABLE developer_submissions
+         MODIFY COLUMN status
+         ENUM('draft','pending','under_review','listing_pending','approved','rejected')
+         DEFAULT 'draft'`
+      );
+    }
+
+    // Gate 1 — collected on the submit form, because they decide whether we
+    // review the build at all. Nullable: submissions predating this are valid.
+    await migrateColumn('developer_submissions', 'controls',           'TEXT DEFAULT NULL AFTER description');
+    await migrateColumn('developer_submissions', 'content_rating',     "ENUM('everyone','teen','mature') DEFAULT NULL AFTER controls");
+    await migrateColumn('developer_submissions', 'has_ads',            'TINYINT(1) NOT NULL DEFAULT 0 AFTER content_rating');
+    await migrateColumn('developer_submissions', 'has_iap',            'TINYINT(1) NOT NULL DEFAULT 0 AFTER has_ads');
+    await migrateColumn('developer_submissions', 'has_external_links', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER has_iap');
+    await migrateColumn('developer_submissions', 'requires_internet',  'TINYINT(1) NOT NULL DEFAULT 0 AFTER has_external_links');
+    // The IP warranty. Until developers uploaded art we authored every asset
+    // ourselves, so ownership was never in question; from here it is.
+    await migrateColumn('developer_submissions', 'rights_confirmed',    'TINYINT(1) NOT NULL DEFAULT 0 AFTER requires_internet');
+    await migrateColumn('developer_submissions', 'rights_confirmed_at', 'DATETIME DEFAULT NULL AFTER rights_confirmed');
+
+    // Gate 2 — the store listing itself. `thumbnail_url` already existed here
+    // unused; it is now the square icon. banner_url feeds secondary_thumbnail.
+    // promotional_thumbnail is deliberately absent: featured art stays ours.
+    await migrateColumn('developer_submissions', 'short_description',    'VARCHAR(200) DEFAULT NULL AFTER description');
+    await migrateColumn('developer_submissions', 'banner_url',           'VARCHAR(600) DEFAULT NULL AFTER thumbnail_url');
+    await migrateColumn('developer_submissions', 'trailer_url',          'VARCHAR(500) DEFAULT NULL AFTER banner_url');
+    await migrateColumn('developer_submissions', 'listing_tags',         'VARCHAR(300) DEFAULT NULL AFTER trailer_url');
+    await migrateColumn('developer_submissions', 'listing_submitted_at', 'DATETIME DEFAULT NULL AFTER listing_tags');
+
+    // Listing screenshots live here, not in game_screenshots, until the
+    // developer submits the listing — a half-filled listing must never leak
+    // onto a public game page.
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS developer_submission_screenshots (
+        id            INT PRIMARY KEY AUTO_INCREMENT,
+        submission_id INT          NOT NULL,
+        image_url     VARCHAR(600) NOT NULL,
+        position      INT          NOT NULL DEFAULT 0,
+        created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_submission_position (submission_id, position),
+        FOREIGN KEY (submission_id) REFERENCES developer_submissions(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Submissions approved before the two-gate split have no listing of their
+    // own, but their game already carries artwork an admin made. Seed the
+    // listing from that game once, so the developer opens an accurate listing
+    // rather than an empty one — and so submitting it can't blank live art.
+    const [seedTargets] = await db.query(
+      `SELECT s.id, s.game_id, g.thumbnail_url, g.secondary_thumbnail,
+              g.short_description, g.controls
+       FROM developer_submissions s
+       JOIN games g ON s.game_id = g.id
+       WHERE s.status = 'approved'
+         AND s.listing_submitted_at IS NULL
+         AND s.thumbnail_url IS NULL
+         -- Only seed from a game that actually has art. Without this the seed
+         -- would write NULL back over its own guard and re-run every boot, and
+         -- an approved game with no artwork genuinely does still owe a listing.
+         AND g.thumbnail_url IS NOT NULL`
+    );
+    for (const row of seedTargets) {
+      await db.query(
+        `UPDATE developer_submissions
+         SET thumbnail_url     = ?,
+             banner_url        = ?,
+             short_description = COALESCE(short_description, ?),
+             controls          = COALESCE(controls, ?),
+             listing_tags      = COALESCE(listing_tags, (
+               SELECT GROUP_CONCAT(t.name ORDER BY t.name SEPARATOR ', ')
+               FROM game_tags gt JOIN tags t ON gt.tag_id = t.id
+               WHERE gt.game_id = ?
+             )),
+             listing_submitted_at = NOW()
+         WHERE id = ?`,
+        [row.thumbnail_url, row.secondary_thumbnail, row.short_description,
+         row.controls, row.game_id, row.id]
+      );
+      const [shots] = await db.query(
+        'SELECT image_url FROM game_screenshots WHERE game_id = ? ORDER BY id ASC',
+        [row.game_id]
+      );
+      if (shots.length) {
+        await db.query(
+          'INSERT INTO developer_submission_screenshots (submission_id, image_url, position) VALUES ?',
+          [shots.map((sh, i) => [row.id, sh.image_url, i])]
+        );
+      }
+    }
+    if (seedTargets.length) {
+      console.log(`   ↳ seeded ${seedTargets.length} store listing(s) from existing games`);
     }
 
     // ── developers.bio / avatar_url ───────────────────────────────────────────

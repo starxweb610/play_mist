@@ -148,6 +148,13 @@
           </div>
         <% } %>
 
+        <% if (game.controls) { %>
+          <div class="detail-block" data-aos="fade-up">
+            <h2 class="detail-block-title">How to play</h2>
+            <p class="detail-block-text"><%= game.controls %></p>
+          </div>
+        <% } %>
+
         <% if (game.trailerUrl) { %>
           <div class="detail-block" data-aos="fade-up">
             <h2 class="detail-block-title">Trailer</h2>

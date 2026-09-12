@@ -57,6 +57,16 @@
       </div>
       <% } %>
 
+      <div class="info-banner">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <div>
+          <strong>No artwork needed yet.</strong>
+          Icon, screenshots and banner come after your game passes review — we'll open the
+          Store Listing step and email you. Nothing here asks you to make art for a game
+          that hasn't been accepted.
+        </div>
+      </div>
+
       <form method="POST" action="/developer/submit" enctype="multipart/form-data" id="uploadForm">
 
         <!-- Game Details -->
@@ -71,8 +81,26 @@
             </div>
 
             <div class="form-group">
+              <label for="short_description">Short Description</label>
+              <input type="text" id="short_description" name="short_description" required maxlength="200"
+                     value="<%= form.short_description || '' %>"
+                     placeholder="One line players see on the game card" />
+              <div class="field-hint">
+                Shown on game cards and in search results. Max 200 characters.
+                <span id="shortCount" class="count-pill">0 / 200</span>
+              </div>
+            </div>
+
+            <div class="form-group">
               <label for="description">Description</label>
-              <textarea id="description" name="description" required placeholder="Describe your game — gameplay, controls, features..." rows="5"><%= form.description || '' %></textarea>
+              <textarea id="description" name="description" required placeholder="Describe your game — gameplay, features, what makes it worth playing..." rows="5"><%= form.description || '' %></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="controls">Controls / How to Play</label>
+              <textarea id="controls" name="controls" required rows="3"
+                        placeholder="e.g. Arrow keys to move, Space to jump. Touch: tap left/right of the character."><%= form.controls || '' %></textarea>
+              <div class="field-hint">Reviewers need this to play your game, and it appears on the game page.</div>
             </div>
 
             <div class="form-row">
@@ -94,10 +122,51 @@
               </div>
             </div>
 
-            <div class="form-group" style="margin-bottom:0;">
-              <label for="version">Version <span class="optional-label">(optional)</span></label>
-              <input type="text" id="version" name="version" value="<%= form.version || '1.0' %>" placeholder="1.0" maxlength="20" style="max-width:160px;" />
+            <div class="form-row" style="margin-bottom:0;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label for="content_rating">Content Rating</label>
+                <select id="content_rating" name="content_rating" required>
+                  <option value="">Select rating</option>
+                  <option value="everyone" <%= form.content_rating === 'everyone' ? 'selected' : '' %>>Everyone — suitable for all ages</option>
+                  <option value="teen"     <%= form.content_rating === 'teen'     ? 'selected' : '' %>>Teen — mild violence, suggestive themes</option>
+                  <option value="mature"   <%= form.content_rating === 'mature'   ? 'selected' : '' %>>Mature — strong violence or adult themes</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label for="version">Version <span class="optional-label">(optional)</span></label>
+                <input type="text" id="version" name="version" value="<%= form.version || '1.0' %>" placeholder="1.0" maxlength="20" />
+              </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Disclosures -->
+        <div class="card">
+          <div class="card-header" style="margin-bottom:0;padding-bottom:16px;border-bottom:1px solid var(--line);">
+            <div class="card-title">Disclosures</div>
+          </div>
+          <div style="padding-top:18px;">
+            <p style="font-size:.85rem;color:var(--ink-3);margin-bottom:16px;">
+              Tick anything your build does. These change how we review it — an undisclosed
+              ad network or outbound link found during review means rejection.
+            </p>
+
+            <label class="check-row">
+              <input type="checkbox" name="has_ads" <%= form.has_ads ? 'checked' : '' %> />
+              <span><strong>Shows ads</strong><em>Any third-party ad network or house ads.</em></span>
+            </label>
+            <label class="check-row">
+              <input type="checkbox" name="has_iap" <%= form.has_iap ? 'checked' : '' %> />
+              <span><strong>Has in-game purchases</strong><em>Real-money purchases of any kind.</em></span>
+            </label>
+            <label class="check-row">
+              <input type="checkbox" name="has_external_links" <%= form.has_external_links ? 'checked' : '' %> />
+              <span><strong>Links out of the game</strong><em>Opens external sites, stores, or social links.</em></span>
+            </label>
+            <label class="check-row" style="margin-bottom:0;">
+              <input type="checkbox" name="requires_internet" <%= form.requires_internet ? 'checked' : '' %> />
+              <span><strong>Requires an internet connection</strong><em>Leaderboards, multiplayer, remote assets or analytics.</em></span>
+            </label>
           </div>
         </div>
 
@@ -126,6 +195,26 @@
           <span>Uploading your game — this may take a moment for large files...</span>
         </div>
 
+        <!-- Rights -->
+        <div class="card">
+          <div class="card-header" style="margin-bottom:0;padding-bottom:16px;border-bottom:1px solid var(--line);">
+            <div class="card-title">Rights &amp; Ownership</div>
+          </div>
+          <div style="padding-top:18px;">
+            <label class="check-row" style="margin-bottom:0;align-items:flex-start;">
+              <input type="checkbox" name="rights_confirmed" required <%= form.rights_confirmed ? 'checked' : '' %> />
+              <span>
+                <strong>I own or have licensed everything in this submission</strong>
+                <em>
+                  Code, art, audio, fonts and any assets I add to the store listing later. I grant
+                  <%= appName %> a non-exclusive right to host, display and promote this game and its
+                  artwork on the platform and its marketing channels. I can withdraw the game at any time.
+                </em>
+              </span>
+            </label>
+          </div>
+        </div>
+
         <div style="display:flex;gap:12px;margin-top:4px;">
           <button type="submit" class="btn primary" id="submitBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
@@ -149,6 +238,16 @@
   input.addEventListener('change', () => {
     display.textContent = input.files[0] ? input.files[0].name : '';
   });
+
+  const shortInput = document.getElementById('short_description');
+  const shortCount = document.getElementById('shortCount');
+  const paintCount = () => {
+    const n = shortInput.value.length;
+    shortCount.textContent = n + ' / 200';
+    shortCount.classList.toggle('over', n > 180);
+  };
+  shortInput.addEventListener('input', paintCount);
+  paintCount();
   zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
   zone.addEventListener('drop', e => {

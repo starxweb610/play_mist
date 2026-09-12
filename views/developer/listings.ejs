@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('partials/head', { title: 'Store Listings' }) %>  <link rel="icon" href="/favicon.ico" />
+</head>
+<body>
+<div class="container-app">
+  <%- include('partials/sidebar', { activePage: 'listings', developer, appName }) %>
+
+  <main class="main-content">
+    <header class="topbar">
+      <button class="dev-menu-btn" id="devMenuBtn" aria-label="Open navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <span class="topbar-title">Store Listings</span>
+      <div class="top-actions">
+        <a href="/developer/dashboard" class="btn ghost sm">Dashboard</a>
+      </div>
+    </header>
+
+    <div class="page-content scroll">
+      <%- include('partials/flash') %>
+
+      <div class="info-banner">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <div>
+          <strong>A listing is the shop window for a game that already passed review.</strong>
+          Icon, screenshots and store text live here. Games appear on this page the moment
+          their build is approved.
+        </div>
+      </div>
+
+      <% if (!listings.length) { %>
+        <div class="card" style="text-align:center;padding:48px 24px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40" style="color:var(--ink-4);margin-bottom:14px;">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+          </svg>
+          <div style="font-weight:600;color:var(--ink);margin-bottom:6px;">No listings yet</div>
+          <p style="font-size:.85rem;color:var(--ink-3);max-width:420px;margin:0 auto 18px;line-height:1.6;">
+            Once one of your submitted games passes review, its store listing opens here and
+            we'll email you. No artwork is needed before then.
+          </p>
+          <a href="/developer/submit" class="btn primary sm">Upload a Game</a>
+        </div>
+      <% } else { %>
+
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <% listings.forEach(l => { %>
+        <div class="card" style="padding:18px 20px;">
+          <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;">
+
+            <div style="width:78px;height:78px;border-radius:12px;overflow:hidden;flex-shrink:0;background:var(--surface-2);border:1px solid var(--line);">
+              <% if (l.thumbnail_url) { %>
+                <img src="<%= l.thumbnail_url %>" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" />
+              <% } else { %>
+                <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--ink-4);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="22" height="22"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                </div>
+              <% } %>
+            </div>
+
+            <div style="flex:1;min-width:200px;">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+                <span style="font-size:1rem;font-weight:600;color:var(--ink);"><%= l.title %></span>
+                <% if (l.status === 'listing_pending') { %>
+                  <span class="badge-listing-pending"><span class="badge-dot"></span>Listing needed</span>
+                <% } else if (l.game_is_active) { %>
+                  <span class="badge-approved"><span class="badge-dot"></span>Live</span>
+                <% } else { %>
+                  <span class="badge-approved"><span class="badge-dot"></span>Queued for publishing</span>
+                <% } %>
+              </div>
+
+              <div style="font-size:.85rem;color:var(--ink-3);line-height:1.55;margin-bottom:10px;">
+                <%= l.short_description || 'No short description yet.' %>
+              </div>
+
+              <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;color:var(--ink-3);">
+                <span><%= l.screenshot_count %> screenshot<%= l.screenshot_count === 1 ? '' : 's' %></span>
+                <span><%= (l.listing_tags || '').split(',').filter(Boolean).length %> tags</span>
+                <% if (l.remaining > 0) { %>
+                  <span style="color:var(--warn);font-weight:600;"><%= l.remaining %> item<%= l.remaining === 1 ? '' : 's' %> outstanding</span>
+                <% } else { %>
+                  <span style="color:var(--ok);font-weight:600;">Complete</span>
+                <% } %>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:10px;flex-shrink:0;flex-wrap:wrap;align-items:center;">
+              <% if (l.game_is_active && l.game_slug) { %>
+              <a href="/games/<%= l.game_slug %>" target="_blank" rel="noopener" class="btn ghost sm">View</a>
+              <% } %>
+              <a href="/developer/submissions/<%= l.id %>/listing" class="btn <%= l.remaining > 0 ? 'primary' : 'ghost' %> sm">
+                <%= l.remaining > 0 ? 'Complete Listing' : 'Edit Listing' %>
+              </a>
+            </div>
+
+          </div>
+        </div>
+        <% }); %>
+      </div>
+
+      <% } %>
+    </div>
+  </main>
+</div>
+</body>
+</html>

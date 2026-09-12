@@ -105,8 +105,8 @@
               </thead>
               <tbody>
                 <% submissions.forEach(s => {
-                  const statusLabel = { draft: 'Draft', pending: 'Pending', under_review: 'Under Review', approved: 'Approved', rejected: 'Rejected' };
-                  const statusCls   = { draft: 'badge-draft', pending: 'badge-pending', under_review: 'badge-under-review', approved: 'badge-approved', rejected: 'badge-rejected' };
+                  const statusLabel = { draft: 'Draft', pending: 'Pending', under_review: 'Under Review', listing_pending: 'Listing Needed', approved: 'Approved', rejected: 'Rejected' };
+                  const statusCls   = { draft: 'badge-draft', pending: 'badge-pending', under_review: 'badge-under-review', listing_pending: 'badge-listing-pending', approved: 'badge-approved', rejected: 'badge-rejected' };
                 %>
                 <tr>
                   <td>

@@ -202,7 +202,7 @@ exports.postUpdate = async (req, res) => {
   // uploaded zip, plays comes from analytics_games, rating from game_ratings.
   const {
     title, genre, orientation, type,
-    short_description, long_description, trailer_url,
+    short_description, long_description, controls, trailer_url,
     version, is_active, is_featured,
     studio, credits_cost, flag,
     release_stage, expected_release, coming_soon_rank,
@@ -224,13 +224,13 @@ exports.postUpdate = async (req, res) => {
     const slug = await uniqueSlug(base, parseInt(id));
     await db.query(
       `UPDATE games SET title=?, slug=?, genre=?, orientation=?, type=?,
-       short_description=?, long_description=?, trailer_url=?,
+       short_description=?, long_description=?, controls=?, trailer_url=?,
        version=?, is_active=?, is_featured=?,
        studio=?, developer_id=?, credits_cost=?, flag=?,
        release_stage=?, expected_release=?, coming_soon_rank=? WHERE id=?`,
       [
         title, slug, genre, orientation, type,
-        short_description, long_description || null, trailer_url?.trim() || null,
+        short_description, long_description || null, controls?.trim() || null, trailer_url?.trim() || null,
         version || '1.0.0',
         isActiveNow,
         is_featured === 'on' ? 1 : 0,
@@ -539,8 +539,16 @@ exports.postUploadPromotionalImage = async (req, res) => {
 // ── POST /sitehandler/games/:id/toggle ──────────────────────────────────────
 exports.postToggle = async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT is_active FROM games WHERE id = ?', [req.params.id]);
+    const [rows] = await db.query('SELECT is_active, title, thumbnail_url FROM games WHERE id = ?', [req.params.id]);
     if (!rows.length) { req.flash('error_msg', 'Game not found.'); return res.redirect('/sitehandler/games'); }
+
+    // A game with no thumbnail renders as an empty tile in every rail, so
+    // publishing one is always a mistake. Developers supply the icon with their
+    // store listing; if it hasn't arrived, upload one here first.
+    if (!rows[0].is_active && !rows[0].thumbnail_url) {
+      req.flash('error_msg', `"${rows[0].title}" has no thumbnail — publishing it would leave a blank card. Add one on the game's page (or wait for the developer's store listing) first.`);
+      return res.redirect('/sitehandler/games');
+    }
 
     await db.query('UPDATE games SET is_active = NOT is_active WHERE id = ?', [req.params.id]);
 

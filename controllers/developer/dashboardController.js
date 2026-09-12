@@ -3,7 +3,7 @@ const db = require('../../config/database');
 exports.getDashboard = async (req, res) => {
   try {
     const [submissions] = await db.query(
-      `SELECT s.*, g.slug AS game_slug
+      `SELECT s.*, g.slug AS game_slug, g.is_active AS game_is_active
        FROM developer_submissions s
        LEFT JOIN games g ON s.game_id = g.id
        WHERE s.developer_id = ?
@@ -27,7 +27,7 @@ exports.getDashboard = async (req, res) => {
 exports.getSubmissionDetail = async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT s.*, g.slug AS game_slug
+      `SELECT s.*, g.slug AS game_slug, g.is_active AS game_is_active
        FROM developer_submissions s
        LEFT JOIN games g ON s.game_id = g.id
        WHERE s.id = ? AND s.developer_id = ?`,

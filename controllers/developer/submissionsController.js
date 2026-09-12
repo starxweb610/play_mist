@@ -110,10 +110,26 @@ exports.getSubmit = async (req, res) => {
   });
 };
 
+const CONTENT_RATINGS = new Set(['everyone', 'teen', 'mature']);
+
 exports.postSubmit = async (req, res) => {
   const zipFile = req.file;
-  const { title, description, genre, orientation, version } = req.body;
-  const form = { title, description, genre, orientation, version };
+  const {
+    title, short_description, description, controls, genre,
+    orientation, version, content_rating,
+  } = req.body;
+  // Checkboxes are absent from the body when unticked, so coerce to 0/1 here
+  // and re-render the form from the same shape the view reads.
+  const flag = (v) => (v === 'on' || v === '1' || v === 'true') ? 1 : 0;
+  const form = {
+    title, short_description, description, controls, genre, orientation, version,
+    content_rating,
+    has_ads:            flag(req.body.has_ads),
+    has_iap:            flag(req.body.has_iap),
+    has_external_links: flag(req.body.has_external_links),
+    requires_internet:  flag(req.body.requires_internet),
+    rights_confirmed:   flag(req.body.rights_confirmed),
+  };
   const developer = req.session.developer;
 
   const renderError = async (errors) => {
@@ -133,10 +149,15 @@ exports.postSubmit = async (req, res) => {
   };
 
   const errors = [];
-  if (!title?.trim())       errors.push('Game title is required.');
-  if (!description?.trim()) errors.push('Description is required.');
-  if (!genre?.trim())       errors.push('Genre is required.');
-  if (!zipFile)             errors.push('A ZIP file is required.');
+  if (!title?.trim())             errors.push('Game title is required.');
+  if (!short_description?.trim()) errors.push('Short description is required.');
+  else if (short_description.trim().length > 200) errors.push('Short description must be 200 characters or fewer.');
+  if (!description?.trim())       errors.push('Description is required.');
+  if (!controls?.trim())          errors.push('Controls / how to play is required — reviewers need it to play your game.');
+  if (!genre?.trim())             errors.push('Genre is required.');
+  if (!CONTENT_RATINGS.has(content_rating)) errors.push('Please select a content rating.');
+  if (!form.rights_confirmed)     errors.push('You must confirm you own or have licensed everything in this submission.');
+  if (!zipFile)                   errors.push('A ZIP file is required.');
   if (errors.length) return renderError(errors);
 
   try {
@@ -179,16 +200,27 @@ exports.postSubmit = async (req, res) => {
 
     const [result] = await db.query(
       `INSERT INTO developer_submissions
-         (developer_id, title, slug, description, genre, orientation, version, zip_r2_key, zip_size, preview_play_url, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')`,
+         (developer_id, title, slug, short_description, description, controls, genre,
+          orientation, version, content_rating,
+          has_ads, has_iap, has_external_links, requires_internet,
+          rights_confirmed, rights_confirmed_at,
+          zip_r2_key, zip_size, preview_play_url, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), ?, ?, ?, 'draft')`,
       [
         developer.id,
         title.trim(),
         slug,
+        short_description.trim(),
         description.trim(),
+        controls.trim(),
         genre,
         orientation || 'landscape',
         version?.trim() || '1.0',
+        content_rating,
+        form.has_ads,
+        form.has_iap,
+        form.has_external_links,
+        form.requires_internet,
         r2Key,
         zipFile.size,
         previewPlayUrl,

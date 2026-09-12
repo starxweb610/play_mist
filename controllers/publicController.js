@@ -175,6 +175,7 @@ exports.getGameDetail = async (req, res) => {
     const game = {
       ...toCardView(g),
       longDesc:    g.long_description || g.short_description || '',
+      controls:    g.controls || '',
       studio:      g.studio || 'Tiny Bear',
       version:     g.version || '1.0.0',
       size:        g.size || null,

@@ -18,8 +18,8 @@
         <h2 class="page-heading"><%= sub.title %></h2>
         <p class="page-subheading">by <%= sub.developer_name %> (<%= sub.studio_name %>)</p>
       </div>
-      <% const statusLabel = { pending: 'Pending', under_review: 'Under Review', approved: 'Approved', rejected: 'Rejected' };
-         const statusBadge = { pending: 'warning', under_review: 'info', approved: 'success', rejected: 'danger' }; %>
+      <% const statusLabel = { pending: 'Pending', under_review: 'Under Review', listing_pending: 'Awaiting Listing', approved: 'Approved', rejected: 'Rejected' };
+         const statusBadge = { pending: 'warning', under_review: 'info', listing_pending: 'info', approved: 'success', rejected: 'danger' }; %>
       <span class="badge badge--<%= statusBadge[sub.status] || sub.status %>"><%= statusLabel[sub.status] || sub.status %></span>
     </div>
 
@@ -31,8 +31,19 @@
         <div class="card" style="margin-bottom:20px">
           <h3 style="font-size:1rem;font-weight:700;margin-bottom:16px">Submission Info</h3>
           <table style="width:100%;font-size:.875rem;border-collapse:collapse">
+            <% const disclosed = [
+                 sub.has_ads            ? 'Ads'             : null,
+                 sub.has_iap            ? 'In-game purchases' : null,
+                 sub.has_external_links ? 'External links'  : null,
+                 sub.requires_internet  ? 'Needs internet'  : null,
+               ].filter(Boolean); %>
             <% const rows = [
               ['Genre',       sub.genre],
+              ['Rating',      sub.content_rating || '<span style="color:#666">not declared</span>'],
+              ['Discloses',   disclosed.length ? disclosed.join(', ') : '<span style="color:#666">nothing declared</span>'],
+              ['Rights',      sub.rights_confirmed
+                                ? '<span style="color:#86efac">Confirmed' + (sub.rights_confirmed_at ? ' ' + new Date(sub.rights_confirmed_at).toLocaleDateString() : '') + '</span>'
+                                : '<span style="color:#fbbf24">Not confirmed (pre-dates the policy)</span>'],
               ['Orientation', sub.orientation],
               ['Version',     sub.version],
               ['File Size',   sub.zip_size_fmt],
@@ -57,6 +68,72 @@
           <h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">Description</h3>
           <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:16px;font-size:.875rem;color:#ccc;line-height:1.6;white-space:pre-wrap"><%= sub.description %></div>
         </div>
+
+        <% if (sub.controls) { %>
+        <div class="card" style="margin-bottom:20px">
+          <h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">Controls / How to Play</h3>
+          <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:16px;font-size:.875rem;color:#ccc;line-height:1.6;white-space:pre-wrap"><%= sub.controls %></div>
+        </div>
+        <% } %>
+
+        <!-- The developer's store listing, once review has passed -->
+        <% if (sub.status === 'listing_pending' || sub.status === 'approved') { %>
+        <div class="card" style="margin-bottom:20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+            <h3 style="font-size:1rem;font-weight:700;margin:0">Store Listing</h3>
+            <% if (sub.listing_submitted_at) { %>
+              <span class="badge badge--success">Submitted <%= new Date(sub.listing_submitted_at).toLocaleDateString() %></span>
+            <% } else { %>
+              <span class="badge badge--warning">Waiting on developer</span>
+            <% } %>
+          </div>
+
+          <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;margin-bottom:16px">
+            <div style="width:96px;height:96px;border-radius:10px;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center">
+              <% if (sub.thumbnail_url) { %>
+                <img src="<%= sub.thumbnail_url %>" alt="Icon" style="width:100%;height:100%;object-fit:cover" />
+              <% } else { %>
+                <span style="font-size:.7rem;color:#666;text-align:center;padding:6px">No icon</span>
+              <% } %>
+            </div>
+            <div style="flex:1;min-width:200px;font-size:.85rem;color:#ccc;line-height:1.6">
+              <div style="color:#888;font-size:.78rem;margin-bottom:4px">Short description</div>
+              <div><%= sub.short_description || '—' %></div>
+              <div style="color:#888;font-size:.78rem;margin:12px 0 4px">Tags</div>
+              <div><%= sub.listing_tags || '—' %></div>
+              <% if (sub.trailer_url) { %>
+              <div style="color:#888;font-size:.78rem;margin:12px 0 4px">Trailer (reference only — not published)</div>
+              <a href="<%= sub.trailer_url %>" target="_blank" rel="noopener" style="color:#60a5fa"><%= sub.trailer_url %></a>
+              <% } %>
+            </div>
+          </div>
+
+          <div style="color:#888;font-size:.78rem;margin-bottom:8px">Screenshots (<%= listingScreenshots.length %>)</div>
+          <% if (listingScreenshots.length) { %>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px">
+            <% listingScreenshots.forEach(shot => { %>
+            <a href="<%= shot.image_url %>" target="_blank" rel="noopener" style="display:block;aspect-ratio:16/9;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.08)">
+              <img src="<%= shot.image_url %>" alt="Screenshot" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block" />
+            </a>
+            <% }); %>
+          </div>
+          <% } else { %>
+          <div style="font-size:.85rem;color:#666">None uploaded yet.</div>
+          <% } %>
+
+          <% if (sub.banner_url) { %>
+          <div style="color:#888;font-size:.78rem;margin:16px 0 8px">Feature banner</div>
+          <a href="<%= sub.banner_url %>" target="_blank" rel="noopener" style="display:block;aspect-ratio:16/9;max-width:340px;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.08)">
+            <img src="<%= sub.banner_url %>" alt="Banner" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block" />
+          </a>
+          <% } %>
+
+          <p style="font-size:.78rem;color:#666;margin:16px 0 0;line-height:1.6">
+            Listing art is the developer's. The promotional / featured image stays editorial —
+            set it yourself on the game's page in the Games panel.
+          </p>
+        </div>
+        <% } %>
 
         <% if (sub.rejection_reason) { %>
         <div class="card" style="margin-bottom:20px;border-color:rgba(239,68,68,.3)">
@@ -95,14 +172,16 @@
         <!-- Approve -->
         <% if (sub.status === 'pending' || sub.status === 'under_review') { %>
         <div class="card" style="border-color:rgba(34,197,94,.25)">
-          <h3 style="font-size:.95rem;font-weight:700;margin-bottom:8px;color:#86efac">Approve & Publish</h3>
+          <h3 style="font-size:.95rem;font-weight:700;margin-bottom:8px;color:#86efac">Approve Build</h3>
           <p style="font-size:.82rem;color:#888;margin-bottom:12px">
-            This will extract the ZIP, upload to R2, and create a <strong>draft</strong> game entry. You'll still need to add thumbnails and publish it from the Games panel. Studio name will be set to <strong><%= sub.studio_name %></strong>.
+            Extracts the ZIP to R2 and creates a <strong>draft</strong> game entry. The developer is
+            emailed to complete their store listing (icon, screenshots, store text); publish it from
+            the Games panel once that lands. Studio name will be set to <strong><%= sub.studio_name %></strong>.
           </p>
           <form method="POST" action="/sitehandler/developer-submissions/<%= sub.id %>/approve">
             <button type="submit" class="btn-admin-primary" style="width:100%;padding:10px;border-radius:8px;font-size:.875rem;font-weight:600;cursor:pointer;border:none;background:rgba(34,197,94,.2);color:#86efac;border:1px solid rgba(34,197,94,.3)"
-              onclick="return confirm('Approve this game and publish it live?')">
-              Approve & Publish
+              onclick="return confirm('Approve this build? The developer will be asked to complete their store listing.')">
+              Approve Build
             </button>
           </form>
         </div>

@@ -2,7 +2,7 @@ const express      = require('express');
 const router       = express.Router();
 const rateLimit    = require('express-rate-limit');
 const { isDeveloper, checkBanned, blockCrossSite } = require('../middleware/developerAuth');
-const { developerUpload, developerThumbnail, developerHeader, developerPortfolioImage, developerDoc, developerSketch, developerDocImage } = require('../config/upload');
+const { developerUpload, developerThumbnail, developerHeader, developerPortfolioImage, developerDoc, developerSketch, developerDocImage, uploadScreenshots } = require('../config/upload');
 
 const authController        = require('../controllers/developer/authController');
 const dashboardController   = require('../controllers/developer/dashboardController');
@@ -15,6 +15,7 @@ const projectDocsController = require('../controllers/developer/projectDocsContr
 const storyboardController  = require('../controllers/developer/storyboardController');
 const socialController      = require('../controllers/developer/socialController');
 const portfolioController   = require('../controllers/developer/portfolioController');
+const listingController     = require('../controllers/developer/listingController');
 
 // ── Rate limiters ─────────────────────────────────────────────────────────────
 
@@ -110,6 +111,26 @@ const formUpload = (uploader, field) => (req, res, next) =>
     next();
   });
 
+// Same contract as formUpload, for inputs that accept several files at once.
+const formUploadMany = (uploader, field, max) => (req, res, next) =>
+  uploader.array(field, max)(req, res, (err) => {
+    if (err) {
+      req.uploadError = err.code === 'LIMIT_FILE_SIZE'
+        ? 'One of those images is too large — the limit is 10 MB each.'
+        : (err.message || 'Image upload failed.');
+    }
+    next();
+  });
+
+const listingLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, max: 60, keyGenerator: byDeveloper,
+  handler: (req, res) => {
+    req.flash('error_msg', 'Too many listing changes. Please try again in a little while.');
+    res.redirect('/developer/listings');
+  },
+  standardHeaders: true, legacyHeaders: false,
+});
+
 const portfolioLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, max: 40, keyGenerator: byDeveloper,
   handler: (req, res) => {
@@ -166,6 +187,15 @@ router.get ('/submissions/:id',                       dashboardController.getSub
 router.get ('/submit',                                submissionsController.getSubmit);
 router.post('/submit',                                uploadLimiter, developerUpload.single('game_zip'), submissionsController.postSubmit);
 router.post('/submissions/:id/submit-review',         submissionsController.postSubmitReview);
+
+// Store Listing — the second gate, opened once a build passes review
+router.get ('/listings',                              listingController.getListings);
+router.get ('/submissions/:id/listing',               listingController.getListing);
+router.post('/submissions/:id/listing',               listingLimiter, listingController.postListing);
+router.post('/submissions/:id/listing/icon',          listingLimiter, formUpload(developerThumbnail, 'icon'), listingController.postIcon);
+router.post('/submissions/:id/listing/banner',        listingLimiter, formUpload(developerPortfolioImage, 'banner'), listingController.postBanner);
+router.post('/submissions/:id/listing/screenshots',   listingLimiter, formUploadMany(uploadScreenshots, 'screenshots', 8), listingController.postScreenshots);
+router.post('/submissions/:id/listing/screenshots/:shotId/delete', listingLimiter, listingController.postDeleteScreenshot);
 
 // Guidelines
 router.get ('/guidelines',                            guidelinesController.getGuidelines);

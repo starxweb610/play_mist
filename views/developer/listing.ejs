@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('partials/head', { title: 'Store Listing — ' + submission.title }) %>  <link rel="icon" href="/favicon.ico" />
+</head>
+<body>
+<div class="container-app">
+  <%- include('partials/sidebar', { activePage: 'listings', developer, appName }) %>
+
+  <main class="main-content">
+    <header class="topbar">
+      <button class="dev-menu-btn" id="devMenuBtn" aria-label="Open navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <span class="topbar-title" style="max-width:360px;overflow:hidden;text-overflow:ellipsis;">Store Listing — <%= submission.title %></span>
+      <div class="top-actions">
+        <a href="/developer/submissions/<%= submission.id %>" class="btn ghost sm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          Back
+        </a>
+      </div>
+    </header>
+
+    <div class="page-content scroll">
+      <%- include('partials/flash') %>
+
+      <% if (errors && errors.length > 0) { %>
+        <div class="alert alert-error">
+          <% if (errors.length === 1) { %><%= errors[0] %>
+          <% } else { %><ul><% errors.forEach(e => { %><li><%= e %></li><% }); %></ul><% } %>
+        </div>
+      <% } %>
+
+      <% if (submission.status === 'listing_pending') { %>
+      <div class="info-banner">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div>
+          <strong><%= submission.title %> passed review.</strong>
+          Fill in the listing below and submit it — that's the last thing standing between
+          your game and the store. Nothing here is public until you press Submit.
+        </div>
+      </div>
+      <% } else { %>
+      <div class="info-banner">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <div>
+          <strong>Your listing is submitted.</strong>
+          <% if (submission.game_is_active) { %>
+            It is live on <%= appName %> — any change you save here updates the game page right away.
+          <% } else { %>
+            Your game is queued for publishing. Edits you save here are picked up automatically.
+          <% } %>
+        </div>
+      </div>
+      <% } %>
+
+      <div class="detail-grid">
+        <!-- Left: the listing form -->
+        <div>
+          <form method="POST" action="/developer/submissions/<%= submission.id %>/listing" id="listingForm">
+
+            <!-- Text -->
+            <div class="card">
+              <div class="card-header" style="margin-bottom:0;padding-bottom:16px;border-bottom:1px solid var(--line);">
+                <div class="card-title">Store Text</div>
+              </div>
+              <div style="padding-top:20px;">
+                <div class="form-group">
+                  <label for="short_description">Short Description</label>
+                  <input type="text" id="short_description" name="short_description" required
+                         maxlength="<%= SHORT_DESC_MAX %>"
+                         value="<%= submission.short_description || '' %>"
+                         placeholder="One line players see on the game card" />
+                  <div class="field-hint">
+                    Shown on game cards, search results and link previews.
+                    <span id="shortCount" class="count-pill">0 / <%= SHORT_DESC_MAX %></span>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="description">Full Description</label>
+                  <textarea id="description" name="description" required rows="6"
+                            placeholder="What the game is, what players do, what makes it worth their time."><%= submission.description || '' %></textarea>
+                  <div class="field-hint">Appears under “About this game” on your game page.</div>
+                </div>
+
+                <div class="form-group">
+                  <label for="controls">Controls / How to Play</label>
+                  <textarea id="controls" name="controls" required rows="3"
+                            placeholder="e.g. Arrow keys to move, Space to jump. Touch: tap left/right of the character."><%= submission.controls || '' %></textarea>
+                </div>
+
+                <div class="form-group" style="margin-bottom:0;">
+                  <label for="trailer_url">Trailer Link <span class="optional-label">(optional)</span></label>
+                  <input type="text" id="trailer_url" name="trailer_url"
+                         value="<%= submission.trailer_url || '' %>"
+                         placeholder="https://www.youtube.com/watch?v=…" />
+                  <div class="field-hint">
+                    A YouTube or Vimeo link. Goes to our team for featuring and promo — it is not
+                    embedded on your game page.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tags -->
+            <div class="card">
+              <div class="card-header" style="margin-bottom:0;padding-bottom:16px;border-bottom:1px solid var(--line);">
+                <div class="card-title">Tags</div>
+                <span class="count-pill" id="tagCount">0 / <%= MAX_TAGS %></span>
+              </div>
+              <div style="padding-top:18px;">
+                <p style="font-size:.85rem;color:var(--ink-3);margin-bottom:14px;">
+                  Pick up to <%= MAX_TAGS %> that genuinely describe your game — they drive
+                  discovery and “more like this”.
+                </p>
+                <% if (allTags.length) { %>
+                <div class="tag-picker" id="tagPicker">
+                  <% allTags.forEach(t => { %>
+                  <label class="tag-chip">
+                    <input type="checkbox" name="tags" value="<%= t.name %>" <%= selectedTags.includes(t.name) ? 'checked' : '' %> />
+                    <span><%= t.name %></span>
+                  </label>
+                  <% }); %>
+                </div>
+                <% } else { %>
+                <p style="font-size:.85rem;color:var(--ink-3);margin:0;">No tags available yet.</p>
+                <% } %>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:12px;margin-top:4px;flex-wrap:wrap;">
+              <button type="submit" name="action" value="save" class="btn ghost">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Save Draft
+              </button>
+              <button type="submit" name="action" value="submit" class="btn primary" id="submitListingBtn" <%= complete ? '' : 'disabled' %>>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg>
+                <%= submission.status === 'listing_pending' ? 'Submit Listing' : 'Update Listing' %>
+              </button>
+            </div>
+          </form>
+
+          <!-- Artwork (separate forms — each uploads on its own) -->
+          <div class="card" style="margin-top:20px;">
+            <div class="card-header" style="margin-bottom:0;padding-bottom:16px;border-bottom:1px solid var(--line);">
+              <div class="card-title">Artwork</div>
+            </div>
+            <div style="padding-top:20px;">
+
+              <div class="form-row" style="align-items:start;">
+                <div class="form-group">
+                  <label>Square Icon <span style="color:var(--danger);">*</span></label>
+                  <form method="POST" action="/developer/submissions/<%= submission.id %>/listing/icon" enctype="multipart/form-data" class="art-upload-form">
+                    <div class="art-slot art-slot-icon <%= submission.thumbnail_url ? 'filled' : '' %>">
+                      <input type="file" name="icon" accept="image/jpeg,image/png,image/webp" />
+                      <% if (submission.thumbnail_url) { %>
+                        <img src="<%= submission.thumbnail_url %>" alt="Game icon" />
+                      <% } else { %>
+                        <div class="art-slot-empty">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                          <span>Upload icon</span>
+                          <small>Square, 512×512 or larger</small>
+                        </div>
+                      <% } %>
+                    </div>
+                  </form>
+                  <div class="field-hint">The image on every card and rail. JPG, PNG or WebP, max 5 MB.</div>
+                </div>
+
+                <div class="form-group">
+                  <label>Feature Banner <span class="optional-label">(optional)</span></label>
+                  <form method="POST" action="/developer/submissions/<%= submission.id %>/listing/banner" enctype="multipart/form-data" class="art-upload-form">
+                    <div class="art-slot art-slot-banner <%= submission.banner_url ? 'filled' : '' %>">
+                      <input type="file" name="banner" accept="image/jpeg,image/png,image/webp" />
+                      <% if (submission.banner_url) { %>
+                        <img src="<%= submission.banner_url %>" alt="Feature banner" />
+                      <% } else { %>
+                        <div class="art-slot-empty">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                          <span>Upload banner</span>
+                          <small>16:9, 1920×1080 recommended</small>
+                        </div>
+                      <% } %>
+                    </div>
+                  </form>
+                  <div class="field-hint">Wide art used on larger layouts. Max 10 MB.</div>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom:0;margin-top:6px;">
+                <label>
+                  Screenshots <span style="color:var(--danger);">*</span>
+                  <span class="optional-label">(<%= screenshots.length %> of <%= MAX_SCREENSHOTS %>, minimum <%= MIN_SCREENSHOTS %>)</span>
+                </label>
+
+                <% if (screenshots.length) { %>
+                <div class="shot-grid <%= submission.orientation === 'portrait' ? 'shot-grid--portrait' : '' %>" style="margin-bottom:14px;">
+                  <% screenshots.forEach(s => { %>
+                  <div class="shot-tile">
+                    <img src="<%= s.image_url %>" alt="Screenshot" loading="lazy" />
+                    <form method="POST" action="/developer/submissions/<%= submission.id %>/listing/screenshots/<%= s.id %>/delete" style="margin:0;">
+                      <button type="submit" class="shot-del" title="Remove screenshot"
+                              onclick="return confirm('Remove this screenshot?')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </form>
+                  </div>
+                  <% }); %>
+                </div>
+                <% } %>
+
+                <% if (screenshots.length < MAX_SCREENSHOTS) { %>
+                <form method="POST" action="/developer/submissions/<%= submission.id %>/listing/screenshots" enctype="multipart/form-data" id="shotForm">
+                  <div class="upload-zone" id="shotZone">
+                    <input type="file" name="screenshots" id="shotInput" accept="image/jpeg,image/png,image/webp" multiple />
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                    <div class="upload-label">Click to choose screenshots or drag &amp; drop</div>
+                    <div class="upload-hint">
+                      <%= submission.orientation === 'portrait' ? 'Portrait (9:16)' : 'Landscape (16:9)' %> ·
+                      JPG, PNG or WebP · max 10 MB each
+                    </div>
+                    <div class="upload-file-name" id="shotNames"></div>
+                  </div>
+                </form>
+                <% } else { %>
+                <div class="field-hint">Maximum reached — remove a screenshot to add a different one.</div>
+                <% } %>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: checklist -->
+        <div>
+          <div class="card">
+            <div class="card-title" style="margin-bottom:14px;">Listing Checklist</div>
+            <ul class="req-list">
+              <% checklist.forEach(item => { %>
+              <li class="<%= item.done ? 'done' : '' %>">
+                <span class="req-mark">
+                  <% if (item.done) { %>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  <% } %>
+                </span>
+                <%= item.label %>
+              </li>
+              <% }); %>
+            </ul>
+            <% if (!complete) { %>
+            <p style="margin:16px 0 0;font-size:.8rem;color:var(--ink-3);line-height:1.6;">
+              Submit unlocks once every item is ticked. Uploads save the moment you pick a file;
+              text needs Save Draft.
+            </p>
+            <% } else if (submission.status === 'listing_pending') { %>
+            <p style="margin:16px 0 0;font-size:.8rem;color:var(--accent);line-height:1.6;">
+              Everything's here — submit your listing to send the game for publishing.
+            </p>
+            <% } %>
+          </div>
+
+          <div class="card">
+            <div class="card-title" style="margin-bottom:12px;">Preview</div>
+            <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface-2);">
+              <div style="aspect-ratio:1/1;background:var(--bg-2);">
+                <% if (submission.thumbnail_url) { %>
+                  <img src="<%= submission.thumbnail_url %>" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                <% } else { %>
+                  <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--ink-4);font-size:.78rem;">No icon yet</div>
+                <% } %>
+              </div>
+              <div style="padding:12px 14px;">
+                <div style="font-size:.9rem;font-weight:600;color:var(--ink);"><%= submission.title %></div>
+                <div style="font-size:.78rem;color:var(--ink-3);margin-top:4px;line-height:1.5;">
+                  <%= submission.short_description || 'Your short description appears here.' %>
+                </div>
+              </div>
+            </div>
+            <p style="margin:12px 0 0;font-size:.78rem;color:var(--ink-3);line-height:1.6;">
+              Roughly how your game reads on a card in the store.
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  // Short-description counter
+  const shortInput = document.getElementById('short_description');
+  const shortCount = document.getElementById('shortCount');
+  const MAX_SHORT  = <%= SHORT_DESC_MAX %>;
+  const paintCount = () => {
+    const n = shortInput.value.length;
+    shortCount.textContent = n + ' / ' + MAX_SHORT;
+    shortCount.classList.toggle('over', n > MAX_SHORT - 20);
+  };
+  shortInput.addEventListener('input', paintCount);
+  paintCount();
+
+  // Tag picker — cap the selection client-side, the server enforces it too
+  const MAX_TAGS = <%= MAX_TAGS %>;
+  const picker   = document.getElementById('tagPicker');
+  const tagCount = document.getElementById('tagCount');
+  if (picker) {
+    const boxes = Array.from(picker.querySelectorAll('input[type="checkbox"]'));
+    const paintTags = () => {
+      const chosen = boxes.filter(b => b.checked).length;
+      tagCount.textContent = chosen + ' / ' + MAX_TAGS;
+      boxes.forEach(b => { b.disabled = !b.checked && chosen >= MAX_TAGS; });
+    };
+    boxes.forEach(b => b.addEventListener('change', paintTags));
+    paintTags();
+  }
+
+  // Artwork uploads submit as soon as a file is chosen — one less click, and
+  // it keeps image state out of the text form's save cycle.
+  document.querySelectorAll('.art-upload-form input[type="file"]').forEach(input => {
+    input.addEventListener('change', () => { if (input.files[0]) input.form.submit(); });
+  });
+
+  // Screenshots: show the chosen names, then upload
+  const shotInput = document.getElementById('shotInput');
+  const shotZone  = document.getElementById('shotZone');
+  const shotNames = document.getElementById('shotNames');
+  if (shotInput) {
+    const upload = () => {
+      if (!shotInput.files.length) return;
+      shotNames.textContent = Array.from(shotInput.files).map(f => f.name).join(', ');
+      shotInput.form.submit();
+    };
+    shotInput.addEventListener('change', upload);
+    shotZone.addEventListener('dragover',  e => { e.preventDefault(); shotZone.classList.add('drag-over'); });
+    shotZone.addEventListener('dragleave', () => shotZone.classList.remove('drag-over'));
+    shotZone.addEventListener('drop', e => {
+      e.preventDefault();
+      shotZone.classList.remove('drag-over');
+      if (e.dataTransfer.files.length) { shotInput.files = e.dataTransfer.files; upload(); }
+    });
+  }
+</script>
+</body>
+</html>

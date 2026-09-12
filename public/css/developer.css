@@ -618,3 +618,172 @@ select option { background: var(--surface-2); }
   .list-table th:nth-child(3),
   .list-table td:nth-child(3) { display: none; }
 }
+
+/* ─── Submission & listing forms ─────────────────────────────────────── */
+.field-hint {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: .78rem; color: var(--ink-3); line-height: 1.5;
+}
+.count-pill {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: .72rem; font-weight: 600;
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border-radius: 20px;
+  padding: 2px 9px;
+}
+.count-pill.over { color: var(--warn); background: var(--warn-soft); }
+
+/* Disclosure / consent checkbox rows */
+.check-row {
+  display: flex; align-items: center; gap: 12px;
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.check-row:hover { border-color: var(--line-strong); }
+.check-row:has(input:checked) { border-color: rgba(181,255,107,.35); background: var(--accent-soft); }
+.check-row input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 17px; height: 17px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  margin: 0;
+}
+.check-row span { display: block; }
+.check-row strong {
+  display: block;
+  font-size: .85rem; font-weight: 600; color: var(--ink);
+}
+.check-row em {
+  display: block;
+  margin-top: 2px;
+  font-style: normal;
+  /* .check-row is a <label>, which the form styles set to 600 — the helper
+     line has to opt back out of that inherited weight. */
+  font-weight: 400;
+  letter-spacing: normal;
+  font-size: .78rem; color: var(--ink-3); line-height: 1.55;
+}
+
+/* Informational banner above a form */
+.info-banner {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 18px; margin-bottom: 20px;
+  background: var(--info-soft);
+  border: 1px solid rgba(90,169,255,.22);
+  border-radius: 12px;
+  font-size: .84rem; color: var(--ink-2); line-height: 1.6;
+}
+.info-banner svg { flex-shrink: 0; color: var(--info); margin-top: 2px; }
+.info-banner strong { color: var(--ink); }
+
+/* ─── Store listing ──────────────────────────────────────────────────── */
+/* Requirement checklist — the developer's map of what is still missing. */
+.req-list { list-style: none; margin: 0; padding: 0; }
+.req-list li {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 0;
+  font-size: .85rem; color: var(--ink-2);
+  border-bottom: 1px solid var(--line);
+}
+.req-list li:last-child { border-bottom: none; }
+.req-mark {
+  flex-shrink: 0;
+  width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--line-strong);
+  background: var(--surface-2);
+}
+.req-list li.done .req-mark { border-color: var(--ok); background: var(--ok-soft); color: var(--ok); }
+.req-list li.done { color: var(--ink-3); }
+
+/* Image slots — icon and banner */
+.art-slot {
+  position: relative;
+  border: 2px dashed var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface-2);
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.art-slot:hover { border-color: var(--accent); }
+.art-slot.filled { border-style: solid; border-color: var(--line); }
+.art-slot input[type="file"] {
+  position: absolute; inset: 0;
+  opacity: 0; cursor: pointer; width: 100%; height: 100%; z-index: 2;
+}
+.art-slot img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.art-slot-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; height: 100%; padding: 20px; text-align: center;
+}
+.art-slot-empty svg { width: 26px; height: 26px; color: var(--accent); }
+.art-slot-empty span { font-size: .8rem; font-weight: 600; color: var(--ink-2); }
+.art-slot-empty small { font-size: .72rem; color: var(--ink-3); }
+.art-slot-icon   { aspect-ratio: 1 / 1;  max-width: 190px; }
+.art-slot-banner { aspect-ratio: 16 / 9; }
+
+/* Screenshot grid */
+/* Tiles mirror the game's own orientation, so the grid previews screenshots
+   at the shape players will actually see. */
+.shot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.shot-grid--portrait { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.shot-tile {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  aspect-ratio: 16 / 9;
+}
+.shot-grid--portrait .shot-tile { aspect-ratio: 9 / 16; }
+.shot-tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.shot-del {
+  position: absolute; top: 6px; right: 6px;
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(10,12,16,.78);
+  border: 1px solid var(--line-strong);
+  color: var(--ink-2); cursor: pointer;
+  padding: 0;
+}
+.shot-del:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
+.shot-del svg { width: 13px; height: 13px; }
+
+/* Tag picker */
+.tag-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag-chip { position: relative; }
+.tag-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.tag-chip span {
+  display: inline-block;
+  padding: 6px 13px;
+  border-radius: 20px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: .8rem; color: var(--ink-2);
+  cursor: pointer;
+  transition: all .15s;
+  user-select: none;
+}
+.tag-chip input:checked + span {
+  background: var(--accent-soft);
+  border-color: rgba(181,255,107,.4);
+  color: var(--accent);
+  font-weight: 600;
+}
+.tag-chip input:disabled + span { opacity: .4; cursor: not-allowed; }
+
+/* Listing status pill — matches the submission-status badge aliases above */
+.badge-listing-pending { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--purple-soft); color: var(--purple); }

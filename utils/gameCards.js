@@ -6,7 +6,7 @@
 const { formatImagePath } = require('./images');
 
 const GAME_FIELDS = `
-  id, title, slug, short_description, long_description, genre, type, orientation,
+  id, title, slug, short_description, long_description, controls, genre, type, orientation,
   version, play_url, trailer_url, thumbnail_url, secondary_thumbnail, promotional_thumbnail,
   studio, size, plays, rating, credits_cost, flag, is_featured, developer_id, created_at
 `;

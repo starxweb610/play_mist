@@ -143,6 +143,13 @@
             </div>
 
             <div class="form-group">
+              <label class="form-label">Controls / How to Play</label>
+              <textarea name="controls" class="form-input form-textarea" rows="3"
+                placeholder="Supplied by the developer on their store listing — edit if needed."
+                ><%= game.controls || '' %></textarea>
+            </div>
+
+            <div class="form-group">
               <label class="form-label">Tags / Features</label>
               <% if (tags.length > 0) { %>
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; margin-top: 6px;">

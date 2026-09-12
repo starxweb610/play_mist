@@ -40,8 +40,8 @@
             </thead>
             <tbody>
               <% submissions.forEach(s => {
-                const statusLabel = { pending: 'Pending', under_review: 'Under Review', approved: 'Approved', rejected: 'Rejected' };
-                const statusBadge = { pending: 'warning', under_review: 'info', approved: 'success', rejected: 'danger' };
+                const statusLabel = { pending: 'Pending', under_review: 'Under Review', listing_pending: 'Awaiting Listing', approved: 'Approved', rejected: 'Rejected' };
+                const statusBadge = { pending: 'warning', under_review: 'info', listing_pending: 'info', approved: 'success', rejected: 'danger' };
               %>
               <tr>
                 <td class="fw-600"><%= s.title %></td>

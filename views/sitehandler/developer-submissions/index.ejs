@@ -22,6 +22,7 @@
         { val: '',             label: 'All',          count: Object.values(counts).reduce((a,b)=>a+b,0) },
         { val: 'pending',      label: 'Pending',      count: counts.pending || 0 },
         { val: 'under_review', label: 'Under Review', count: counts.under_review || 0 },
+        { val: 'listing_pending', label: 'Awaiting Listing', count: counts.listing_pending || 0 },
         { val: 'approved',     label: 'Approved',     count: counts.approved || 0 },
         { val: 'rejected',     label: 'Rejected',     count: counts.rejected || 0 },
       ]; %>
@@ -56,8 +57,8 @@
         </thead>
         <tbody>
           <% submissions.forEach(s => {
-            const statusLabel = { pending: 'Pending', under_review: 'Under Review', approved: 'Approved', rejected: 'Rejected' };
-            const statusBadge = { pending: 'warning', under_review: 'info', approved: 'success', rejected: 'danger' };
+            const statusLabel = { pending: 'Pending', under_review: 'Under Review', listing_pending: 'Awaiting Listing', approved: 'Approved', rejected: 'Rejected' };
+            const statusBadge = { pending: 'warning', under_review: 'info', listing_pending: 'info', approved: 'success', rejected: 'danger' };
           %>
           <tr>
             <td class="text-dim">#<%= s.id %></td>

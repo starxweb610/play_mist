@@ -71,6 +71,7 @@ function statusBadge(status) {
     approved:     { label: 'Approved',     bg: '#14421f', color: '#4ade80' },
     rejected:     { label: 'Rejected',     bg: '#4a1020', color: '#f87171' },
     pending:      { label: 'Pending',      bg: '#2d2a1a', color: '#fbbf24' },
+    listing_pending: { label: 'Listing Needed', bg: '#2a1f45', color: '#a78bfa' },
   };
   const s = map[status] || { label: status, bg: '#1f2937', color: '#9ca3af' };
   return `<span style="display:inline-block;background:${s.bg};color:${s.color};font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;letter-spacing:.5px;">${s.label}</span>`;
@@ -217,15 +218,22 @@ exports.resetPasswordCode = ({ name, code }) => wrap(`
   </tr>
 `);
 
-exports.submissionStatusChanged = ({ name, gameTitle, status, rejectionReason, dashboardUrl }) => {
+exports.submissionStatusChanged = ({ name, gameTitle, status, rejectionReason, dashboardUrl, listingUrl }) => {
   const messages = {
     under_review: {
       headline: 'Your game is under review',
       body: `Your submission <strong style="color:#e5e7eb">${gameTitle}</strong> is now being reviewed by our team. We'll notify you once a decision has been made.`,
     },
+    // Review passed, but the store listing is still empty. This is the one
+    // email in the flow that asks the developer to do something, so it leads
+    // with the action rather than the congratulation.
+    listing_pending: {
+      headline: 'Your game passed review! 🎉',
+      body: `<strong style="color:#e5e7eb">${gameTitle}</strong> has been approved by our review team. One step left: head to the <strong style="color:#e5e7eb">Store Listing</strong> section and add the artwork and store details. As soon as you submit it, your game is queued for publishing.`,
+    },
     approved: {
-      headline: 'Your game has been approved! 🎉',
-      body: `Great news! <strong style="color:#e5e7eb">${gameTitle}</strong> has been approved and is now live on ${APP_NAME()}. Our team may still add thumbnails before publishing it publicly — stay tuned!`,
+      headline: 'Your listing is in — your game is queued! 🎉',
+      body: `Thanks for completing the store listing for <strong style="color:#e5e7eb">${gameTitle}</strong>. It is now queued for publishing on ${APP_NAME()} — we'll email you the moment it goes live.`,
     },
     rejected: {
       headline: 'Your game submission was not approved',
@@ -245,6 +253,33 @@ exports.submissionStatusChanged = ({ name, gameTitle, status, rejectionReason, d
         </table>
        </td></tr>`
     : '';
+
+  // Spelling out exactly what the listing needs saves a round-trip: the
+  // developer can gather the assets before they ever open the page.
+  const listingBlock = (status === 'listing_pending')
+    ? `<tr><td style="padding:0 40px 24px;">
+        <table cellpadding="0" cellspacing="0" role="presentation" style="background:#1c1c28;border:1px solid rgba(167,139,250,.18);border-radius:8px;width:100%;">
+          <tr><td style="padding:18px 20px;">
+            <p style="margin:0 0 12px;font-size:12px;color:#a78bfa;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">What your listing needs</p>
+            <table cellpadding="0" cellspacing="0" role="presentation" width="100%">
+              <tr><td style="padding:0 0 8px;font-size:14px;color:#d1d5db;line-height:1.6;">&bull;&nbsp; A <strong style="color:#e5e7eb">square icon</strong> — 512&times;512 or larger</td></tr>
+              <tr><td style="padding:0 0 8px;font-size:14px;color:#d1d5db;line-height:1.6;">&bull;&nbsp; <strong style="color:#e5e7eb">3 or more screenshots</strong> from actual gameplay</td></tr>
+              <tr><td style="padding:0 0 8px;font-size:14px;color:#d1d5db;line-height:1.6;">&bull;&nbsp; A <strong style="color:#e5e7eb">short description</strong> — one line for your game card</td></tr>
+              <tr><td style="padding:0 0 8px;font-size:14px;color:#d1d5db;line-height:1.6;">&bull;&nbsp; <strong style="color:#e5e7eb">Tags</strong> that describe your game (up to 5)</td></tr>
+              <tr><td style="padding:0;font-size:14px;color:#9ca3af;line-height:1.6;">&bull;&nbsp; Optional: a 16:9 feature banner and a trailer link</td></tr>
+            </table>
+            <p style="margin:14px 0 0;font-size:13px;color:#9ca3af;line-height:1.6;">
+              Your progress saves as you go, so you can come back and finish later.
+            </p>
+          </td></tr>
+        </table>
+       </td></tr>`
+    : '';
+
+  const ctaUrl = (status === 'listing_pending' && listingUrl)
+    ? listingUrl
+    : (dashboardUrl || `${BASE_URL()}/developer/dashboard`);
+  const ctaLabel = (status === 'listing_pending') ? 'Complete Your Store Listing' : 'View Dashboard';
 
   return wrap(`
     <tr>
@@ -269,10 +304,11 @@ exports.submissionStatusChanged = ({ name, gameTitle, status, rejectionReason, d
     </tr>
 
     ${reasonBlock}
+    ${listingBlock}
 
     <tr>
       <td align="center" style="padding:8px 40px 32px;">
-        <a href="${dashboardUrl || (BASE_URL() + '/developer/dashboard')}" style="display:inline-block;background:#B5FF6B;color:#1a1d24;text-decoration:none;font-size:14px;font-weight:700;padding:12px 28px;border-radius:8px;">View Dashboard</a>
+        <a href="${ctaUrl}" style="display:inline-block;background:#B5FF6B;color:#1a1d24;text-decoration:none;font-size:14px;font-weight:700;padding:12px 28px;border-radius:8px;">${ctaLabel}</a>
       </td>
     </tr>
   `);

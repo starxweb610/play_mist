@@ -72,10 +72,17 @@ exports.getDetail = async (req, res) => {
     const sub = rows[0];
     sub.zip_size_fmt = formatBytes(sub.zip_size);
 
+    const [listingScreenshots] = await db.query(
+      `SELECT id, image_url FROM developer_submission_screenshots
+       WHERE submission_id = ? ORDER BY position ASC, id ASC`,
+      [sub.id]
+    );
+
     res.render('sitehandler/developer-submissions/detail', {
       title: sub.title,
       activePage: 'dev-submissions',
       sub,
+      listingScreenshots,
     });
   } catch (err) {
     req.flash('error_msg', err.message);
@@ -154,7 +161,9 @@ exports.postApprove = async (req, res) => {
 
     if (!rows.length) throw new Error('Submission not found.');
     const sub = rows[0];
-    if (sub.status === 'approved') {
+    // Both states mean review already passed — re-approving would create a
+    // second game row and orphan the first.
+    if (sub.status === 'approved' || sub.status === 'listing_pending') {
       req.flash('error_msg', 'Already approved.');
       return res.redirect(`/sitehandler/developer-submissions/${id}`);
     }
@@ -199,16 +208,18 @@ exports.postApprove = async (req, res) => {
 
     const playUrl = r2.getPublicUrl(`${r2Prefix}/index.html`);
     const zipUrl  = r2.getPublicUrl(`${r2Prefix}/game.zip`);
-    const shortDesc = sub.description.substring(0, 200).trim();
+    // Written by the developer since the two-gate split; older submissions
+    // predate the field and still fall back to a trim of the long description.
+    const shortDesc = (sub.short_description || sub.description.substring(0, 200)).trim();
 
-    // Create game record
+    // Create game record — draft until the developer's store listing lands.
     const [result] = await db.query(
       `INSERT INTO games
-         (title, slug, short_description, long_description, genre, type, orientation,
+         (title, slug, short_description, long_description, controls, genre, type, orientation,
           version, file_path, play_url, zip_url, size_bytes, size, studio, developer_id, is_active, created_by)
-       VALUES (?, ?, ?, ?, ?, 'webgl', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, 'webgl', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
       [
-        sub.title, sub.slug, shortDesc, sub.description,
+        sub.title, sub.slug, shortDesc, sub.description, sub.controls || null,
         sub.genre, sub.orientation, sub.version,
         r2Prefix, playUrl, zipUrl,
         sub.zip_size || null, sub.zip_size ? formatBytes(sub.zip_size) : null,
@@ -217,9 +228,12 @@ exports.postApprove = async (req, res) => {
       ]
     );
 
+    // Approval ends review, it does not end the submission: the developer still
+    // owes us the store listing. 'listing_pending' is that waiting state, so an
+    // approved game is never silently stuck waiting on an admin to draw art.
     await db.query(
       `UPDATE developer_submissions
-       SET status = 'approved', game_id = ?, reviewed_by = ?, reviewed_at = NOW(), rejection_reason = NULL
+       SET status = 'listing_pending', game_id = ?, reviewed_by = ?, reviewed_at = NOW(), rejection_reason = NULL
        WHERE id = ?`,
       [result.insertId, req.session.admin.id, id]
     );
@@ -235,16 +249,17 @@ exports.postApprove = async (req, res) => {
       const { developer_name, developer_email } = devRows[0];
       mailer.sendMail({
         to:      developer_email,
-        subject: `Your game "${sub.title}" has been approved! — ${process.env.APP_NAME || 'PlayMist'}`,
+        subject: `"${sub.title}" passed review — complete your store listing`,
         html:    templates.submissionStatusChanged({
           name: developer_name,
           gameTitle: sub.title,
-          status: 'approved',
+          status: 'listing_pending',
+          listingUrl: `${(process.env.BASE_URL || 'https://playmist.app').replace(/\/$/, '')}/developer/submissions/${id}/listing`,
         }),
-      }).catch(err => console.error('approved email failed:', err.message));
+      }).catch(err => console.error('listing_pending email failed:', err.message));
     }
 
-    req.flash('success_msg', `"${sub.title}" approved. Game created as draft (ID: ${result.insertId}). Add thumbnails and publish it from the Games panel.`);
+    req.flash('success_msg', `"${sub.title}" approved (game ID: ${result.insertId}). The developer has been emailed to complete the store listing; publish it from the Games panel once their artwork lands.`);
     res.redirect(`/sitehandler/developer-submissions/${id}`);
   } catch (err) {
     req.flash('error_msg', 'Approval failed: ' + err.message);
