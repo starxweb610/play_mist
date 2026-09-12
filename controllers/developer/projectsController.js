@@ -1,12 +1,29 @@
 const db = require('../../config/database');
+const { uniqueSlug, matchClause } = require('../../utils/slugs');
 
 // ── Helper: verify project belongs to this developer ─────────────────────────
+// The JSON task/doc/storyboard API addresses projects by numeric id.
 async function ownedProject(projectId, devId) {
   const [rows] = await db.query(
     'SELECT id FROM developer_projects WHERE id = ? AND developer_id = ?',
     [projectId, devId]
   );
   return rows.length > 0;
+}
+
+/**
+ * Page routes address a project by slug (so no database id shows up in the
+ * URL bar) but still accept a bare id, for bookmarks made before slugs
+ * existed. Returns the row, or null when it isn't this developer's.
+ */
+async function ownedProjectRow(idOrSlug, devId, columns = 'id, slug, name') {
+  const match = matchClause(idOrSlug);
+  if (!match) return null;
+  const [rows] = await db.query(
+    `SELECT ${columns} FROM developer_projects WHERE ${match.sql} AND developer_id = ?`,
+    [...match.params, devId]
+  );
+  return rows[0] || null;
 }
 
 // ── Project list ──────────────────────────────────────────────────────────────
@@ -40,12 +57,14 @@ exports.postProject = async (req, res) => {
     return res.redirect('/developer/projects');
   }
   try {
-    const [result] = await db.query(
-      `INSERT INTO developer_projects (developer_id, name, description, status, deadline)
-       VALUES (?, ?, ?, ?, ?)`,
-      [req.session.developer.id, name.trim(), description?.trim() || null, status || 'active', deadline || null]
+    const devId = req.session.developer.id;
+    const slug  = await uniqueSlug('developer_projects', 'developer_id', devId, name.trim());
+    await db.query(
+      `INSERT INTO developer_projects (developer_id, slug, name, description, status, deadline)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [devId, slug, name.trim(), description?.trim() || null, status || 'active', deadline || null]
     );
-    res.redirect(`/developer/projects/${result.insertId}`);
+    res.redirect(`/developer/projects/${slug}`);
   } catch (err) {
     req.flash('error_msg', 'Failed to create project.');
     res.redirect('/developer/projects');
@@ -57,16 +76,17 @@ exports.postProject = async (req, res) => {
 exports.getProjectDetail = async (req, res) => {
   const devId = req.session.developer.id;
   try {
-    const [rows] = await db.query(
+    const match = matchClause(req.params.id);
+    const [rows] = match ? await db.query(
       `SELECT p.*,
          COUNT(t.id)            AS task_count,
          SUM(t.status = 'done') AS completed_tasks
        FROM developer_projects p
        LEFT JOIN developer_project_tasks t ON t.project_id = p.id
-       WHERE p.id = ? AND p.developer_id = ?
+       WHERE ${match.sql.replace(/\b(slug|id)\b/g, 'p.$1')} AND p.developer_id = ?
        GROUP BY p.id`,
-      [req.params.id, devId]
-    );
+      [...match.params, devId]
+    ) : [[]];
     if (!rows.length) {
       req.flash('error_msg', 'Project not found.');
       return res.redirect('/developer/projects');
@@ -85,23 +105,29 @@ exports.postUpdateProject = async (req, res) => {
   const { id } = req.params;
   const devId = req.session.developer.id;
   try {
+    const project = await ownedProjectRow(id, devId);
+    if (!project) {
+      req.flash('error_msg', 'Project not found.');
+      return res.redirect('/developer/projects');
+    }
+    // The slug is deliberately left alone on rename — see utils/slugs.js.
     await db.query(
       `UPDATE developer_projects
        SET name = ?, description = ?, status = ?, deadline = ?
        WHERE id = ? AND developer_id = ?`,
-      [name?.trim() || 'Untitled', description?.trim() || null, status || 'active', deadline || null, id, devId]
+      [name?.trim() || 'Untitled', description?.trim() || null, status || 'active', deadline || null, project.id, devId]
     );
     req.flash('success_msg', 'Project updated.');
-    res.redirect(`/developer/projects/${id}`);
+    res.redirect(`/developer/projects/${project.slug}`);
   } catch (err) {
     req.flash('error_msg', 'Failed to update project.');
-    res.redirect(`/developer/projects/${id}`);
+    res.redirect(`/developer/projects/${encodeURIComponent(id)}`);
   }
 };
 
 // ── Public / private sharing ──────────────────────────────────────────────────
 // A public project is readable (never editable) by anyone at
-// /@handle/projects/:id — overview, storyboards, tasks and documents.
+// /@handle/projects/:slug — overview, storyboards, tasks and documents.
 
 exports.putVisibility = async (req, res) => {
   const { id } = req.params;
@@ -114,9 +140,10 @@ exports.putVisibility = async (req, res) => {
     );
     if (!result.affectedRows) return res.status(404).json({ error: 'Project not found.' });
     const handle = req.session.developer.handle;
+    const [[row]] = await db.query('SELECT slug FROM developer_projects WHERE id = ?', [id]);
     res.json({
       is_public:  isPublic,
-      public_url: isPublic && handle ? `/@${handle}/projects/${id}` : null,
+      public_url: isPublic && handle && row?.slug ? `/@${handle}/projects/${row.slug}` : null,
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update visibility.' });
@@ -127,10 +154,13 @@ exports.putVisibility = async (req, res) => {
 
 exports.postDeleteProject = async (req, res) => {
   try {
-    await db.query(
-      'DELETE FROM developer_projects WHERE id = ? AND developer_id = ?',
-      [req.params.id, req.session.developer.id]
-    );
+    const devId   = req.session.developer.id;
+    const project = await ownedProjectRow(req.params.id, devId);
+    if (!project) {
+      req.flash('error_msg', 'Project not found.');
+      return res.redirect('/developer/projects');
+    }
+    await db.query('DELETE FROM developer_projects WHERE id = ? AND developer_id = ?', [project.id, devId]);
     req.flash('success_msg', 'Project deleted.');
     res.redirect('/developer/projects');
   } catch (err) {

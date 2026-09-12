@@ -11,10 +11,11 @@ const db = require('../config/database');
 const r2 = require('../config/r2');
 const { GAME_FIELDS, toCardView } = require('../utils/gameCards');
 const { normalizeHandle, isHandleShape } = require('../utils/handles');
+const { matchClause, shouldRedirectToSlug } = require('../utils/slugs');
 const { formatBytes, formatCount } = require('../utils/format');
 const { itemView: portfolioItemView } = require('../utils/portfolio');
 
-const PORTFOLIO_FIELDS = `id, title, description, image_url, video_provider, video_id,
+const PORTFOLIO_FIELDS = `id, slug, title, description, image_url, video_provider, video_id,
   play_store_url, app_store_url, steam_url, itch_url, drive_url, updated_at`;
 
 const APP_URL = () => process.env.APP_URL || 'https://playmist.app';
@@ -69,25 +70,43 @@ async function resolveDeveloper(req, res) {
 }
 
 async function resolvePublicProject(req, res, dev) {
-  if (!/^\d{1,10}$/.test(req.params.projectId)) { notFound(req, res); return null; }
+  const match = matchClause(req.params.projectId);
+  if (!match) { notFound(req, res); return null; }
   const [rows] = await db.query(
-    `SELECT id, name, description, status, deadline, created_at, updated_at
-     FROM developer_projects WHERE id = ? AND developer_id = ? AND is_public = 1`,
-    [Number(req.params.projectId), dev.id]
+    `SELECT id, slug, name, description, status, deadline, created_at, updated_at
+     FROM developer_projects WHERE ${match.sql} AND developer_id = ? AND is_public = 1`,
+    [...match.params, dev.id]
   );
   if (!rows.length) { notFound(req, res); return null; }
   return rows[0];
 }
 
 async function resolvePublicDoc(req, res, project) {
-  if (!/^\d{1,10}$/.test(req.params.docId)) { notFound(req, res); return null; }
+  const match = matchClause(req.params.docId);
+  if (!match) { notFound(req, res); return null; }
   const [rows] = await db.query(
-    `SELECT id, title, doc_type, content, file_name, file_size, file_url, mime_type, updated_at
-     FROM developer_project_docs WHERE id = ? AND project_id = ?`,
-    [Number(req.params.docId), project.id]
+    `SELECT id, slug, title, doc_type, content, file_name, file_size, file_url, mime_type, updated_at
+     FROM developer_project_docs WHERE ${match.sql} AND project_id = ?`,
+    [...match.params, project.id]
   );
   if (!rows.length) { notFound(req, res); return null; }
   return rows[0];
+}
+
+/**
+ * Sends a permanent redirect when the request arrived on a legacy numeric
+ * URL. Old links and sitemap entries still resolve; search engines and
+ * anyone who shares the page end up on the canonical slug URL.
+ */
+function redirectedToSlug(req, res, pairs) {
+  const stale = pairs.some(([param, row]) => shouldRedirectToSlug(param, row));
+  if (!stale) return false;
+  let path = req.path;
+  for (const [param, row] of pairs) {
+    if (shouldRedirectToSlug(param, row)) path = path.replace(`/${param}`, `/${row.slug}`);
+  }
+  res.redirect(301, path);
+  return true;
 }
 
 const viewerOf = (req, dev) => {
@@ -108,7 +127,7 @@ exports.getProfile = async (req, res) => {
       [dev.id]
     );
     const [projects] = await db.query(
-      `SELECT p.id, p.name, p.description, p.status, p.updated_at,
+      `SELECT p.id, p.slug, p.name, p.description, p.status, p.updated_at,
               COUNT(t.id) AS task_count, COALESCE(SUM(t.status = 'done'), 0) AS done_count
        FROM developer_projects p
        LEFT JOIN developer_project_tasks t ON t.project_id = p.id
@@ -173,16 +192,19 @@ exports.getPortfolioItem = async (req, res) => {
   try {
     const dev = await resolveDeveloper(req, res);
     if (!dev) return;
-    if (!/^\d{1,10}$/.test(req.params.itemId)) return notFound(req, res);
+    const match = matchClause(req.params.itemId);
+    if (!match) return notFound(req, res);
 
     const [rows] = await db.query(
-      `SELECT ${PORTFOLIO_FIELDS} FROM developer_portfolio_items WHERE id = ? AND developer_id = ?`,
-      [Number(req.params.itemId), dev.id]
+      `SELECT ${PORTFOLIO_FIELDS} FROM developer_portfolio_items
+       WHERE ${match.sql} AND developer_id = ?`,
+      [...match.params, dev.id]
     );
     if (!rows.length) return notFound(req, res);
+    if (redirectedToSlug(req, res, [[req.params.itemId, rows[0]]])) return;
 
     const [others] = await db.query(
-      `SELECT id, title, image_url FROM developer_portfolio_items
+      `SELECT id, slug, title, image_url FROM developer_portfolio_items
        WHERE developer_id = ? AND id <> ? ORDER BY position ASC, created_at DESC LIMIT 6`,
       [dev.id, rows[0].id]
     );
@@ -235,6 +257,7 @@ exports.getProject = async (req, res) => {
     if (!dev) return;
     const project = await resolvePublicProject(req, res, dev);
     if (!project) return;
+    if (redirectedToSlug(req, res, [[req.params.projectId, project]])) return;
 
     const [tasks] = await db.query(
       `SELECT id, title, description, status, priority, due_date, labels, updated_at
@@ -257,7 +280,7 @@ exports.getProject = async (req, res) => {
       );
     }
     const [docs] = await db.query(
-      `SELECT id, title, doc_type, file_name, file_size, is_pinned, updated_at
+      `SELECT id, slug, title, doc_type, file_name, file_size, is_pinned, updated_at
        FROM developer_project_docs WHERE project_id = ?
        ORDER BY is_pinned DESC, updated_at DESC`,
       [project.id]
@@ -300,6 +323,7 @@ exports.getDoc = async (req, res) => {
     if (!project) return;
     const doc = await resolvePublicDoc(req, res, project);
     if (!doc) return;
+    if (redirectedToSlug(req, res, [[req.params.projectId, project], [req.params.docId, doc]])) return;
 
     // Uploaded files live on the R2 public bucket; only link URLs we issued.
     const fileUrl = doc.doc_type === 'upload' && r2.keyFromUrl(doc.file_url) ? doc.file_url : null;
@@ -308,10 +332,10 @@ exports.getDoc = async (req, res) => {
       title: `${doc.title} · ${project.name} – ${res.locals.appName}`,
       appUrl: APP_URL(),
       dev, project,
-      doc: { id: doc.id, title: doc.title, docType: doc.doc_type, fileName: doc.file_name,
+      doc: { id: doc.id, slug: doc.slug, title: doc.title, docType: doc.doc_type, fileName: doc.file_name,
              sizeLabel: doc.file_size ? formatBytes(doc.file_size) : '', updatedAt: doc.updated_at },
       fileUrl,
-      contentUrl: `/@${dev.handle}/projects/${project.id}/docs/${doc.id}/content`,
+      contentUrl: `/@${dev.handle}/projects/${project.slug}/docs/${doc.slug}/content`,
     });
   } catch (err) {
     console.error('getDoc error:', err);

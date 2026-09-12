@@ -297,11 +297,12 @@ exports.getSitemap = async (req, res) => {
     profileUrls = rows.map(d => ({ loc: `${appUrl}/@${d.handle}`, changefreq: 'weekly', priority: '0.6' }));
 
     const [items] = await db.query(
-      `SELECT f.id, f.updated_at, d.handle FROM developer_portfolio_items f
-       JOIN developers d ON d.id = f.developer_id AND d.is_active = 1 AND d.handle IS NOT NULL`
+      `SELECT f.slug, f.updated_at, d.handle FROM developer_portfolio_items f
+       JOIN developers d ON d.id = f.developer_id AND d.is_active = 1 AND d.handle IS NOT NULL
+       WHERE f.slug IS NOT NULL AND f.slug <> ''`
     );
     profileUrls.push(...items.map(f => ({
-      loc:        `${appUrl}/@${f.handle}/portfolio/${f.id}`,
+      loc:        `${appUrl}/@${f.handle}/portfolio/${f.slug}`,
       changefreq: 'monthly',
       priority:   '0.5',
       lastmod:    f.updated_at ? new Date(f.updated_at).toISOString().split('T')[0] : null,

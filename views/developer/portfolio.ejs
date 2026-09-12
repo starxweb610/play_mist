@@ -99,11 +99,11 @@
                   <div class="fo-chips"><% item.links.forEach(l => { %><span class="fo-chip"><%= l.label %></span><% }) %></div>
                 <% } %>
                 <div class="fo-actions">
-                  <a href="/developer/portfolio/<%= item.id %>/edit" class="btn sm">Edit</a>
+                  <a href="/developer/portfolio/<%= item.slug %>/edit" class="btn sm">Edit</a>
                   <% if (developer.handle) { %>
-                    <a href="/@<%= developer.handle %>/portfolio/<%= item.id %>" target="_blank" rel="noopener" class="btn ghost sm">View</a>
+                    <a href="/@<%= developer.handle %>/portfolio/<%= item.slug %>" target="_blank" rel="noopener" class="btn ghost sm">View</a>
                   <% } %>
-                  <form method="POST" action="/developer/portfolio/<%= item.id %>/delete" style="margin-left:auto;"
+                  <form method="POST" action="/developer/portfolio/<%= item.slug %>/delete" style="margin-left:auto;"
                         onsubmit="return confirm('Remove this project from your portfolio? This cannot be undone.')">
                     <button type="submit" class="btn ghost sm" style="color:var(--danger);">Delete</button>
                   </form>

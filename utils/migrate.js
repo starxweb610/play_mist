@@ -4,6 +4,7 @@
  * Uses information_schema checks so re-runs are no-ops.
  */
 const db = require('../config/database');
+const { slugBase } = require('./slugs');
 
 const migrateColumn = async (table, column, definition) => {
   const [rows] = await db.query(
@@ -25,6 +26,43 @@ const migrateIndex = async (table, indexName, alterClause) => {
     [table, indexName]
   );
   if (rows[0].c === 0) await db.query(`ALTER TABLE \`${table}\` ${alterClause}`);
+};
+
+/**
+ * Fills in `slug` for rows that predate the column, deduplicating within each
+ * scope (a developer's portfolio, a project's docs). Runs once — rows with a
+ * slug are skipped, so re-running migrations is free.
+ */
+const backfillSlugs = async (table, titleColumn, scopeColumn) => {
+  const [rows] = await db.query(
+    `SELECT id, ${scopeColumn} AS scope, ${titleColumn} AS title
+     FROM \`${table}\` WHERE slug IS NULL OR slug = '' ORDER BY id ASC`
+  );
+  if (!rows.length) return;
+
+  // Seed the taken set from slugs already stored, so a backfilled row can
+  // never collide with one created after the column landed.
+  const [existing] = await db.query(
+    `SELECT ${scopeColumn} AS scope, slug FROM \`${table}\` WHERE slug IS NOT NULL AND slug <> ''`
+  );
+  const taken = new Map();
+  const seen = (scope) => {
+    const key = String(scope);
+    if (!taken.has(key)) taken.set(key, new Set());
+    return taken.get(key);
+  };
+  for (const row of existing) seen(row.scope).add(row.slug);
+
+  for (const row of rows) {
+    const root = slugBase(row.title, `${table.replace(/^developer_/, '')}-${row.id}`);
+    const used = seen(row.scope);
+    let slug = root;
+    let n = 1;
+    while (used.has(slug)) slug = `${root}-${++n}`;
+    used.add(slug);
+    await db.query(`UPDATE \`${table}\` SET slug = ? WHERE id = ?`, [slug, row.id]);
+  }
+  console.log(`   ↳ backfilled ${rows.length} slug(s) on ${table}`);
 };
 
 exports.runMigrations = async () => {
@@ -829,6 +867,26 @@ exports.runMigrations = async () => {
         FOREIGN KEY (developer_id) REFERENCES developers(id) ON DELETE CASCADE
       )
     `);
+
+    // ── URL slugs for developer-owned records ────────────────────────────────
+    // Public pages address portfolio items, projects and docs by slug so no
+    // database id appears in a shareable URL. Existing rows are backfilled
+    // from their title; the resolvers still accept the old numeric id and
+    // redirect, so links already in the wild keep working.
+    await migrateColumn('developer_portfolio_items', 'slug', 'VARCHAR(200) DEFAULT NULL AFTER title');
+    await migrateColumn('developer_projects',        'slug', 'VARCHAR(200) DEFAULT NULL AFTER name');
+    await migrateColumn('developer_project_docs',    'slug', 'VARCHAR(200) DEFAULT NULL AFTER title');
+
+    await backfillSlugs('developer_portfolio_items', 'title', 'developer_id');
+    await backfillSlugs('developer_projects',        'name',  'developer_id');
+    await backfillSlugs('developer_project_docs',    'title', 'project_id');
+
+    await migrateIndex('developer_portfolio_items', 'uniq_portfolio_slug',
+      'ADD UNIQUE KEY uniq_portfolio_slug (developer_id, slug)');
+    await migrateIndex('developer_projects', 'uniq_project_slug',
+      'ADD UNIQUE KEY uniq_project_slug (developer_id, slug)');
+    await migrateIndex('developer_project_docs', 'uniq_doc_slug',
+      'ADD UNIQUE KEY uniq_doc_slug (project_id, slug)');
 
     console.log('✅ DB migrations complete');
   } catch (err) {

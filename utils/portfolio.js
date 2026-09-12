@@ -15,13 +15,15 @@ const { cleanCommentBody: cleanPlainText } = require('./gameComments');
 const MAX_ITEMS = 24;
 const LIMITS = { title: 150, descriptionMin: 200, descriptionMax: 5000, url: 500, videoInput: 2000 };
 
-// Order here is the order buttons appear on the public page.
+// Order here is the order buttons appear on the public page. `brand` picks the
+// store's own colours and logo on that button (.fo-link--<brand> in
+// public/css/profile.css, the <symbol> set in views/profile/portfolio-item.ejs).
 const LINKS = [
-  { field: 'steam_url',      label: 'Steam',        name: 'Steam',              hosts: ['store.steampowered.com', 'steamcommunity.com', 's.team'], placeholder: 'https://store.steampowered.com/app/…' },
-  { field: 'play_store_url', label: 'Google Play',  name: 'Android Play Store', hosts: ['play.google.com'],                                        placeholder: 'https://play.google.com/store/apps/details?id=…' },
-  { field: 'app_store_url',  label: 'App Store',    name: 'iOS App Store',      hosts: ['apps.apple.com', 'itunes.apple.com'],                    placeholder: 'https://apps.apple.com/app/…' },
-  { field: 'itch_url',       label: 'itch.io',      name: 'itch.io',            hosts: ['itch.io'], subdomains: true,                             placeholder: 'https://yourname.itch.io/your-game' },
-  { field: 'drive_url',      label: 'Google Drive', name: 'Google Drive',       hosts: ['drive.google.com', 'docs.google.com'],                   placeholder: 'https://drive.google.com/…' },
+  { field: 'steam_url', cta: 'Get it on',      brand: 'steam', label: 'Steam',        name: 'Steam',              hosts: ['store.steampowered.com', 'steamcommunity.com', 's.team'], placeholder: 'https://store.steampowered.com/app/…' },
+  { field: 'play_store_url', cta: 'Get it on', brand: 'play',  label: 'Google Play',  name: 'Android Play Store', hosts: ['play.google.com'],                                        placeholder: 'https://play.google.com/store/apps/details?id=…' },
+  { field: 'app_store_url', cta: 'Get it on',  brand: 'ios',   label: 'App Store',    name: 'iOS App Store',      hosts: ['apps.apple.com', 'itunes.apple.com'],                    placeholder: 'https://apps.apple.com/app/…' },
+  { field: 'itch_url', cta: 'Get it on',       brand: 'itch',  label: 'itch.io',      name: 'itch.io',            hosts: ['itch.io'], subdomains: true,                             placeholder: 'https://yourname.itch.io/your-game' },
+  { field: 'drive_url', cta: 'Download from',      brand: 'drive', label: 'Google Drive', name: 'Google Drive',       hosts: ['drive.google.com', 'docs.google.com'],                   placeholder: 'https://drive.google.com/…' },
 ];
 
 const VIDEO_ERROR = 'Trailer video must be a YouTube or Vimeo link, or the embed code copied from YouTube or Vimeo.';
@@ -146,7 +148,7 @@ function itemView(row) {
     ...row,
     embedUrl: embedUrl(row.video_provider, row.video_id),
     watchUrl: watchUrl(row.video_provider, row.video_id),
-    links: LINKS.filter((l) => row[l.field]).map((l) => ({ field: l.field, label: l.label, url: row[l.field] })),
+    links: LINKS.filter((l) => row[l.field]).map((l) => ({ field: l.field, brand: l.brand, cta: l.cta, label: l.label, url: row[l.field] })),
   };
 }
 

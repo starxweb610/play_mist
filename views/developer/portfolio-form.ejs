@@ -99,7 +99,7 @@
       <% } %>
 
       <form id="portfolioForm" method="POST" enctype="multipart/form-data"
-            action="<%= item ? '/developer/portfolio/' + item.id : '/developer/portfolio' %>">
+            action="<%= item ? '/developer/portfolio/' + item.slug : '/developer/portfolio' %>">
         <div class="pfo-layout">
           <div class="card pfo-card">
             <section class="pfo-section">
@@ -195,7 +195,7 @@
       </form>
 
       <% if (item) { %>
-        <form method="POST" action="/developer/portfolio/<%= item.id %>/delete" style="margin-top:18px;"
+        <form method="POST" action="/developer/portfolio/<%= item.slug %>/delete" style="margin-top:18px;"
               onsubmit="return confirm('Remove this project from your portfolio? This cannot be undone.')">
           <button type="submit" class="btn sm" style="background:var(--danger-soft);color:var(--danger);border:1px solid rgba(255,92,92,.25);">Delete from portfolio</button>
         </form>

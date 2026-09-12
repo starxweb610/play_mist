@@ -6,6 +6,7 @@
         description: `${kind === 'followers' ? 'Developers following' : 'Developers followed by'} ${dev.name} (@${dev.handle}) on ${appName}.`,
         canonical: `${appUrl}/@${dev.handle}/${kind}`,
         robots: 'noindex, follow', ogImage: dev.header_url || dev.avatar_url || null, ogType: 'website',
+        ogImageAlt: `${dev.name} on ${appName}`,
       }) %>
 </head>
 <body>

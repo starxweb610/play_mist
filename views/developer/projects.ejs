@@ -96,7 +96,7 @@
             const isOver = project.deadline && new Date(project.deadline) < new Date();
             const sMap   = { active:'Info', on_track:'On Track', at_risk:'At Risk', completed:'Completed' };
           %>
-          <a href="/developer/projects/<%= project.id %>" class="proj-card">
+          <a href="/developer/projects/<%= project.slug %>" class="proj-card">
             <div class="proj-card-head">
               <div class="proj-icon <%= icon %>"><%= project.name.charAt(0).toUpperCase() %></div>
               <div style="flex:1;min-width:0;">

@@ -1,22 +1,77 @@
+<%
+  // Shared <head> for every public profile page (/@handle and everything
+  // under it). Callers pass title/description/canonical/robots/ogType and,
+  // optionally, ogImage + ogImageAlt.
+  //
+  // Social crawlers do not resolve relative URLs and silently drop a card
+  // when og:image is relative, so every URL emitted here is absolute.
+  const abs = (u) => {
+    if (!u) return null;
+    const s = String(u);
+    if (/^https?:\/\//i.test(s)) return s;
+    return appUrl.replace(/\/$/, '') + (s.startsWith('/') ? s : `/${s}`);
+  };
+  const metaTitle = String(title || appName).trim();
+  // A card with no description looks broken; fall back rather than emit "".
+  // Cut on a word boundary — a snippet ending mid-word ("…shipped on four
+  // stores. Thi") reads as broken wherever the description is shown.
+  const clip = (text, max) => {
+    const t = String(text).replace(/\s+/g, ' ').trim();
+    if (t.length <= max) return t;
+    const cut = t.slice(0, max - 1);
+    const space = cut.lastIndexOf(' ');
+    return (space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s.,;:!?-]+$/, '') + '…';
+  };
+  const metaDesc = clip(
+    (typeof description !== 'undefined' && description) || `${appName} — play and publish indie games.`,
+    200
+  );
+  const customImage = abs(typeof ogImage !== 'undefined' && ogImage ? ogImage : null);
+  const metaImage   = customImage || abs('/images/og-default.png');
+  // Dimensions are only declared for the one image whose size we know. A
+  // wrong og:image:width makes crawlers lay the card out badly.
+  const knownSize   = !customImage;
+  const metaImageAlt = String(typeof ogImageAlt !== 'undefined' && ogImageAlt ? ogImageAlt : metaTitle).slice(0, 180);
+  const metaCanonical = abs(canonical);
+%>
   <meta charset="UTF-8" />
   <%- include('../../partials/analytics') %>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title><%= title %></title>
-  <meta name="description" content="<%= description %>" />
+  <title><%= metaTitle %></title>
+  <meta name="description" content="<%= metaDesc %>" />
   <meta name="robots" content="<%= robots %>" />
-  <% if (canonical) { %><link rel="canonical" href="<%= canonical %>" /><% } %>
+  <meta name="googlebot" content="<%= robots %>" />
+  <% if (metaCanonical) { %><link rel="canonical" href="<%= metaCanonical %>" /><% } %>
 
-  <meta property="og:title" content="<%= title %>" />
-  <meta property="og:description" content="<%= description %>" />
-  <% if (canonical) { %><meta property="og:url" content="<%= canonical %>" /><% } %>
+  <meta property="og:title" content="<%= metaTitle %>" />
+  <meta property="og:description" content="<%= metaDesc %>" />
+  <% if (metaCanonical) { %><meta property="og:url" content="<%= metaCanonical %>" /><% } %>
   <meta property="og:type" content="<%= ogType %>" />
-  <meta property="og:image" content="<%= ogImage || appUrl + '/images/og-default.png' %>" />
   <meta property="og:site_name" content="<%= appName %>" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:image" content="<%= metaImage %>" />
+  <meta property="og:image:secure_url" content="<%= metaImage %>" />
+  <meta property="og:image:alt" content="<%= metaImageAlt %>" />
+  <% if (knownSize) { %><meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" /><% } %>
+  <% if (typeof ogProfile !== 'undefined' && ogProfile) { %>
+    <meta property="profile:username" content="<%= ogProfile.username %>" />
+    <% if (ogProfile.firstName) { %><meta property="profile:first_name" content="<%= ogProfile.firstName %>" /><% } %>
+    <% if (ogProfile.lastName)  { %><meta property="profile:last_name"  content="<%= ogProfile.lastName %>" /><% } %>
+  <% } %>
+  <% if (typeof ogArticle !== 'undefined' && ogArticle) { %>
+    <meta property="article:author" content="<%= abs(ogArticle.author) %>" />
+    <% if (ogArticle.modified) { %><meta property="article:modified_time" content="<%= ogArticle.modified %>" /><% } %>
+  <% } %>
+
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="<%= title %>" />
-  <meta name="twitter:description" content="<%= description %>" />
-  <meta name="twitter:image" content="<%= ogImage || appUrl + '/images/og-default.png' %>" />
+  <meta name="twitter:title" content="<%= metaTitle %>" />
+  <meta name="twitter:description" content="<%= metaDesc %>" />
+  <meta name="twitter:image" content="<%= metaImage %>" />
+  <meta name="twitter:image:alt" content="<%= metaImageAlt %>" />
+
+  <meta name="theme-color" content="#0B0911" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

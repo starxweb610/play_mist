@@ -4,7 +4,7 @@
   <%- include('partials/head', {
         title,
         description: `${doc.title} — a document from ${project.name} by ${dev.name} on ${appName}.`,
-        canonical: `${appUrl}/@${dev.handle}/projects/${project.id}/docs/${doc.id}`,
+        canonical: `${appUrl}/@${dev.handle}/projects/${project.slug}/docs/${doc.slug}`,
         robots: 'noindex, follow', ogImage: dev.header_url || null, ogType: 'article',
       }) %>
 </head>
@@ -21,9 +21,9 @@
           <%= dev.name %>
         </a>
         <span aria-hidden="true">/</span>
-        <a href="/@<%= dev.handle %>/projects/<%= project.id %>"><%= project.name %></a>
+        <a href="/@<%= dev.handle %>/projects/<%= project.slug %>"><%= project.name %></a>
         <span aria-hidden="true">/</span>
-        <a href="/@<%= dev.handle %>/projects/<%= project.id %>#docs">Documents</a>
+        <a href="/@<%= dev.handle %>/projects/<%= project.slug %>#docs">Documents</a>
       </nav>
 
       <header class="pj-doc-head">
@@ -35,7 +35,7 @@
             · Updated <%= new Date(doc.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>
           </div>
         </div>
-        <a href="/@<%= dev.handle %>/projects/<%= project.id %>#docs" class="btn btn-ghost pf-btn pf-btn--sm">← All documents</a>
+        <a href="/@<%= dev.handle %>/projects/<%= project.slug %>#docs" class="btn btn-ghost pf-btn pf-btn--sm">← All documents</a>
       </header>
 
       <% if (doc.docType === 'upload') { %>

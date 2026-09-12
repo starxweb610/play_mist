@@ -3,8 +3,9 @@ const db     = require('../../config/database');
 const r2     = require('../../config/r2');
 const { toWebp, IMMUTABLE_CACHE } = require('../../utils/images');
 const portfolio = require('../../utils/portfolio');
+const { uniqueSlug, matchClause } = require('../../utils/slugs');
 
-const ITEM_FIELDS = `id, developer_id, title, description, image_url, video_provider, video_id,
+const ITEM_FIELDS = `id, slug, developer_id, title, description, image_url, video_provider, video_id,
   play_store_url, app_store_url, steam_url, itch_url, drive_url, position, created_at, updated_at`;
 
 // Fixed column list (never derived from the request) for INSERT / UPDATE.
@@ -12,11 +13,14 @@ const VALUE_COLUMNS = ['title', 'description', 'video_provider', 'video_id', ...
 
 const IMAGE_PREFIX = 'developers/portfolio/';
 
-async function ownedItem(id, devId) {
-  if (!/^\d{1,10}$/.test(String(id))) return null;
+// Accepts the slug used in portal URLs, or a bare id from a link made before
+// slugs existed. Ownership is still enforced by developer_id in the query.
+async function ownedItem(idOrSlug, devId) {
+  const match = matchClause(idOrSlug);
+  if (!match) return null;
   const [rows] = await db.query(
-    `SELECT ${ITEM_FIELDS} FROM developer_portfolio_items WHERE id = ? AND developer_id = ?`,
-    [Number(id), devId]
+    `SELECT ${ITEM_FIELDS} FROM developer_portfolio_items WHERE ${match.sql} AND developer_id = ?`,
+    [...match.params, devId]
   );
   return rows[0] || null;
 }
@@ -118,10 +122,13 @@ exports.postCreate = async (req, res) => {
       'SELECT COALESCE(MIN(position), 1) - 1 AS pos FROM developer_portfolio_items WHERE developer_id = ?',
       [devId]
     );
+    // The slug is set once, here. Renaming the item later keeps the URL it
+    // was shared and indexed under (utils/slugs.js).
+    const slug = await uniqueSlug('developer_portfolio_items', 'developer_id', devId, values.title);
     await db.query(
-      `INSERT INTO developer_portfolio_items (developer_id, image_url, position, ${VALUE_COLUMNS.join(', ')})
-       VALUES (?, ?, ?, ${VALUE_COLUMNS.map(() => '?').join(', ')})`,
-      [devId, imageUrl, pos, ...VALUE_COLUMNS.map((c) => values[c])]
+      `INSERT INTO developer_portfolio_items (developer_id, slug, image_url, position, ${VALUE_COLUMNS.join(', ')})
+       VALUES (?, ?, ?, ?, ${VALUE_COLUMNS.map(() => '?').join(', ')})`,
+      [devId, slug, imageUrl, pos, ...VALUE_COLUMNS.map((c) => values[c])]
     );
 
     req.flash('success_msg', `“${values.title}” was added to your portfolio.`);

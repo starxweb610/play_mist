@@ -30,7 +30,7 @@
 
 /* ── Profile header ───────────────────────────────────────────────────── */
 .pf-cover {
-  position: relative; height: clamp(170px, 26vw, 330px); overflow: hidden;
+  position: relative; height: clamp(120px, 18vw, 230px); overflow: hidden;
   background:
     radial-gradient(90% 120% at 10% 0%, rgba(155,125,255,.38), transparent 60%),
     radial-gradient(80% 120% at 100% 100%, rgba(92,227,232,.22), transparent 60%),
@@ -44,7 +44,7 @@
 
 .pf-head {
   position: relative; z-index: 2; display: flex; align-items: flex-end; gap: 24px; flex-wrap: wrap;
-  margin-top: -68px;
+  margin-top: -52px;
 }
 .pf-id { flex: 1; min-width: 240px; padding-bottom: 4px; }
 .pf-name {
@@ -385,13 +385,51 @@ a.gc-author:hover { color: var(--lime); }
 .fo-aside { position: sticky; top: calc(var(--nav-h) + 16px); }
 @media (max-width: 920px) { .fo-aside { position: static; } }
 .fo-aside-img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--r-sm); margin-bottom: 16px; }
-.fo-links { display: flex; flex-direction: column; gap: 8px; }
+.fo-links { display: flex; flex-direction: column; gap: 10px; }
+
+/* Store buttons wear each platform's own colours, so the one a visitor is
+   looking for is recognisable before they read the label. --fo-brand is the
+   store's primary colour; --fo-ink is the text/logo colour that store pairs
+   with it. */
 .fo-link {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 14px;
-  border-radius: var(--r-sm); background: var(--bg); border: 1px solid var(--line);
-  font-family: var(--ff-display); font-weight: 700; transition: border-color var(--ease), color var(--ease);
+  --fo-brand: var(--bg);
+  --fo-ink: var(--text);
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  border-radius: var(--r-sm); border: 1px solid transparent;
+  background: var(--fo-brand); color: var(--fo-ink);
+  font-family: var(--ff-display); font-weight: 700;
+  box-shadow: 0 1px 0 rgba(255,255,255,.10) inset, 0 6px 16px rgba(0,0,0,.28);
+  transition: transform var(--ease), box-shadow var(--ease), filter var(--ease);
 }
-.fo-link:hover { border-color: var(--line-accent); color: var(--lime); }
-.fo-link small { display: block; font-family: var(--ff-mono); font-size: .68rem; font-weight: 400; color: var(--text-dim); }
+.fo-link:hover, .fo-link:focus-visible {
+  color: var(--fo-ink); filter: brightness(1.12);
+  transform: translateY(-1px); box-shadow: 0 1px 0 rgba(255,255,255,.14) inset, 0 10px 22px rgba(0,0,0,.38);
+}
+.fo-link:active { transform: translateY(0); filter: brightness(.96); }
+.fo-link-logo { flex: none; width: 22px; height: 22px; }
+.fo-link-text { flex: 1; min-width: 0; }
+.fo-link-go   { flex: none; opacity: .75; }
+.fo-link small {
+  display: block; font-family: var(--ff-mono); font-size: .68rem; font-weight: 400;
+  color: currentColor; opacity: .72;
+}
+
+/* Each store's primary colour, from its own brand guidelines. */
+.fo-link--steam { --fo-brand: linear-gradient(135deg, #1b2838 0%, #2a475e 100%); --fo-ink: #ffffff; }
+.fo-link--play  { --fo-brand: #01875f; --fo-ink: #ffffff; }
+.fo-link--ios   { --fo-brand: #0d96f6; --fo-ink: #ffffff; }
+.fo-link--itch  { --fo-brand: #fa5c5c; --fo-ink: #ffffff; }
+.fo-link--drive { --fo-brand: #1a73e8; --fo-ink: #ffffff; }
+
+/* A back link sits above the breadcrumb trail on detail pages. */
+.pj-back {
+  display: inline-flex; align-items: center; gap: 7px; margin-bottom: 12px;
+  padding: 7px 13px 7px 10px; border-radius: 999px;
+  background: var(--bg-elev); border: 1px solid var(--line);
+  color: var(--text-dim); font-size: .82rem; font-weight: 600;
+  transition: border-color var(--ease), color var(--ease), transform var(--ease);
+}
+.pj-back:hover { border-color: var(--line-accent); color: var(--text); transform: translateX(-2px); }
+.pj-back svg { flex: none; }
 .fo-note { margin-top: 14px; font-size: .74rem; color: var(--text-dim); }
 .fo-more { margin-top: 56px; }

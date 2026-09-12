@@ -1,6 +1,7 @@
 const path = require('path');
 const db   = require('../../config/database');
 const r2   = require('../../config/r2');
+const { uniqueSlug } = require('../../utils/slugs');
 
 async function ownedProject(projectId, devId) {
   const [rows] = await db.query(
@@ -62,9 +63,9 @@ exports.createDoc = async (req, res) => {
   try {
     if (!(await ownedProject(id, devId))) return res.status(404).json({ error: 'Project not found.' });
     const [result] = await db.query(
-      `INSERT INTO developer_project_docs (project_id, developer_id, title, doc_type, content)
-       VALUES (?, ?, ?, ?, ?)`,
-      [id, devId, title.trim(), doc_type, content || '']
+      `INSERT INTO developer_project_docs (project_id, developer_id, slug, title, doc_type, content)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, devId, await uniqueSlug('developer_project_docs', 'project_id', id, title.trim()), title.trim(), doc_type, content || '']
     );
     const [rows] = await db.query(
       'SELECT * FROM developer_project_docs WHERE id = ?', [result.insertId]
@@ -88,9 +89,10 @@ exports.uploadDoc = async (req, res) => {
     const docTitle = title?.trim() || req.file.originalname;
     const [result] = await db.query(
       `INSERT INTO developer_project_docs
-         (project_id, developer_id, title, doc_type, file_url, file_name, file_size, mime_type)
-       VALUES (?, ?, ?, 'upload', ?, ?, ?, ?)`,
-      [id, devId, docTitle, url, req.file.originalname, req.file.size, req.file.mimetype]
+         (project_id, developer_id, slug, title, doc_type, file_url, file_name, file_size, mime_type)
+       VALUES (?, ?, ?, ?, 'upload', ?, ?, ?, ?)`,
+      [id, devId, await uniqueSlug('developer_project_docs', 'project_id', id, docTitle), docTitle,
+       url, req.file.originalname, req.file.size, req.file.mimetype]
     );
     const [rows] = await db.query(
       'SELECT * FROM developer_project_docs WHERE id = ?', [result.insertId]

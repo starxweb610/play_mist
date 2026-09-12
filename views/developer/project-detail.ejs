@@ -429,7 +429,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <form method="POST" action="/developer/projects/<%= project.id %>/update" style="padding:20px 22px 22px;">
+    <form method="POST" action="/developer/projects/<%= project.slug %>/update" style="padding:20px 22px 22px;">
       <div style="margin-bottom:14px;">
         <label class="ef-label" for="ep-name">Project Name *</label>
         <input type="text" id="ep-name" name="name" class="ef-input" required value="<%= project.name %>" />
@@ -461,7 +461,7 @@
     </form>
     <div style="border-top:1px solid var(--line);padding:16px 22px;">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--danger);margin-bottom:10px;">Danger Zone</div>
-      <form method="POST" action="/developer/projects/<%= project.id %>/delete"
+      <form method="POST" action="/developer/projects/<%= project.slug %>/delete"
             onsubmit="return confirm('Delete this project and ALL its tasks and documents? This cannot be undone.')">
         <button type="submit" class="btn sm" style="background:rgba(255,92,92,.08);color:var(--danger);border:1px solid rgba(255,92,92,.22);width:100%;justify-content:center;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="margin-right:5px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
