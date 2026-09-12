@@ -55,6 +55,23 @@
       loading="eager"
       sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock allow-popups">
     </iframe>
+
+    <!-- Shown only on a touch device held in portrait while the game inside is
+         built for landscape. Purely CSS-driven (see .player-rotate) so it works
+         even if main.js never loads; the escape hatch below needs JS, which is
+         the right way round. -->
+    <div class="player-rotate" id="rotatePrompt">
+      <div class="player-rotate-phone" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="7" y="2" width="10" height="20" rx="2" />
+          <path d="M11 18.5h2" />
+        </svg>
+      </div>
+      <p class="player-rotate-title">Rotate your device</p>
+      <p class="player-rotate-sub"><%= game.title %> plays in landscape.</p>
+      <!-- Rotation lock would otherwise trap the player behind this overlay. -->
+      <button type="button" class="player-rotate-skip" id="rotateSkip">Play in portrait anyway</button>
+    </div>
   </main>
 
   <script src="/js/main.js"></script>
@@ -112,6 +129,17 @@
           } else {
             Promise.resolve(request.call(stage)).catch(() => {});
           }
+        });
+      }
+
+      /* The rotate prompt shows and hides purely in CSS. All this adds is the
+         escape hatch for anyone with rotation lock switched on, who cannot
+         satisfy the prompt and would otherwise be stuck behind it. The opt-out
+         lasts for this page view only. */
+      const skip = document.getElementById('rotateSkip');
+      if (skip) {
+        skip.addEventListener('click', () => {
+          document.body.classList.add('rotate-dismissed');
         });
       }
 

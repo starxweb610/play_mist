@@ -2258,6 +2258,8 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
   justify-content: center;
   background: #000;
   overflow: hidden;
+  /* Anchors .player-rotate. */
+  position: relative;
 }
 
 .player-frame {
@@ -2283,6 +2285,92 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
     height: 100%;
     aspect-ratio: auto;
   }
+}
+
+/* ─── "Rotate your device" ────────────────────────────────────────────────
+   Most of the catalogue is built for landscape, and a landscape game squeezed
+   into a portrait phone renders as an unplayable letterboxed strip. Prompt for
+   the rotation instead of showing it.
+
+   Gated in CSS rather than JS so it survives main.js failing to load. The
+   `pointer: coarse` test keeps it on touch devices — a narrow desktop window is
+   portrait by aspect but can't be rotated, so prompting there would be a dead
+   end. It covers the stage only: the bar stays reachable, so Back always works. */
+.player-rotate { display: none; }
+
+@media (orientation: portrait) and (pointer: coarse) {
+  .player-stage--landscape .player-rotate {
+    display: flex;
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 24px;
+    text-align: center;
+    /* Opaque: the game keeps running underneath and must not show through. */
+    background: var(--bg);
+    background-image: var(--grad-hero);
+  }
+}
+
+/* Honoured only while the prompt is up; rotating to landscape hides it anyway. */
+.play-body.rotate-dismissed .player-rotate { display: none; }
+
+.player-rotate-phone {
+  width: 76px;
+  height: 76px;
+  color: var(--violet);
+  animation: rotate-hint 2.6s ease-in-out infinite;
+}
+
+.player-rotate-phone svg { width: 100%; height: 100%; }
+
+/* Portrait → landscape and back, with a beat at each end. */
+@keyframes rotate-hint {
+  0%, 22%   { transform: rotate(0deg); }
+  38%, 72%  { transform: rotate(-90deg); }
+  88%, 100% { transform: rotate(0deg); }
+}
+
+.player-rotate-title {
+  font-family: var(--ff-display);
+  font-weight: 700;
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 0;
+}
+
+.player-rotate-sub {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 30ch;
+}
+
+.player-rotate-skip {
+  margin-top: 10px;
+  padding: 9px 18px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--line-accent);
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+  transition: color var(--ease), border-color var(--ease), background var(--ease);
+}
+
+.player-rotate-skip:hover,
+.player-rotate-skip:focus-visible {
+  color: var(--text);
+  border-color: var(--violet);
+  background: var(--violet-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-rotate-phone { animation: none; transform: rotate(-90deg); }
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
