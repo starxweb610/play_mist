@@ -2260,6 +2260,11 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
   overflow: hidden;
   /* Anchors .player-rotate. */
   position: relative;
+  /* Lets the frame rule below query the STAGE's own aspect. The media-query
+     fallback can only see the viewport, which is taller than the stage by the
+     bar — enough to pick the wrong axis in a narrow band of window heights. */
+  container-type: size;
+  container-name: stage;
 }
 
 .player-frame {
@@ -2307,12 +2312,28 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
    other axis once a max-* clamp bites on a replaced element — Chrome keeps the
    100% height and just narrows the box, so the frame silently came out 0.545
    rather than 0.5625 and the game was back to fitting itself inside a
-   wrong-shaped iframe. Pick the limiting axis from the stage's own shape. */
-@media (orientation: portrait) {
+   wrong-shaped iframe.
+
+   The test is the viewport's aspect against the game's, NOT portrait-vs-
+   landscape: an iPad in portrait is portrait but still wider than 9:16, so
+   width:100% there would let max-height clamp the other axis and squash the
+   game by about 18%. */
+@media (max-aspect-ratio: 9 / 16) {
   .player-stage--portrait .player-frame { width: 100%; height: auto; }
 }
 
-@media (orientation: landscape) {
+@media (min-aspect-ratio: 9 / 16) {
+  .player-stage--portrait .player-frame { width: auto; height: 100%; }
+}
+
+/* Exact version of the same choice, measured on the stage instead of the
+   viewport. Overrides the media queries above wherever container queries exist
+   (iOS 16+); older engines simply keep the approximation. */
+@container stage (max-aspect-ratio: 9 / 16) {
+  .player-stage--portrait .player-frame { width: 100%; height: auto; }
+}
+
+@container stage (min-aspect-ratio: 9 / 16) {
   .player-stage--portrait .player-frame { width: auto; height: 100%; }
 }
 
