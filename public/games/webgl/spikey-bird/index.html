@@ -28,9 +28,24 @@
       #unity-canvas {
         background: #231F20;
         display: block;
-        height: 100vh;
-        width: auto;
-        max-width: calc(100vh * (1080 / 1920));
+        /* 1080x1920 portrait, sized against the CONTAINING BLOCK and never the
+           viewport. `100vh` inside an iframe is not the iframe's height on iOS
+           Safari, so the canvas came out the wrong size and sat off-centre.
+           100% is always the frame we were actually given. */
+        aspect-ratio: 1080 / 1920;
+        max-width: 100%;
+        max-height: 100%;
+      }
+      /* Which axis fills is chosen against the CONTAINER's shape, not merely
+         portrait-vs-landscape: a container that is portrait but wider than 9:16
+         is still height-limited, and width:100% there lets max-height clamp the
+         other axis and squash the game. Engines do not re-derive the free axis
+         once a max-* clamp bites on a replaced element, so it must be explicit. */
+      @media (max-aspect-ratio: 1080 / 1920) {
+        #unity-canvas { width: 100%; height: auto; }
+      }
+      @media (min-aspect-ratio: 1080 / 1920) {
+        #unity-canvas { width: auto; height: 100%; }
       }
 
       /* ── Loader overlay ─────────────────────────────────────── */
