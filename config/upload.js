@@ -166,4 +166,31 @@ const developerDocImage = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
 
-module.exports = { upload, uploadImage, avatarUpload, uploadScreenshots, developerSubmissionFiles, REFERENCE_IMAGE_MAX_BYTES, developerThumbnail, developerHeader, developerPortfolioImage, developerDoc, developerSketch, developerDocImage };
+// ── Game Builder template ZIP (admin upload, on disk, 50 MB) ─────────────────
+// On disk rather than in memory: the controller hands the path to adm-zip for
+// validation and then streams the same file to R2, so it never needs the whole
+// archive buffered. Uses the tracked storage so uploads/temp is swept even
+// when multer rejects the file.
+const builderTemplateZip = multer({
+  storage: trackedTempStorage,
+  fileFilter: zipFilter,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
+});
+
+// ── Game Builder in-editor image drop (in-memory, 5 MB) ──────────────────────
+// Wider than imageFilter: a workspace may hold GIF, SVG and ICO assets, which
+// the game's own markup references but the store-listing uploaders never see.
+const builderAssetFilter = (_req, file, cb) => {
+  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon'];
+  allowed.includes(file.mimetype)
+    ? cb(null, true)
+    : cb(new Error('Only PNG, JPG, WebP, GIF, SVG or ICO images can be added to a project'), false);
+};
+
+const builderAsset = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: builderAssetFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB — matches builderFs MAX_IMAGE_FILE_BYTES
+});
+
+module.exports = { upload, uploadImage, avatarUpload, uploadScreenshots, developerSubmissionFiles, REFERENCE_IMAGE_MAX_BYTES, developerThumbnail, developerHeader, developerPortfolioImage, developerDoc, developerSketch, developerDocImage, builderTemplateZip, builderAsset };

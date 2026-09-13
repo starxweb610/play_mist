@@ -73,7 +73,8 @@ controllers/
   api/                  mobile API: authApi, gamesApi, streakApi, challengeApi,
                         dailyPickApi, achievementsApi, adsApi, analyticsApi,
                         notificationsApi, ticketsApi
-  developer/            portal: auth, dashboard, projects, submissions, knowledge…
+  developer/            portal: auth, dashboard, projects, submissions, knowledge,
+                        builder (in-browser IDE, §5.7)…
   sitehandler/          admin: games, users, developers, submissions, tickets,
                         analytics, notifications, genres/tags, settings…
   publicController.js   website pages
@@ -84,6 +85,8 @@ utils/                  achievements.js (XP/levels/grants) · gpgs.js (Google ve
                         · fcm.js (push) · gameLive.js (publish announcements)
                         · mailer.js + emailTemplates.js · migrate.js · dates.js
                         · images.js · format.js · backupScheduler.js
+                        · builderFs.js (Game Builder path trust boundary)
+                        · builderZip.js (template ZIP validate/extract/pack)
 scripts/                deploy.sh · smoke-test.js · smoke-monitor.js · backup-db.js
                         · sync-db.js · create-admin.js · check-db.js
 views/                  EJS: site pages, developer portal, sitehandler admin
@@ -118,6 +121,7 @@ Classic email+password with bcrypt, stored server-side in express-session — pe
 | Engagement | `daily_picks`, `daily_challenges`, `user_challenge_completions`, `achievements`, `user_achievements` | challenge auto-generated per weekday; achievements seeded in `/api/health` |
 | Developers | `developers`, developer games/submissions, knowledge notes | submission lifecycle in §5.3 |
 | Comms | notifications, push tokens, `tickets`, `ticket_replies`, `feedbacks`, `newsletter_signups` | |
+| Game Builder | `builder_template_categories`, `builder_templates`, `developer_builder_workspaces` | admin template catalogue (ZIPs in R2) + one extracted workspace per project on local disk (§5.7) |
 | Analytics | `analytics_app` (app opens), `analytics_games` (game plays) | play counts and DAU derive from these |
 
 ---
@@ -194,6 +198,19 @@ The developer portal doubles as a small social network for indie developers. Eve
 - **External Portfolio** (`developer_portfolio_items`, `utils/portfolio.js`, `controllers/developer/portfolioController.js`, portal page `/developer/portfolio`, public page `/@:handle/portfolio/:id`): games shipped *outside* Play Mist. Image required (WebP, R2 `developers/portfolio/<devId>/<random>-<hash>.webp`), name, description ≥200 chars, optional trailer and store links; max 24 per developer, drag to reorder. The trailer field accepts a YouTube/Vimeo URL **or pasted embed code**, but only the provider + validated id are stored and the player URL (`youtube-nocookie.com` / `player.vimeo.com`) is generated server-side — pasted markup is never rendered. Store links must be https on that store's own domain (play.google.com, apps.apple.com, store.steampowered.com, *.itch.io, drive.google.com).
 - **Cover image**: `developers.header_url` via `POST /developer/profile/header` → `toWebp(…, 'header')` → R2 `developers/headers/`. Profile also has `headline` and `website_url` (http(s) only).
 - **Hardening that shipped with this**: `SameSite=Lax` session cookie; `blockCrossSite` rejects `Sec-Fetch-Site: cross-site` mutations on `/developer`; unauthenticated `fetch` calls get `401 { sessionExpired }` + `X-Session-Expired` instead of a 302 to the login page (that redirect, after a restart wiped the in-memory sessions, caused the storyboard "Cannot read properties of undefined (reading 'cover_url')" crash), and the portal shows a "log in in a new tab" banner rather than discarding unsaved work; `app.set('trust proxy', 'loopback')` so rate limits key on the real client IP behind nginx.
+
+### 5.7 Game Builder — developing a game in the browser
+
+Developers can build a playable HTML5 game inside the portal: **Tools → Game Builder** (`/developer/builder`). The flow is *project → category → template → IDE*.
+
+- **Catalogue (admin)** — `/sitehandler/builder-templates` (`controllers/sitehandler/builderTemplatesController.js`). Admins create **categories** (2D, 3D…) and upload one **template ZIP** per starter game. The ZIP is validated *before* it reaches R2 (`utils/builderZip.js`) — an admin sees "must contain index.html at its root" immediately instead of a developer meeting an empty workspace. Archives live in R2 under `builder-templates/<categoryId>/`, so a rebuilt VPS keeps the catalogue. Deleting a template or category never touches a developer already building on it: `template_id` is `ON DELETE SET NULL` and `template_name` is a snapshot.
+- **Workspace** — picking a template extracts it to **`uploads/builder/<developerId>/<projectId>/`** (gitignored) and writes one `developer_builder_workspaces` row. One template per project; swapping is a separate, name-confirmed action that deletes the tree. A row whose directory has vanished is treated as "no template yet" rather than opening an IDE onto nothing. Developers can pull a zip of their own workspace at any time (`/builder/:project/export`).
+- **IDE** — `views/developer/builder-ide.ejs` + `public/js/developer-builder.js` + `public/css/builder.css`, editor is CodeMirror 5 from cdnjs (`inputStyle: 'textarea'`, which is what makes phone keyboards work). File tree with create/rename/delete/upload, tabs, autosave on a 1.6s debounce plus Ctrl/Cmd+S, image preview for non-text files. Below 900px the three columns become one pane at a time, switched by a bottom bar; long-press replaces right-click.
+- **Allowed files**: `html htm css js mjs json txt md` + `png jpg jpeg gif webp svg ico`. **`index.html` at the root cannot be renamed or deleted** — it is what Run opens. Caps: 2 MB per text file, 5 MB per image, 500 files and 100 MB per project, 12 folders deep.
+- **`utils/builderFs.js` is the trust boundary.** A workspace holds attacker-controlled file *names* as well as *content*, so every path from a browser goes through `resolve()` before anything touches the disk. It rejects `../` traversal, absolute paths and drive letters — judged on the **raw** input, because `normalizeRel` strips a leading slash and would turn `/etc/passwd` into a silently-accepted `etc/passwd` — and re-checks `realpath()` of the nearest existing ancestor so a symlink cannot point out of the tree.
+- **⚠ The preview runs the developer's own JavaScript.** It is served from `/developer/builder-preview/<token>/*`, which sits **outside** the session gate on purpose, and rendered in an `<iframe sandbox>` **without `allow-same-origin`** — the game gets an opaque origin and cannot read the portal's cookies, storage or DOM. A short-lived in-memory token (4h, minted by an authenticated call) is the authorisation, precisely *because* a sandboxed frame cannot be relied on to send the session cookie. Never add `allow-same-origin` to that frame, and never serve a workspace file from a route that trusts the session instead of the token.
+- **Trailing slash matters**: Express runs with strict routing off, so `/builder-preview/:token` also matches the trailing-slash URL. A redirect *route* for the bare form therefore redirects to itself forever (it did). `servePreview` decides from `req.originalUrl` instead, and the slash is required so relative URLs inside the game (`game.js`, `img/a.png`) resolve against the workspace rather than a level above it.
+- **Console panel**: the preview HTML has a bridge injected at the top of `<head>` (or the top of the document when there is no head — hand-written game pages often have none) that wraps `console.*`, `window.onerror` and `unhandledrejection` and `postMessage`s them out. The IDE matches messages by `event.source`, **not** by origin, because an opaque origin arrives as `"null"`.
 
 ---
 
@@ -318,5 +335,6 @@ ssh cgpixels-vps 'bash /var/www/play_mist/scripts/deploy.sh'
 | change the app's screens/flow | `src/App.jsx` (render precedence) + `src/context/AppContext.jsx` (state) |
 | touch the developer portal or admin panel | `routes/developer.js` / `routes/sitehandler.js` + matching controllers + `views/` |
 | change public developer profiles, handles, follows, game comments or project sharing | §5.6 — `routes/profiles.js`, `controllers/profilesController.js`, `controllers/developer/socialController.js`, `utils/handles.js`, `views/profile/` |
+| add builder templates, or change the in-browser IDE / its sandboxed preview | §5.7 — `controllers/sitehandler/builderTemplatesController.js`, `controllers/developer/builderController.js`, `utils/builderFs.js` (path trust boundary), `utils/builderZip.js`, `public/js/developer-builder.js` |
 | change the DB schema | add an idempotent step in `utils/migrate.js`; restart applies it (never edit `db/playmist.sql` and expect effect) |
 | change deploys / monitoring / backups | `scripts/deploy.sh`, `scripts/smoke-test.js`, `scripts/smoke-monitor.js`, `scripts/backup-db.js` — see §7 gotchas first |

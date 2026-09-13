@@ -1,0 +1,723 @@
+/*
+ * public/css/builder.css
+ * The in-browser Game Builder IDE.
+ *
+ * Loaded only by views/developer/builder-ide.ejs, on top of developer.css —
+ * every colour here comes from that file's tokens so the IDE cannot drift from
+ * the rest of the portal.
+ *
+ * Layout: the IDE owns the viewport and never scrolls as a page. Explorer,
+ * editor, preview and console each scroll inside themselves, so the editor is
+ * always where it was left. Below 900px the three columns collapse into one
+ * pane at a time, switched by the bottom bar.
+ */
+
+/* ─── Shell ──────────────────────────────────────────────────────────── */
+.ide {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  /* Mobile browser chrome makes 100vh taller than what is actually visible,
+     which would push the bottom bar off-screen. svh is the visible height. */
+  height: 100vh;
+  height: 100svh;
+  background: var(--bg);
+}
+
+.ide-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  height: 52px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-2);
+}
+.ide-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+.ide-title b {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ide-title span {
+  font-size: 11.5px;
+  color: var(--ink-4);
+  white-space: nowrap;
+}
+.ide-top-actions { display: flex; align-items: center; gap: 8px; }
+
+/* Save indicator */
+.ide-status {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-4);
+  white-space: nowrap;
+  padding: 0 4px;
+  transition: color .2s;
+}
+.ide-status.saving { color: var(--warn); }
+.ide-status.saved  { color: var(--ok); }
+.ide-status.error  { color: var(--danger); }
+.ide-status.dirty  { color: var(--warn); }
+
+/* ─── Body: explorer | editor | preview ──────────────────────────────── */
+.ide-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 0;
+  transition: grid-template-columns .18s ease;
+}
+.ide-body.preview-open { grid-template-columns: 240px minmax(0, 1fr) minmax(320px, 38%); }
+.ide-body.explorer-closed { grid-template-columns: 0 minmax(0, 1fr) 0; }
+.ide-body.explorer-closed.preview-open { grid-template-columns: 0 minmax(0, 1fr) minmax(320px, 38%); }
+
+/* ─── File explorer ──────────────────────────────────────────────────── */
+.ide-explorer {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  background: var(--bg-2);
+  overflow: hidden;
+}
+.exp-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px 10px 14px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--line);
+}
+.exp-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  white-space: nowrap;
+}
+.exp-btn {
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--ink-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .12s, color .12s;
+}
+.exp-btn:hover { background: var(--surface-2); color: var(--ink); }
+.exp-btn svg { width: 15px; height: 15px; }
+
+.exp-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px 0 20px;
+  -webkit-overflow-scrolling: touch;
+}
+.exp-foot {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--ink-4);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Tree rows */
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 0;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+  user-select: none;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  /* Long filenames must not widen the column and force a horizontal scroll. */
+  min-width: 0;
+  border-radius: 0;
+  /* Stops the long-press context menu fighting the browser's own. */
+  -webkit-touch-callout: none;
+}
+.tree-row:hover { background: var(--surface); color: var(--ink); }
+
+/* The file the editor is showing. Exactly one row can carry this. */
+.tree-row.open-doc { background: var(--accent-soft); color: var(--ink); }
+.tree-row.open-doc .tree-name { font-weight: 600; }
+
+/* The explorer cursor — the last row clicked, and where "new file"/"new
+   folder" will put things. Deliberately much quieter than .open-doc: when
+   they were painted with one shared class, a clicked file and the open file
+   lit up identically and read as two selected rows. */
+.tree-row.selected { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.tree-row.selected:not(.open-doc) { background: var(--surface-2); color: var(--ink); }
+
+.tree-caret {
+  width: 14px; height: 14px;
+  flex-shrink: 0;
+  display: grid; place-items: center;
+  color: var(--ink-4);
+  transition: transform .14s;
+}
+.tree-caret svg { width: 10px; height: 10px; }
+.tree-row.open > .tree-caret { transform: rotate(90deg); }
+.tree-caret.blank { visibility: hidden; }
+
+.tree-icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--ink-4); }
+.tree-row.open-doc .tree-icon { color: var(--accent); }
+.tree-icon.html { color: #e8845c; }
+.tree-icon.css  { color: #6aa9f4; }
+.tree-icon.js   { color: #e8cc5c; }
+.tree-icon.json { color: #9ed36a; }
+.tree-icon.img  { color: var(--purple); }
+
+.tree-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tree-lock { width: 11px; height: 11px; flex-shrink: 0; color: var(--ink-4); opacity: .8; }
+.tree-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--warn); flex-shrink: 0;
+}
+.tree-children { display: none; }
+.tree-children.open { display: block; }
+
+.tree-empty { padding: 20px 16px; font-size: 12px; color: var(--ink-4); line-height: 1.6; }
+
+/* ─── Editor column ──────────────────────────────────────────────────── */
+.ide-editor {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.tabbar {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  height: 38px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-2);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.tabbar::-webkit-scrollbar { display: none; }
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px 0 13px;
+  border: none;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-3);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 190px;
+  transition: background .12s, color .12s;
+}
+.tab:hover { background: var(--surface); color: var(--ink-2); }
+.tab.active {
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+.tab-name { overflow: hidden; text-overflow: ellipsis; }
+.tab-close {
+  width: 17px; height: 17px;
+  display: grid; place-items: center;
+  border: none; background: transparent;
+  border-radius: 4px;
+  color: var(--ink-4);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+}
+.tab-close:hover { background: var(--surface-3); color: var(--ink); }
+.tab.dirty .tab-close::before { content: '●'; font-size: 9px; color: var(--warn); }
+.tab.dirty .tab-close:hover::before { content: '×'; font-size: 14px; color: var(--ink); }
+.tab:not(.dirty) .tab-close::before { content: '×'; }
+
+.editor-host {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+.editor-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 30px;
+  text-align: center;
+  color: var(--ink-4);
+}
+.editor-empty svg { width: 40px; height: 40px; opacity: .3; }
+.editor-empty p { margin: 0; font-size: 13px; line-height: 1.6; max-width: 280px; }
+.editor-empty kbd {
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--ink-2);
+}
+
+/* Image preview stands in for the editor on non-text files. */
+.editor-image {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  background: var(--bg);
+  overflow: auto;
+}
+.editor-image.open { display: flex; }
+.editor-image img {
+  max-width: 100%;
+  max-height: 62%;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  /* Checkerboard so a transparent PNG is readable on the dark surface. */
+  background-color: #2a2e37;
+  background-image:
+    linear-gradient(45deg, #23272f 25%, transparent 25%, transparent 75%, #23272f 75%),
+    linear-gradient(45deg, #23272f 25%, transparent 25%, transparent 75%, #23272f 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+}
+.editor-image .meta { font-size: 12px; color: var(--ink-3); text-align: center; line-height: 1.6; }
+.editor-image .meta code {
+  background: var(--surface-2);
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+
+/* ─── CodeMirror skin ────────────────────────────────────────────────── */
+.editor-host .CodeMirror {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  /* 13px is the smallest size iOS Safari will not zoom into on focus. */
+  font-size: 13px;
+  line-height: 1.6;
+}
+.editor-host .CodeMirror-gutters {
+  background: var(--bg-2);
+  border-right: 1px solid var(--line);
+}
+.editor-host .CodeMirror-linenumber { color: var(--ink-4); font-size: 11.5px; }
+.editor-host .CodeMirror-cursor { border-left: 2px solid var(--accent); }
+.editor-host .CodeMirror-selected { background: rgba(181, 255, 107, .14) !important; }
+.editor-host .CodeMirror-focused .CodeMirror-selected { background: rgba(181, 255, 107, .2) !important; }
+.editor-host .CodeMirror-activeline-background { background: rgba(255, 255, 255, .035); }
+.editor-host .CodeMirror-matchingbracket {
+  color: var(--accent) !important;
+  border-bottom: 1px solid var(--accent);
+}
+
+.editor-host .cm-tag      { color: #e8845c; }
+.editor-host .cm-attribute{ color: #e8cc5c; }
+.editor-host .cm-string   { color: #9ed36a; }
+.editor-host .cm-string-2 { color: #9ed36a; }
+.editor-host .cm-keyword  { color: #c99bf5; }
+.editor-host .cm-atom     { color: #6aa9f4; }
+.editor-host .cm-number   { color: #f0a35e; }
+.editor-host .cm-def      { color: #6ad4f4; }
+.editor-host .cm-variable { color: var(--ink); }
+.editor-host .cm-variable-2 { color: #6aa9f4; }
+.editor-host .cm-variable-3 { color: #c99bf5; }
+.editor-host .cm-property { color: #6ad4f4; }
+.editor-host .cm-operator { color: var(--ink-2); }
+.editor-host .cm-comment  { color: var(--ink-4); font-style: italic; }
+.editor-host .cm-meta     { color: var(--ink-3); }
+.editor-host .cm-qualifier{ color: #e8cc5c; }
+.editor-host .cm-builtin  { color: #6aa9f4; }
+.editor-host .cm-header   { color: var(--accent); font-weight: 700; }
+.editor-host .cm-link     { color: #6aa9f4; text-decoration: underline; }
+.editor-host .cm-error    { color: var(--danger); }
+
+/* ─── Preview + console column ───────────────────────────────────────── */
+.ide-preview {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--line);
+  background: var(--bg-2);
+  overflow: hidden;
+}
+.ide-body:not(.preview-open) .ide-preview { display: none; }
+
+.prev-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 8px 8px 14px;
+  height: 44px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--line);
+}
+.prev-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  white-space: nowrap;
+}
+
+.prev-stage {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background: #0f1115;
+}
+.prev-stage iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+.prev-idle {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  color: var(--ink-4);
+  background: var(--bg-2);
+}
+.prev-idle svg { width: 34px; height: 34px; opacity: .3; }
+.prev-idle p { margin: 0; font-size: 12.5px; line-height: 1.6; max-width: 240px; }
+
+/* Console */
+.ide-console {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+  height: 210px;
+  min-height: 38px;
+}
+.ide-console.collapsed { height: 38px; }
+.ide-console.collapsed .console-body { display: none; }
+
+.console-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 14px;
+  height: 38px;
+  flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
+}
+.console-head h2 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  white-space: nowrap;
+}
+.console-count {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--ink-3);
+}
+.console-count.has-errors { background: var(--danger-soft); color: var(--danger); }
+.console-head .spacer { flex: 1; }
+.console-caret { transition: transform .16s; color: var(--ink-4); }
+.console-caret svg { width: 13px; height: 13px; display: block; }
+.ide-console.collapsed .console-caret { transform: rotate(180deg); }
+
+.console-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 0 10px;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.55;
+  -webkit-overflow-scrolling: touch;
+}
+.console-empty { padding: 14px 16px; color: var(--ink-4); font-size: 11.5px; }
+
+.log {
+  display: flex;
+  gap: 8px;
+  padding: 3px 14px 3px 10px;
+  border-left: 2px solid transparent;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.log + .log { border-top: 1px solid rgba(255, 255, 255, .035); }
+.log-time { color: var(--ink-4); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.log-text { flex: 1; min-width: 0; }
+.log.warn  { border-left-color: var(--warn);   background: rgba(255, 181, 71, .06);  color: var(--warn); }
+.log.error { border-left-color: var(--danger); background: rgba(255, 92, 92, .07);   color: #ff9b9b; }
+.log.info  { color: var(--ink-3); }
+.log.system{ color: var(--ink-4); font-style: italic; }
+
+/* ─── Context menu ───────────────────────────────────────────────────── */
+.ctx-menu {
+  position: fixed;
+  z-index: 300;
+  min-width: 178px;
+  padding: 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-modal);
+  display: none;
+}
+.ctx-menu.open { display: block; }
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--ink-2);
+  font-family: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.ctx-item:hover:not(:disabled) { background: var(--surface-3); color: var(--ink); }
+.ctx-item:disabled { opacity: .38; cursor: not-allowed; }
+.ctx-item svg { width: 14px; height: 14px; flex-shrink: 0; color: var(--ink-4); }
+.ctx-item.danger { color: var(--danger); }
+.ctx-item.danger svg { color: var(--danger); }
+.ctx-item.danger:hover:not(:disabled) { background: var(--danger-soft); }
+.ctx-sep { height: 1px; background: var(--line); margin: 4px 2px; }
+
+/* ─── Prompt dialog ──────────────────────────────────────────────────── */
+.ide-dialog-scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  backdrop-filter: blur(6px);
+  z-index: 400;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.ide-dialog-scrim.open { display: flex; }
+.ide-dialog {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  box-shadow: var(--shadow-modal);
+  width: min(420px, 100%);
+  padding: 22px;
+}
+.ide-dialog h3 { margin: 0 0 6px; font-size: 15px; font-weight: 700; color: var(--ink); }
+.ide-dialog p  { margin: 0 0 16px; font-size: 12.5px; color: var(--ink-3); line-height: 1.6; }
+.ide-dialog input[type="text"] {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  color: var(--ink);
+  font-family: inherit;
+  /* 16px keeps iOS Safari from zooming the whole IDE in on focus. */
+  font-size: 16px;
+}
+.ide-dialog input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.ide-dialog-error {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--danger);
+  line-height: 1.5;
+  display: none;
+}
+.ide-dialog-error.open { display: block; }
+.ide-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+/* ─── Toast ──────────────────────────────────────────────────────────── */
+.ide-toast-host {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+  width: max-content;
+  max-width: 92vw;
+}
+.ide-toast {
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 10px 15px;
+  font-size: 12.5px;
+  color: var(--ink);
+  box-shadow: var(--shadow-modal);
+  animation: ide-toast-in .18s ease;
+  max-width: 100%;
+}
+.ide-toast.error { border-color: rgba(255, 92, 92, .5); color: #ffc9c9; }
+.ide-toast.ok    { border-color: rgba(45, 208, 115, .45); }
+@keyframes ide-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Mobile pane switcher ───────────────────────────────────────────── */
+.ide-mobile-bar {
+  display: none;
+  flex-shrink: 0;
+  border-top: 1px solid var(--line);
+  background: var(--bg-2);
+  /* Clears the iOS home indicator. */
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.ide-mobile-bar button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  border: none;
+  background: transparent;
+  color: var(--ink-4);
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ide-mobile-bar button svg { width: 17px; height: 17px; }
+.ide-mobile-bar button.active { color: var(--accent); }
+.ide-mobile-bar .mb-badge {
+  position: absolute;
+  transform: translate(13px, -4px);
+  min-width: 15px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 15px;
+}
+.ide-mobile-bar .mb-wrap { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+
+@media (max-width: 900px) {
+  .ide-topbar { padding: 0 12px; gap: 8px; }
+  .ide-title span { display: none; }
+  .ide-top-actions .label-lg { display: none; }
+
+  /* One pane at a time — the bottom bar sets [data-pane] on .ide-body. */
+  .ide-body,
+  .ide-body.preview-open,
+  .ide-body.explorer-closed,
+  .ide-body.explorer-closed.preview-open { grid-template-columns: minmax(0, 1fr); }
+
+  .ide-explorer,
+  .ide-editor,
+  .ide-preview { display: none; grid-column: 1; grid-row: 1; }
+
+  .ide-body[data-pane="files"]   .ide-explorer,
+  .ide-body[data-pane="editor"]  .ide-editor,
+  .ide-body[data-pane="preview"] .ide-preview { display: flex; }
+
+  /* On mobile the preview pane is the whole screen, so the console opens as a
+     sheet over it rather than stealing a third of the height. */
+  .ide-body[data-pane="preview"] .ide-console { height: 45%; }
+  .ide-explorer { border-right: none; }
+  .ide-preview  { border-left: none; }
+
+  .ide-mobile-bar { display: flex; }
+
+  .exp-tree { padding-bottom: 40px; }
+  .tree-row { padding-top: 8px; padding-bottom: 8px; font-size: 13.5px; }
+  .tab { padding: 0 8px 0 12px; font-size: 12px; }
+
+  .ide-toast-host { bottom: 78px; }
+}
+
+/* Pointer-coarse devices get larger hit targets regardless of width. */
+@media (pointer: coarse) {
+  .exp-btn { width: 32px; height: 32px; }
+  .ctx-item { padding: 10px 12px; font-size: 13.5px; }
+}

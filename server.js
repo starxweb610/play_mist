@@ -88,23 +88,31 @@ app.use(flash());
 // so after a deploy a returning visitor could get NEW html with OLD css. That
 // is exactly how the portfolio store buttons rendered broken on mobile: the
 // markup shipped with a `.fo-link-logo` sizing rule the cached stylesheet did
-// not have. The stamp changes whenever any stylesheet changes, so a deploy
-// invalidates them. app.locals (not res.locals) so it is defined for every
-// render, including any that bypasses the per-request middleware.
+// not have. The stamp changes whenever any stylesheet OR script changes, so a
+// deploy invalidates them. Scripts count too: a page whose markup and its JS
+// must agree (the Game Builder IDE reads ids the view renders) breaks the same
+// way when only one half is fresh. app.locals (not res.locals) so it is
+// defined for every render, including any that bypasses the per-request
+// middleware.
 app.locals.assetV = (() => {
   try {
     // Both stylesheet roots: the admin panel's CSS lives apart from the site's,
     // and leaving it out meant an admin.css-only change produced no new stamp.
+    // The script roots are in for the same reason.
     const dirs = [
       path.join(__dirname, 'public', 'css'),
       path.join(__dirname, 'public', 'sitehandler', 'css'),
+      path.join(__dirname, 'public', 'js'),
+      path.join(__dirname, 'public', 'sitehandler', 'js'),
     ];
     const sig = dirs.flatMap((dir) => {
       let files = [];
       try { files = fs.readdirSync(dir); } catch (_) { return []; }
-      return files.filter((f) => f.endsWith('.css')).sort().map((f) => {
+      return files.filter((f) => f.endsWith('.css') || f.endsWith('.js')).sort().map((f) => {
         const st = fs.statSync(path.join(dir, f));
-        return `${path.basename(dir)}/${f}:${st.size}:${st.mtimeMs}`;
+        // The parent is in the key as well as the directory name, so
+        // public/js/x.js and public/sitehandler/js/x.js cannot collide.
+        return `${path.basename(path.dirname(dir))}/${path.basename(dir)}/${f}:${st.size}:${st.mtimeMs}`;
       });
     }).join('|');
     return crypto.createHash('sha1').update(sig).digest('hex').slice(0, 8);
