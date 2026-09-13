@@ -997,6 +997,68 @@ exports.runMigrations = async () => {
       )
     `);
 
+    // ── Game Builder: template catalogue + per-project workspaces ────────────
+    // Admins group template ZIPs under a category (2D, 3D…); a developer picks
+    // one for a project and it is extracted into a private workspace folder on
+    // disk. The zip itself lives in R2 (`builder-templates/…`) so a rebuilt VPS
+    // does not lose the catalogue.
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS builder_template_categories (
+        id          INT PRIMARY KEY AUTO_INCREMENT,
+        name        VARCHAR(100)  NOT NULL,
+        slug        VARCHAR(120)  NOT NULL,
+        description VARCHAR(300)  DEFAULT NULL,
+        position    INT           NOT NULL DEFAULT 0,
+        is_active   TINYINT(1)    NOT NULL DEFAULT 1,
+        created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        updated_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_builder_category_slug (slug)
+      )
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS builder_templates (
+        id          INT PRIMARY KEY AUTO_INCREMENT,
+        category_id INT           NOT NULL,
+        name        VARCHAR(200)  NOT NULL,
+        slug        VARCHAR(220)  NOT NULL,
+        description VARCHAR(500)  DEFAULT NULL,
+        r2_key      VARCHAR(500)  NOT NULL,
+        file_count  INT           NOT NULL DEFAULT 0,
+        size_bytes  BIGINT        NOT NULL DEFAULT 0,
+        use_count   INT           NOT NULL DEFAULT 0,
+        is_active   TINYINT(1)    NOT NULL DEFAULT 1,
+        created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        updated_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_builder_template_slug (category_id, slug),
+        KEY idx_builder_template_active (is_active),
+        FOREIGN KEY (category_id) REFERENCES builder_template_categories(id) ON DELETE CASCADE
+      )
+    `);
+
+    // One workspace per project. `template_name` is a snapshot rather than a
+    // join: an admin retiring a template must not blank out the label shown to
+    // a developer who is already building on it, and ON DELETE SET NULL on
+    // template_id keeps the workspace itself alive.
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS developer_builder_workspaces (
+        id            INT PRIMARY KEY AUTO_INCREMENT,
+        project_id    INT           NOT NULL,
+        developer_id  INT           NOT NULL,
+        template_id   INT           DEFAULT NULL,
+        template_name VARCHAR(200)  DEFAULT NULL,
+        rel_path      VARCHAR(300)  NOT NULL,
+        last_opened_at TIMESTAMP    NULL DEFAULT NULL,
+        created_at    TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        updated_at    TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_builder_workspace_project (project_id),
+        KEY idx_builder_workspace_developer (developer_id),
+        FOREIGN KEY (project_id)   REFERENCES developer_projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (developer_id) REFERENCES developers(id)         ON DELETE CASCADE,
+        FOREIGN KEY (template_id)  REFERENCES builder_templates(id)  ON DELETE SET NULL
+      )
+    `);
+
     // ── URL slugs for developer-owned records ────────────────────────────────
     // Public pages address portfolio items, projects and docs by slug so no
     // database id appears in a shareable URL. Existing rows are backfilled

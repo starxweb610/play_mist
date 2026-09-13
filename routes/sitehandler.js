@@ -1,7 +1,7 @@
 const express    = require('express');
 const router     = express.Router();
 const { isAdmin } = require('../middleware/auth');
-const { upload, uploadImage, uploadScreenshots } = require('../config/upload');
+const { upload, uploadImage, uploadScreenshots, builderTemplateZip } = require('../config/upload');
 
 const authController                  = require('../controllers/sitehandler/authController');
 const dashboardController             = require('../controllers/sitehandler/dashboardController');
@@ -23,6 +23,7 @@ const funnelEventsController          = require('../controllers/sitehandler/funn
 const shopItemsController             = require('../controllers/sitehandler/shopItemsController');
 const communityNotesController        = require('../controllers/sitehandler/communityNotesController');
 const appUpdateController             = require('../controllers/sitehandler/appUpdateController');
+const builderTemplatesController      = require('../controllers/sitehandler/builderTemplatesController');
 
 
 // ─── Auth (public within /sitehandler) ────────────────────────────────────────
@@ -149,6 +150,34 @@ router.post('/notifications/send',         notificationsController.postSend);
 router.post('/notifications/schedule',     notificationsController.postSchedule);
 router.post('/notifications/scheduled/:id/cancel', notificationsController.postCancelScheduled);
 router.post('/notifications/:id/delete',   notificationsController.postDelete);
+
+// Game Builder Templates — categories + template ZIPs the developer portal offers
+// The zip uploads answer a regular form post, so a multer rejection is recorded
+// for the controller to flash rather than falling through to the 500 page.
+const templateZipUpload = (req, res, next) =>
+  builderTemplateZip.single('template_zip')(req, res, (err) => {
+    if (err) {
+      req.uploadError = err.code === 'LIMIT_FILE_SIZE'
+        ? 'That ZIP is too large — templates are capped at 50 MB.'
+        : (err.message || 'Upload failed.');
+    }
+    // uploads/temp backstop: the controller removes what it was handed, but a
+    // rejected upload never reaches it (see routes/developer.js for the full
+    // reasoning behind the tracked paths).
+    res.on('finish', () => {
+      for (const filePath of req._tempFilePaths || []) require('fs-extra').remove(filePath).catch(() => {});
+    });
+    next();
+  });
+
+router.get ('/builder-templates',                        builderTemplatesController.getIndex);
+router.post('/builder-templates/categories',             builderTemplatesController.postCreateCategory);
+router.post('/builder-templates/categories/:id/update',  builderTemplatesController.postUpdateCategory);
+router.post('/builder-templates/categories/:id/delete',  builderTemplatesController.postDeleteCategory);
+router.post('/builder-templates/templates',              templateZipUpload, builderTemplatesController.postCreateTemplate);
+router.post('/builder-templates/templates/:id/update',   builderTemplatesController.postUpdateTemplate);
+router.post('/builder-templates/templates/:id/replace',  templateZipUpload, builderTemplatesController.postReplaceTemplateZip);
+router.post('/builder-templates/templates/:id/delete',   builderTemplatesController.postDeleteTemplate);
 
 // Community Notes (Knowledge Sphere moderation)
 router.get ('/community-notes',                    communityNotesController.getIndex);

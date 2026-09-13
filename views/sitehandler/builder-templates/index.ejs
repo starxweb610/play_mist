@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %>  <link rel="icon" href="/favicon.ico" />
+  <style>
+    .bt-layout { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 24px; align-items: start; }
+    @media (max-width: 1100px) { .bt-layout { grid-template-columns: 1fr; } }
+
+    .bt-cat-list { display: flex; flex-direction: column; gap: 10px; }
+    .bt-cat {
+      border: 1px solid var(--a-border, rgba(255,255,255,.1));
+      border-radius: 12px; padding: 14px 16px; background: var(--a-surface, #1c1f27);
+    }
+    .bt-cat-head { display: flex; align-items: baseline; gap: 8px; justify-content: space-between; }
+    .bt-cat-name { font-weight: 600; font-size: 1.02rem; }
+    .bt-cat-desc { font-size: .82rem; opacity: .7; margin: 6px 0 0; line-height: 1.45; }
+    .bt-cat-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+    .bt-tpl-group { margin-bottom: 28px; }
+    .bt-tpl-group-title {
+      font-size: .78rem; letter-spacing: .08em; text-transform: uppercase;
+      opacity: .6; margin: 0 0 10px; font-weight: 600;
+    }
+    .bt-tpl {
+      border: 1px solid var(--a-border, rgba(255,255,255,.1)); border-radius: 12px;
+      padding: 16px; background: var(--a-surface, #1c1f27); margin-bottom: 12px;
+    }
+    .bt-tpl-top { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+    .bt-tpl-name { font-weight: 600; font-size: 1rem; margin: 0; }
+    .bt-tpl-desc { font-size: .85rem; opacity: .72; margin: 6px 0 0; line-height: 1.5; }
+    .bt-tpl-meta { display: flex; gap: 14px; flex-wrap: wrap; font-size: .78rem; opacity: .62; margin-top: 10px; }
+    .bt-tpl-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+
+    .bt-inline-form { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--a-border, rgba(255,255,255,.1)); }
+    .bt-inline-form.open { display: block; }
+    .bt-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 640px) { .bt-row { grid-template-columns: 1fr; } }
+    .bt-check { display: flex; align-items: center; gap: 8px; font-size: .87rem; margin: 4px 0 14px; }
+    .bt-hint { font-size: .8rem; opacity: .62; line-height: 1.55; margin: 6px 0 0; }
+    .bt-rules { margin: 10px 0 0; padding-left: 18px; font-size: .82rem; opacity: .7; line-height: 1.7; }
+    .bt-badge-dim { opacity: .55; }
+  </style>
+</head>
+<body class="admin-body">
+<%- include('../partials/sidebar', { activePage, admin, appName }) %>
+<div class="admin-main" id="adminMain">
+  <%- include('../partials/topbar', { title }) %>
+  <div class="flash-container"><%- include('../partials/flash') %></div>
+  <main class="admin-content">
+
+    <div class="page-header">
+      <div>
+        <h2 class="page-heading">Game Builder Templates</h2>
+        <p class="page-subheading">
+          Categories and starter projects developers can open in the in-browser Game Builder.
+        </p>
+      </div>
+      <button class="btn-admin-primary" id="showCategoryForm">+ Add Category</button>
+    </div>
+
+    <!-- Create category -->
+    <div class="form-card" id="categoryForm" style="display:none;max-width:560px;margin-bottom:24px">
+      <h3 class="form-card-title">New Category</h3>
+      <form action="/sitehandler/builder-templates/categories" method="POST" novalidate>
+        <div class="bt-row">
+          <div class="form-group">
+            <label class="form-label">Name <span class="req">*</span></label>
+            <input type="text" name="name" class="form-input" required maxlength="100" placeholder="e.g. 2D" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sort position</label>
+            <input type="number" name="position" class="form-input" value="0" min="0" max="999" />
+            <p class="bt-hint">Lower numbers appear first in the developer's picker.</p>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <input type="text" name="description" class="form-input" maxlength="300"
+                 placeholder="Shown under the category name when a developer is choosing." />
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-admin-primary">Create Category</button>
+          <button type="button" class="btn-admin-ghost" id="cancelCategory">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <% if (!categories.length) { %>
+      <div class="coming-soon-panel">
+        <div class="coming-soon-icon">🧩</div>
+        <h3>No categories yet</h3>
+        <p>Create a category such as <strong>2D</strong> or <strong>3D</strong>, then upload template ZIPs into it.</p>
+      </div>
+    <% } else { %>
+
+    <div class="bt-layout">
+      <!-- ── Categories column ─────────────────────────────────────────── -->
+      <section>
+        <h3 class="bt-tpl-group-title">Categories</h3>
+        <div class="bt-cat-list">
+          <% categories.forEach(c => { %>
+            <div class="bt-cat">
+              <div class="bt-cat-head">
+                <span class="bt-cat-name"><%= c.name %></span>
+                <span class="badge badge--role badge--support"><%= c.template_count %></span>
+              </div>
+              <% if (c.description) { %><p class="bt-cat-desc"><%= c.description %></p><% } %>
+              <p class="bt-cat-desc bt-badge-dim">
+                Position <%= c.position %> · <%= c.is_active ? 'Visible to developers' : 'Hidden' %>
+              </p>
+
+              <div class="bt-cat-actions">
+                <button type="button" class="action-btn" data-toggle="cat-edit-<%= c.id %>">Edit</button>
+                <form action="/sitehandler/builder-templates/categories/<%= c.id %>/delete" method="POST" style="display:inline">
+                  <button type="submit" class="action-btn action-btn--danger"
+                    data-confirm="Delete category '<%= c.name %>' and its <%= c.template_count %> template(s)? Developers already building on them keep their files.">Delete</button>
+                </form>
+              </div>
+
+              <div class="bt-inline-form" id="cat-edit-<%= c.id %>">
+                <form action="/sitehandler/builder-templates/categories/<%= c.id %>/update" method="POST" novalidate>
+                  <div class="form-group">
+                    <label class="form-label">Name <span class="req">*</span></label>
+                    <input type="text" name="name" class="form-input" required maxlength="100" value="<%= c.name %>" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <input type="text" name="description" class="form-input" maxlength="300" value="<%= c.description || '' %>" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Sort position</label>
+                    <input type="number" name="position" class="form-input" value="<%= c.position %>" min="0" max="999" />
+                  </div>
+                  <label class="bt-check">
+                    <input type="checkbox" name="is_active" <%= c.is_active ? 'checked' : '' %> />
+                    Visible to developers
+                  </label>
+                  <div class="form-actions">
+                    <button type="submit" class="btn-admin-primary">Save</button>
+                    <button type="button" class="btn-admin-ghost" data-toggle="cat-edit-<%= c.id %>">Cancel</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </section>
+
+      <!-- ── Templates column ──────────────────────────────────────────── -->
+      <section>
+        <div class="page-header" style="margin-top:0">
+          <h3 class="bt-tpl-group-title" style="margin:0">Templates</h3>
+          <button class="btn-admin-primary" id="showTemplateForm">+ Upload Template</button>
+        </div>
+
+        <div class="form-card" id="templateForm" style="display:none;margin-bottom:24px">
+          <h3 class="form-card-title">Upload Template</h3>
+          <form action="/sitehandler/builder-templates/templates" method="POST" enctype="multipart/form-data" novalidate>
+            <div class="bt-row">
+              <div class="form-group">
+                <label class="form-label">Template name <span class="req">*</span></label>
+                <input type="text" name="name" class="form-input" required maxlength="200" placeholder="e.g. Endless Runner" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Category <span class="req">*</span></label>
+                <select name="category_id" class="form-input" required>
+                  <option value="">Choose a category…</option>
+                  <% categories.forEach(c => { %>
+                    <option value="<%= c.id %>"><%= c.name %></option>
+                  <% }) %>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Description</label>
+              <input type="text" name="description" class="form-input" maxlength="500"
+                     placeholder="What a developer gets when they pick this template." />
+            </div>
+            <div class="form-group">
+              <!-- The file input is last so the text fields are already parsed
+                   if multer rejects the archive. -->
+              <label class="form-label">Template ZIP <span class="req">*</span></label>
+              <input type="file" name="template_zip" class="form-input" accept=".zip,application/zip" required />
+              <ul class="bt-rules">
+                <li>Must contain <code>index.html</code> at the root (a single wrapping folder is unwrapped automatically).</li>
+                <li>Allowed files: html, htm, css, js, mjs, json, txt, md, png, jpg, jpeg, gif, webp, svg, ico.</li>
+                <li>Up to <%= maxZipMb %> MB zipped and 500 files.</li>
+              </ul>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn-admin-primary">Upload Template</button>
+              <button type="button" class="btn-admin-ghost" id="cancelTemplate">Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <% if (!templates.length) { %>
+          <div class="coming-soon-panel">
+            <div class="coming-soon-icon">📦</div>
+            <h3>No templates yet</h3>
+            <p>Upload a ZIP into one of your categories to make it available in the Game Builder.</p>
+          </div>
+        <% } else { %>
+          <% categories.forEach(c => {
+               const mine = templates.filter(t => t.category_id === c.id);
+               if (!mine.length) return; %>
+            <div class="bt-tpl-group">
+              <h4 class="bt-tpl-group-title"><%= c.name %></h4>
+              <% mine.forEach(t => { %>
+                <div class="bt-tpl">
+                  <div class="bt-tpl-top">
+                    <div style="flex:1;min-width:240px">
+                      <h5 class="bt-tpl-name"><%= t.name %></h5>
+                      <% if (t.description) { %><p class="bt-tpl-desc"><%= t.description %></p><% } %>
+                    </div>
+                    <span class="badge badge--role <%= t.is_active ? 'badge--support' : '' %>">
+                      <%= t.is_active ? 'Live' : 'Hidden' %>
+                    </span>
+                  </div>
+
+                  <div class="bt-tpl-meta">
+                    <span><%= t.file_count %> files</span>
+                    <span><%= (t.size_bytes / (1024 * 1024)).toFixed(2) %> MB unpacked</span>
+                    <span>Used <%= t.use_count %>×</span>
+                    <span><%= t.live_workspaces %> active workspace<%= t.live_workspaces === 1 ? '' : 's' %></span>
+                  </div>
+
+                  <div class="bt-tpl-actions">
+                    <button type="button" class="action-btn" data-toggle="tpl-edit-<%= t.id %>">Edit</button>
+                    <button type="button" class="action-btn" data-toggle="tpl-zip-<%= t.id %>">Replace ZIP</button>
+                    <form action="/sitehandler/builder-templates/templates/<%= t.id %>/delete" method="POST" style="display:inline">
+                      <button type="submit" class="action-btn action-btn--danger"
+                        data-confirm="Delete template '<%= t.name %>'? <%= t.live_workspaces %> developer workspace(s) built from it keep their files.">Delete</button>
+                    </form>
+                  </div>
+
+                  <div class="bt-inline-form" id="tpl-edit-<%= t.id %>">
+                    <form action="/sitehandler/builder-templates/templates/<%= t.id %>/update" method="POST" novalidate>
+                      <div class="bt-row">
+                        <div class="form-group">
+                          <label class="form-label">Name <span class="req">*</span></label>
+                          <input type="text" name="name" class="form-input" required maxlength="200" value="<%= t.name %>" />
+                        </div>
+                        <div class="form-group">
+                          <label class="form-label">Category <span class="req">*</span></label>
+                          <select name="category_id" class="form-input" required>
+                            <% categories.forEach(opt => { %>
+                              <option value="<%= opt.id %>" <%= opt.id === t.category_id ? 'selected' : '' %>><%= opt.name %></option>
+                            <% }) %>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <input type="text" name="description" class="form-input" maxlength="500" value="<%= t.description || '' %>" />
+                      </div>
+                      <label class="bt-check">
+                        <input type="checkbox" name="is_active" <%= t.is_active ? 'checked' : '' %> />
+                        Offer this template to developers
+                      </label>
+                      <div class="form-actions">
+                        <button type="submit" class="btn-admin-primary">Save</button>
+                        <button type="button" class="btn-admin-ghost" data-toggle="tpl-edit-<%= t.id %>">Cancel</button>
+                      </div>
+                    </form>
+                  </div>
+
+                  <div class="bt-inline-form" id="tpl-zip-<%= t.id %>">
+                    <form action="/sitehandler/builder-templates/templates/<%= t.id %>/replace" method="POST" enctype="multipart/form-data" novalidate>
+                      <div class="form-group">
+                        <label class="form-label">New ZIP <span class="req">*</span></label>
+                        <input type="file" name="template_zip" class="form-input" accept=".zip,application/zip" required />
+                        <p class="bt-hint">
+                          Replaces the archive new workspaces are built from. Developers already
+                          building on this template keep their current files — nothing is overwritten.
+                        </p>
+                      </div>
+                      <div class="form-actions">
+                        <button type="submit" class="btn-admin-primary">Replace ZIP</button>
+                        <button type="button" class="btn-admin-ghost" data-toggle="tpl-zip-<%= t.id %>">Cancel</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          <% }) %>
+        <% } %>
+      </section>
+    </div>
+    <% } %>
+
+  </main>
+</div>
+<script src="/sitehandler/js/admin.js"></script>
+<script>
+  // Show/hide the two create panels.
+  [['showCategoryForm', 'categoryForm', 'cancelCategory'],
+   ['showTemplateForm', 'templateForm', 'cancelTemplate']].forEach(function (ids) {
+    var show = document.getElementById(ids[0]);
+    var form = document.getElementById(ids[1]);
+    var hide = document.getElementById(ids[2]);
+    if (!show || !form || !hide) return;
+    show.addEventListener('click', function () {
+      form.style.display = 'block';
+      show.style.display = 'none';
+      var first = form.querySelector('input, select');
+      if (first) first.focus();
+    });
+    hide.addEventListener('click', function () {
+      form.style.display = 'none';
+      show.style.display = '';
+    });
+  });
+
+  // Inline edit panels — one handler for every [data-toggle] on the page.
+  document.addEventListener('click', function (e) {
+    var trigger = e.target.closest('[data-toggle]');
+    if (!trigger) return;
+    var panel = document.getElementById(trigger.getAttribute('data-toggle'));
+    if (panel) panel.classList.toggle('open');
+  });
+</script>
+</body>
+</html>

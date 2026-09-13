@@ -3,7 +3,7 @@ const router       = express.Router();
 const rateLimit    = require('express-rate-limit');
 const fse          = require('fs-extra');
 const { isDeveloper, checkBanned, blockCrossSite } = require('../middleware/developerAuth');
-const { developerSubmissionFiles, developerThumbnail, developerHeader, developerPortfolioImage, developerDoc, developerSketch, developerDocImage, uploadScreenshots } = require('../config/upload');
+const { developerSubmissionFiles, developerThumbnail, developerHeader, developerPortfolioImage, developerDoc, developerSketch, developerDocImage, uploadScreenshots, builderAsset } = require('../config/upload');
 
 const authController        = require('../controllers/developer/authController');
 const dashboardController   = require('../controllers/developer/dashboardController');
@@ -17,6 +17,7 @@ const storyboardController  = require('../controllers/developer/storyboardContro
 const socialController      = require('../controllers/developer/socialController');
 const portfolioController   = require('../controllers/developer/portfolioController');
 const listingController     = require('../controllers/developer/listingController');
+const builderController     = require('../controllers/developer/builderController');
 
 // ── Rate limiters ─────────────────────────────────────────────────────────────
 
@@ -187,6 +188,25 @@ const commentLimiter = rateLimit({
   standardHeaders: true, legacyHeaders: false,
 });
 
+// The builder saves on Ctrl+S and on a debounce, so the ceiling has to clear
+// a busy editing session without letting a runaway script hammer the disk.
+const builderWriteLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, max: 600, keyGenerator: byDeveloper,
+  handler: jsonLimit('You’re saving too quickly. Give it a moment and try again.'),
+  standardHeaders: true, legacyHeaders: false,
+});
+
+// Extraction downloads an archive from R2 and writes a few hundred files, so
+// it is capped far lower than the file API.
+const builderTemplateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, max: 20, keyGenerator: byDeveloper,
+  handler: (req, res) => {
+    req.flash('error_msg', 'Too many template changes. Please try again in a little while.');
+    res.redirect('/developer/builder');
+  },
+  standardHeaders: true, legacyHeaders: false,
+});
+
 const handleCheckLimiter = rateLimit({
   windowMs: 60 * 1000, max: 40, keyGenerator: byDeveloper,
   handler: jsonLimit('Too many checks. Please slow down.'),
@@ -211,6 +231,18 @@ router.post('/forgot-password',  passwordResetLimiter, authController.postForgot
 router.get ('/reset-password',   authController.getResetPassword);
 router.post('/reset-password',   passwordResetLimiter, authController.postResetPassword);
 router.post('/resend-reset',     passwordResetLimiter, authController.postResendResetCode);
+
+// ── Game Builder preview (token-authorised, deliberately outside the gate) ───
+// The preview frame renders a developer's own HTML and JS in a sandbox with no
+// allow-same-origin, so it has an opaque origin and cannot be relied on to send
+// the session cookie. A short-lived token minted by an authenticated call is
+// the authorisation instead, and it names exactly one workspace directory.
+// Both shapes go to the same handler. Express runs with strict routing OFF,
+// so '/builder-preview/:token' also matches the trailing-slash URL — making a
+// redirect route here redirect to itself forever. servePreview decides from
+// the raw URL instead.
+router.get('/builder-preview/:token', builderController.servePreview);
+router.get('/builder-preview/:token/*', builderController.servePreview);
 
 // ── Protected (requires developer session + ban check) ────────────────────────
 router.use(isDeveloper, checkBanned);
@@ -306,6 +338,35 @@ router.get   ('/docs/:docId',                 projectDocsController.getDoc);
 router.put   ('/docs/:docId',                 projectMutateLimiter, projectDocsController.updateDoc);
 router.delete('/docs/:docId',                 projectDocsController.deleteDoc);
 router.put   ('/docs/:docId/pin',             projectDocsController.pinDoc);
+
+// Game Builder — the in-browser IDE
+// :project is a slug (a bare id still resolves, as everywhere else in the portal).
+const builderImageUpload = (req, res, next) =>
+  builderAsset.single('file')(req, res, (err) => {
+    if (err) {
+      req.uploadError = err.code === 'LIMIT_FILE_SIZE'
+        ? 'That image is too large — the limit is 5 MB.'
+        : (err.message || 'Upload failed.');
+    }
+    next();
+  });
+
+router.get ('/builder',                          builderController.getIndex);
+router.get ('/builder/:project',                 builderController.getProject);
+router.post('/builder/:project/template',        builderTemplateLimiter, builderController.postSelectTemplate);
+router.post('/builder/:project/reset',           builderTemplateLimiter, builderController.postResetWorkspace);
+router.get ('/builder/:project/export',          builderController.exportWorkspace);
+
+// File JSON API
+router.get   ('/builder/:project/files',         builderController.listFiles);
+router.get   ('/builder/:project/file',          builderController.readFile);
+router.put   ('/builder/:project/file',          builderWriteLimiter, builderController.saveFile);
+router.post  ('/builder/:project/file',          builderWriteLimiter, builderController.createFile);
+router.post  ('/builder/:project/folder',        builderWriteLimiter, builderController.createFolder);
+router.post  ('/builder/:project/rename',        builderWriteLimiter, builderController.renameEntry);
+router.delete('/builder/:project/entry',         builderWriteLimiter, builderController.deleteEntry);
+router.post  ('/builder/:project/upload',        builderWriteLimiter, builderImageUpload, builderController.uploadAsset);
+router.post  ('/builder/:project/preview-token', builderController.createPreviewToken);
 
 // Profile
 router.get ('/profile',                               profileController.getProfile);
