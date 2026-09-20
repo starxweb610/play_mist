@@ -29,7 +29,7 @@ const resolveDauRange = (key) =>
   (Object.prototype.hasOwnProperty.call(DAU_RANGES, key) ? key : DAU_DEFAULT_RANGE);
 
 /** A zero-filled series, so a DB error renders an empty chart rather than none. */
-function emptyDauSeries(days) {
+function emptySeries(days) {
   const labels = [], dates = [], counts = [];
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date();
@@ -43,8 +43,25 @@ function emptyDauSeries(days) {
 }
 
 /**
- * Daily Active Users over the last `days` days, zero-filled so a day with no
- * activity is a zero in the line rather than a gap the chart interpolates over.
+ * Turns `[{ date, count }]` rows into a zero-filled `days`-long series, so a
+ * day with no activity is a zero in the line rather than a gap the chart
+ * interpolates straight over.
+ */
+function fillSeries(days, rows) {
+  // Index by day first: a linear scan per day is fine over 30 points and
+  // quadratic over 365.
+  const byDate = new Map(rows.map(r => [toYMD(r.date), Number(r.count) || 0]));
+
+  const series = emptySeries(days);
+  series.counts = series.dates.map(d => byDate.get(d) || 0);
+  series.todayDau     = series.counts[series.counts.length - 1] || 0;
+  series.yesterdayDau = series.counts[series.counts.length - 2] || 0;
+  series.dauDelta     = series.todayDau - series.yesterdayDau;
+  return series;
+}
+
+/**
+ * Daily Active Users over the last `days` days.
  *
  * Shared by the page render and the JSON endpoint the dropdown calls, so the
  * default 30-day view and every other range are the same measure — one
@@ -63,17 +80,52 @@ async function buildDauSeries(days) {
      GROUP BY event_date ORDER BY event_date`,
     [days]
   );
+  return fillSeries(days, rows);
+}
 
-  // Index by day first: a linear scan per day is fine over 30 points and
-  // quadratic over 365.
-  const byDate = new Map(rows.map(r => [toYMD(r.date), Number(r.count) || 0]));
-
-  const series = emptyDauSeries(days);
-  series.counts = series.dates.map(d => byDate.get(d) || 0);
-  series.todayDau     = series.counts[series.counts.length - 1] || 0;
-  series.yesterdayDau = series.counts[series.counts.length - 2] || 0;
-  series.dauDelta     = series.todayDau - series.yesterdayDau;
-  return series;
+/**
+ * Returning players per day: registered users who played a game on a day
+ * LATER than the first day they were ever seen. Day one — install, sign-up,
+ * the first session — is excluded by construction, so this line answers
+ * "how many came back", not "how many showed up".
+ *
+ * ⚠ The baseline is the user's first `event_date`, deliberately NOT
+ * `DATE(users.created_at)`, and that is a correctness matter rather than a
+ * preference. api/analyticsApi.js writes `event_date` from `toISOString()` —
+ * a UTC date — while `users.created_at` is MySQL NOW() in server-local IST.
+ * Between 00:00 and 05:29 IST those two clocks disagree by a day, so a
+ * registration-date comparison files that user's day-one play as a return:
+ * 121 of 543 players in production, every one of them off by exactly one day.
+ * Comparing event_date to event_date keeps both sides on the same clock, so
+ * the skew cancels instead of being counted as retention that never happened.
+ *
+ * first_seen spans all history on purpose: bounded by the range, a player
+ * whose real first day sits just before the window would look like a new
+ * arrival inside it and be dropped from the very line meant to count them.
+ *
+ * `days` must already have come from DAU_RANGES.
+ */
+async function buildReturningSeries(days) {
+  const [rows] = await db.query(
+    `WITH first_seen AS (
+       SELECT user_id, MIN(event_date) AS first_day
+       FROM (
+         SELECT user_id, event_date FROM analytics_app   WHERE user_id IS NOT NULL
+         UNION ALL
+         SELECT user_id, event_date FROM analytics_games WHERE user_id IS NOT NULL
+       ) activity
+       GROUP BY user_id
+     )
+     SELECT ag.event_date AS date, COUNT(DISTINCT ag.user_id) AS count
+     FROM analytics_games ag
+     JOIN first_seen f ON f.user_id = ag.user_id
+     JOIN users      u ON u.id      = ag.user_id
+     WHERE ag.event_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+       AND ag.event_date > f.first_day
+     GROUP BY ag.event_date ORDER BY ag.event_date`,
+    [days]
+  );
+  return fillSeries(days, rows);
 }
 
 exports.getIndex = async (req, res) => {
@@ -85,7 +137,8 @@ exports.getIndex = async (req, res) => {
   let topGames    = [];  // [{ title, plays }]
   // Filled by buildDauSeries below; the zero-filled default is what renders if
   // the analytics tables are missing or the query fails.
-  let dauSeries   = emptyDauSeries(DAU_RANGES[DAU_DEFAULT_RANGE].days);
+  let dauSeries       = emptySeries(DAU_RANGES[DAU_DEFAULT_RANGE].days);
+  let returningSeries = emptySeries(DAU_RANGES[DAU_DEFAULT_RANGE].days);
   let engagement  = {
     totalUsers: 0,
     playedUsers: 0, playedPct: 0,
@@ -104,6 +157,7 @@ exports.getIndex = async (req, res) => {
       [dailyPlRows],
       [topGamesRows],
       dauSeriesResult,
+      returningSeriesResult,
       [totalUsersRows],
       [playedUsersRows],
       [returningUsersRows],
@@ -128,6 +182,8 @@ exports.getIndex = async (req, res) => {
       // DAU for the range the chart opens on. Every other range comes from
       // the same builder via getDauSeries when the dropdown changes.
       buildDauSeries(DAU_RANGES[DAU_DEFAULT_RANGE].days),
+      // Returning players, same default range but its own dropdown.
+      buildReturningSeries(DAU_RANGES[DAU_DEFAULT_RANGE].days),
       // User Engagement modal — total registered users
       db.query('SELECT COUNT(*) AS c FROM users'),
       // Users who have played at least one game (any logged play event)
@@ -150,7 +206,8 @@ exports.getIndex = async (req, res) => {
     dailyOpens  = dailyOpRows;
     dailyPlays  = dailyPlRows;
     topGames    = topGamesRows;
-    dauSeries   = dauSeriesResult;
+    dauSeries       = dauSeriesResult;
+    returningSeries = returningSeriesResult;
 
     const totalUsers = totalUsersRows[0].c;
     const pct = (count) => totalUsers > 0 ? Math.round((count / totalUsers) * 1000) / 10 : 0;
@@ -202,11 +259,16 @@ exports.getIndex = async (req, res) => {
     todayDau: dauSeries.todayDau,
     yesterdayDau: dauSeries.yesterdayDau,
     dauDelta: dauSeries.dauDelta,
+    todayReturning:     returningSeries.todayDau,
+    returningDelta:     returningSeries.dauDelta,
     dauRanges: DAU_RANGES,
     dauRangeKey: DAU_DEFAULT_RANGE,
     chartData: JSON.stringify({ labels, openCounts, playCounts }),
     dauData: JSON.stringify({
       labels: dauSeries.labels, dates: dauSeries.dates, counts: dauSeries.counts,
+    }),
+    returningData: JSON.stringify({
+      labels: returningSeries.labels, dates: returningSeries.dates, counts: returningSeries.counts,
     }),
     topGamesData: JSON.stringify({
       labels: topGames.map(g => g.title),
@@ -226,29 +288,39 @@ exports.getIndex = async (req, res) => {
  * Admin-only by mounting: every route below router.use(isAdmin) in
  * routes/sitehandler.js is, and this is one of them.
  */
-exports.getDauSeries = async (req, res) => {
-  const key   = resolveDauRange(req.query.range);
-  const range = DAU_RANGES[key];
+function rangeSeriesHandler(build, logLabel) {
+  return async (req, res) => {
+    const key   = resolveDauRange(req.query.range);
+    const range = DAU_RANGES[key];
 
-  try {
-    const series = await buildDauSeries(range.days);
-    res.json({
-      range: key,
-      label: range.label,
-      labels: series.labels,
-      dates:  series.dates,
-      counts: series.counts,
-      todayDau:     series.todayDau,
-      yesterdayDau: series.yesterdayDau,
-      dauDelta:     series.dauDelta,
-    });
-  } catch (err) {
-    // The chart keeps whatever it was showing and says so, rather than
-    // redrawing itself flat and passing an outage off as a quiet month.
-    console.error('❌ analytics DAU range:', err.stack || err);
-    res.status(500).json({ error: 'Could not load that range.' });
-  }
-};
+    try {
+      const series = await build(range.days);
+      res.json({
+        range: key,
+        label: range.label,
+        labels: series.labels,
+        dates:  series.dates,
+        counts: series.counts,
+        todayDau:     series.todayDau,
+        yesterdayDau: series.yesterdayDau,
+        dauDelta:     series.dauDelta,
+      });
+    } catch (err) {
+      // The chart keeps whatever it was showing and says so, rather than
+      // redrawing itself flat and passing an outage off as a quiet month.
+      console.error(`❌ analytics ${logLabel} range:`, err.stack || err);
+      res.status(500).json({ error: 'Could not load that range.' });
+    }
+  };
+}
+
+exports.getDauSeries = rangeSeriesHandler(buildDauSeries, 'DAU');
+
+/**
+ * GET /sitehandler/analytics/returning-series?range=30d
+ * The returning-players chart's own range dropdown.
+ */
+exports.getReturningSeries = rangeSeriesHandler(buildReturningSeries, 'returning players');
 
 /**
  * GET /sitehandler/analytics/returning-users

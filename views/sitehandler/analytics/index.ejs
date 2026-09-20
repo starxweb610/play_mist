@@ -97,6 +97,32 @@
       <div class="chart-body chart-body--lg"><canvas id="dauChart"></canvas></div>
     </div>
 
+    <!-- Returning Players (full width) -->
+    <div class="chart-card chart-card--full">
+      <div class="chart-header chart-header--row">
+        <div class="chart-title-group">
+          <h3>Returning Players</h3>
+          <select id="returningRange" class="filter-select filter-select--sm" aria-label="Date range for the Returning Players chart">
+            <% Object.keys(dauRanges).forEach(function (key) { %>
+              <option value="<%= key %>" <%= key === dauRangeKey ? 'selected' : '' %>><%= dauRanges[key].label %></option>
+            <% }); %>
+          </select>
+          <span id="returningRangeError" class="dau-range-error" hidden>Couldn't load that range.</span>
+        </div>
+        <div class="dau-summary">
+          <span class="dau-today"><span id="returningTodayValue"><%= todayReturning.toLocaleString() %></span> <small>today</small></span>
+          <span id="returningDelta" class="dau-delta<%= returningDelta > 0 ? ' dau-delta--up' : (returningDelta < 0 ? ' dau-delta--down' : '') %>">
+            <% if (returningDelta !== 0) { %><%= returningDelta > 0 ? '▲' : '▼' %> <%= Math.abs(returningDelta).toLocaleString() %> vs yesterday<% } else { %>— same as yesterday<% } %>
+          </span>
+        </div>
+      </div>
+      <p class="chart-note">
+        Registered players who played a game on a day <strong>after</strong> the first day they were seen —
+        so an install and its first session never count here. Each day counts a player once.
+      </p>
+      <div class="chart-body chart-body--lg"><canvas id="returningChart"></canvas></div>
+    </div>
+
     <!-- Top Stat Tiles -->
     <div class="stat-cards">
       <div class="stat-card">
@@ -202,6 +228,7 @@
 const chartData    = <%- chartData %>;
 const topGamesData = <%- topGamesData %>;
 const dauData      = <%- dauData %>;
+const returningData = <%- returningData %>;
 
 const gridColor  = 'rgba(255,255,255,0.05)';
 const tickColor  = '#64748b';
@@ -209,54 +236,61 @@ const baseFont   = { family: "'Space Grotesk', sans-serif", size: 12 };
 Chart.defaults.color = tickColor;
 Chart.defaults.font  = baseFont;
 
-// DAU Line Chart (hero) — range comes from the dropdown, default 30 days.
+// ── Range-filtered line charts (Daily Active Users, Returning Players) ───────
+// Both charts are the same thing over different measures, so they are built by
+// the same factory: one place decides how a range change is fetched, applied
+// and recovered from, rather than two copies that drift apart the first time
+// one of them is fixed.
+
 // Past a couple of months the per-day dots merge into a smear, so they are
 // dropped and the line carries the shape; hover still reports the exact day.
-const dauPointRadius = (n) => (n > 60 ? 0 : 3);
+const pointRadiusFor = (n) => (n > 60 ? 0 : 3);
 
-const dauChart = new Chart(document.getElementById('dauChart'), {
-  type: 'line',
-  data: {
-    labels: dauData.labels,
-    datasets: [{
-      label: 'Daily Active Users',
-      data:  dauData.counts,
-      borderColor: '#10b981',
-      backgroundColor: 'rgba(16,185,129,0.10)',
-      borderWidth: 2,
-      fill: true,
-      tension: 0.3,
-      pointBackgroundColor: '#10b981',
-      pointRadius: dauPointRadius(dauData.counts.length),
-      pointHoverRadius: 6,
-    }]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          // The axis is MM-DD, which is ambiguous once a range crosses a year.
-          title: (items) => dauChart.$dauDates[items[0].dataIndex] || items[0].label,
-        }
-      }
+function buildRangeChart({ canvasId, label, color, fill, data }) {
+  const chart = new Chart(document.getElementById(canvasId), {
+    type: 'line',
+    data: {
+      labels: data.labels,
+      datasets: [{
+        label: label,
+        data:  data.counts,
+        borderColor: color,
+        backgroundColor: fill,
+        borderWidth: 2,
+        fill: true,
+        tension: 0.3,
+        pointBackgroundColor: color,
+        pointRadius: pointRadiusFor(data.counts.length),
+        pointHoverRadius: 6,
+      }]
     },
-    scales: {
-      x: { grid: { color: gridColor }, ticks: { color: tickColor, maxTicksLimit: 15, maxRotation: 0 } },
-      y: { grid: { color: gridColor }, ticks: { color: tickColor, stepSize: 1, precision: 0 }, beginAtZero: true }
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            // The axis is MM-DD, which is ambiguous once a range crosses a year.
+            title: (items) => chart.$dates[items[0].dataIndex] || items[0].label,
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: tickColor, maxTicksLimit: 15, maxRotation: 0 } },
+        y: { grid: { color: gridColor }, ticks: { color: tickColor, stepSize: 1, precision: 0 }, beginAtZero: true }
+      }
     }
-  }
-});
-dauChart.$dauDates = dauData.dates || [];
+  });
+  chart.$dates = data.dates || [];
+  return chart;
+}
 
-// ── DAU range dropdown ───────────────────────────────────────────────────────
-(function () {
-  const select   = document.getElementById('dauRange');
-  const errorEl  = document.getElementById('dauRangeError');
-  const todayEl  = document.getElementById('dauTodayValue');
-  const deltaEl  = document.getElementById('dauDelta');
+function wireRangeDropdown({ chart, endpoint, selectId, errorId, todayId, deltaId }) {
+  const select  = document.getElementById(selectId);
+  const errorEl = document.getElementById(errorId);
+  const todayEl = document.getElementById(todayId);
+  const deltaEl = document.getElementById(deltaId);
   if (!select) return;
 
   // Every change supersedes the one before it: a slow 1-year response must not
@@ -266,13 +300,11 @@ dauChart.$dauDates = dauData.dates || [];
 
   select.addEventListener('change', async () => {
     const token = ++latest;
-    const range = select.value;
-
     select.disabled = true;
     errorEl.hidden  = true;
 
     try {
-      const res = await fetch('/sitehandler/analytics/dau?range=' + encodeURIComponent(range), {
+      const res = await fetch(endpoint + '?range=' + encodeURIComponent(select.value), {
         headers: { 'Accept': 'application/json' },
         credentials: 'same-origin',
       });
@@ -280,11 +312,11 @@ dauChart.$dauDates = dauData.dates || [];
       const data = await res.json();
       if (token !== latest) return;
 
-      dauChart.data.labels = data.labels;
-      dauChart.data.datasets[0].data = data.counts;
-      dauChart.data.datasets[0].pointRadius = dauPointRadius(data.counts.length);
-      dauChart.$dauDates = data.dates || [];
-      dauChart.update();
+      chart.data.labels = data.labels;
+      chart.data.datasets[0].data = data.counts;
+      chart.data.datasets[0].pointRadius = pointRadiusFor(data.counts.length);
+      chart.$dates = data.dates || [];
+      chart.update();
 
       todayEl.textContent = Number(data.todayDau).toLocaleString();
       const delta = Number(data.dauDelta);
@@ -297,13 +329,33 @@ dauChart.$dauDates = dauData.dates || [];
       // Leave the previous range on screen. A chart redrawn flat on a failed
       // request reads as "nobody used the app", which is a worse lie than an
       // error message.
-      console.error('DAU range load failed:', err);
+      console.error('Range load failed for ' + endpoint + ':', err);
       errorEl.hidden = false;
     } finally {
       if (token === latest) select.disabled = false;
     }
   });
-})();
+}
+
+const dauChart = buildRangeChart({
+  canvasId: 'dauChart', label: 'Daily Active Users',
+  color: '#10b981', fill: 'rgba(16,185,129,0.10)', data: dauData,
+});
+wireRangeDropdown({
+  chart: dauChart, endpoint: '/sitehandler/analytics/dau',
+  selectId: 'dauRange', errorId: 'dauRangeError',
+  todayId: 'dauTodayValue', deltaId: 'dauDelta',
+});
+
+const returningChart = buildRangeChart({
+  canvasId: 'returningChart', label: 'Returning Players',
+  color: '#7c3aed', fill: 'rgba(124,58,237,0.10)', data: returningData,
+});
+wireRangeDropdown({
+  chart: returningChart, endpoint: '/sitehandler/analytics/returning-series',
+  selectId: 'returningRange', errorId: 'returningRangeError',
+  todayId: 'returningTodayValue', deltaId: 'returningDelta',
+});
 
 // App Opens Line Chart
 new Chart(document.getElementById('appOpensChart'), {

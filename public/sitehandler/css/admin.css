@@ -1534,6 +1534,7 @@ input, select, textarea { font: inherit; }
 .chart-title-group { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .filter-select--sm { padding: 5px 10px; font-size: 0.78rem; }
 .dau-range-error { font-size: 0.78rem; color: #ef4444; }
+.chart-note { font-size: 0.78rem; color: var(--a-text-muted); margin: -6px 0 14px; line-height: 1.5; }
 .dau-summary { display: flex; align-items: baseline; gap: 12px; }
 .dau-today { font-family: var(--ff-h); font-size: 1.4rem; font-weight: 700; }
 .dau-today small { font-size: 0.75rem; font-weight: 500; color: var(--a-text-muted); }

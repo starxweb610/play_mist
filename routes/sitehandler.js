@@ -43,6 +43,7 @@ router.get('/analytics', analyticsController.getIndex);
 router.get('/analytics/returning-users', analyticsController.getReturningUsers);
 // JSON for the DAU chart's range dropdown (no page reload)
 router.get('/analytics/dau', analyticsController.getDauSeries);
+router.get('/analytics/returning-series', analyticsController.getReturningSeries);
 
 // Games
 router.get ('/games',                gamesController.getIndex);
