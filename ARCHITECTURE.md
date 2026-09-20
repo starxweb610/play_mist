@@ -10,6 +10,7 @@ Playmist is a mobile gaming platform: one Android app containing a catalog of we
 |---|---|---|---|
 | **Backend** (`play_mist`) | `gaming_backend/play_mist` | `starxweb610/play_mist` | Node/Express monolith: mobile API, public website, developer portal, admin panel, MySQL, R2 storage |
 | **Mobile app** (`gaming_app`) | `gaming_app` | `starxweb610/playmist_app` | React 18 + Vite web app wrapped in Capacitor 6 for Android, with custom Kotlin plugins for game playback |
+| **Developer Hub** (`playmist-developer-hub`) | `playmist-developer-hub` | — | The developer portal as an Android app, plus the Test Lab that runs a build exactly as the player app does (§5.8) |
 
 ---
 
@@ -60,6 +61,7 @@ Everything routes through `server.js`, which mounts four routers. Knowing which 
 | **Mobile API** | `/api` (+`/api/v1`) | `routes/api.js` | `controllers/api/*` | JWT Bearer (`middleware/auth.js`) | Android app |
 | **Public website** | `/` | `routes/index.js` | `controllers/publicController.js` | none | visitors, SEO |
 | **Developer portal** | `/developer` | `routes/developer.js` | `controllers/developer/*` | session (`middleware/developerAuth.js`) | external game studios |
+| **Studio app API** | `/api/dev/v1` | `routes/devapi.js` | `controllers/devapi/*` + the portal's own | developer JWT (`middleware/devApiAuth.js`) | Playmist Developer Hub |
 | **Admin panel** | `/sitehandler` | `routes/sitehandler.js` | `controllers/sitehandler/*` | session (admins table) | you |
 
 **Boot sequence** (`server.js`): load `.env` → register crash handlers (append to `crash.log`, process keeps running) → helmet/CORS/sessions/flash/static → mount the four routers → `runMigrations()` from `utils/migrate.js` (all idempotent `CREATE TABLE IF NOT EXISTS` / add-column-if-missing — **restarting the app IS the migration step**) → `listen(3798)` → start the daily DB backup scheduler (`utils/backupScheduler.js`).
@@ -214,6 +216,101 @@ Developers can build a playable HTML5 game inside the portal: **Tools → Game B
 
 ---
 
+### 5.8 Playmist Developer Hub — the portal as an app, and the Test Lab
+
+A developer could test a game in the browser IDE and still be wrong on the
+first device it reached: the preview has no native WebView, no orientation
+lock, no immersive fullscreen, no back-button dialog, and no `window.Playmist`
+at all (the SDK is injected by the player app's own Activity, §6.4). The
+**Playmist Developer Hub** (`playmist-developer-hub`, `com.playmist.studio`) is
+a second Android app — React 18 + Capacitor 6, same stack as the player app —
+that closes that gap.
+
+**Fidelity comes from reuse, not simulation.** The Hub copies five Kotlin files
+from the player app *byte for byte* — `WebGLPlayerPlugin`, `SimpleHttpServer`,
+`GameViewerActivity`, `GameViewerPlugin`, `PlaymistBridge` — via
+`scripts/sync-runtime.sh`, whose `--check` mode fails when they drift. They keep
+their `com.playmist.app` package (the app's namespace is `com.playmist.studio`)
+precisely so the copies can be identical. A test run is therefore the real path:
+zip download → extract → localhost:8765 → fullscreen WebView → the same SDK shim
+→ the live `/api/v1` endpoints.
+
+**What makes the last step safe is provisioning, not branching.** A test session
+mints two real rows:
+
+- a **sandbox game** — `games.is_sandbox = 1`, `is_active = 0`,
+  `release_stage = 'in_development'`, owned by the developer. Because it is a
+  real `games.id`, `game_saves`, `game_xp_events`, `game_shop_items` and
+  `game_funnel_events` all work untouched: **no player controller has a sandbox
+  branch**.
+- a **test player** — `users.is_test_account = 1`, `owner_developer_id` set.
+  Its credits are topped up from the app rather than earned, but they are spent
+  through the real economy, so a purchase succeeds and fails for the real
+  reasons.
+
+⚠ **Containment.** `is_active = 0` already hides a sandbox game from every
+catalogue query, the public site, the sitemap and the daily pick — with one
+exception that matters: **`/api/v1/coming-soon-games` filters on
+`release_stage`, not `is_active`**, and a sandbox game matches that shape
+exactly. Both coming-soon queries (and the admin games list) therefore filter
+`is_sandbox = 0` explicitly. Remove that filter and the first developer to open
+the Test Lab puts a "[TEST]" card on every player's Coming Soon rail.
+
+**The API** is `/api/dev/v1` (`routes/devapi.js`), mounted in `server.js`
+**before the session middleware**. It authenticates with a developer bearer
+token — a Capacitor app is cross-origin to `playmist.app`, so the `SameSite=Lax`
+session cookie would never be sent and `blockCrossSite` would reject what did
+arrive. `middleware/devApiAuth.js` verifies the token and then presents the
+account as `req.session.developer`, the shape every portal controller already
+reads, which is why the tasks, docs, storyboards and Game Builder file APIs are
+**mounted verbatim** rather than reimplemented — one implementation, two front
+ends. (That shim is also why the router must sit ahead of express-session:
+assigning to a real session would write a row per request.)
+
+⚠ Developer tokens are signed with `DEV_JWT_SECRET`, never `JWT_SECRET`. The
+player API's `verifyJwt` only checks the signature and then trusts `decoded.id`
+as a `users.id`; a developer token signed with the player secret would let
+developer #7 act as player #7. Different secret plus a `typ` claim, checked on
+both sides.
+
+The build the device downloads is packed from the Game Builder workspace on
+demand and served from `/api/dev/v1/sandbox-build/:token.zip`, **outside** the
+auth gate — `WebGLPlayerPlugin.downloadFile()` is a plain `HttpURLConnection`
+that sends no `Authorization` header, and it stays that way because it is a
+shared file. The short-lived, single-project token in the URL is the
+authorisation, the same reasoning as the Game Builder's preview route (§5.7).
+Submissions from the app reuse `submissionsController.storeSubmission`, so a
+build packed from a workspace is indistinguishable to a reviewer from one
+uploaded on the website.
+
+**SDK activity log.** A test run exercises the real SDK, which made it opaque:
+a purchase leaves a `credit_transactions` row, an XP event bumps a total, and a
+call with a mistyped key is a 404 that leaves no trace anywhere.
+`middleware/sandboxSdkLog.js` sits on the seven SDK routes in `routes/api.js`
+and writes `sandbox_sdk_calls` — method, key, ok/failed, a one-line summary —
+**only** for sandbox games and test players. ⚠ It is on the player hot path, so
+the "is this a Test Lab call?" check is an in-memory Set lookup
+(`utils/sandboxRegistry.js`), never a query; real players pay nothing. Account
+calls with no game id (`getCredits`, `getMultiplayerToken`) are attributed via
+`users.last_sandbox_game_id`, set when a session starts. `getUserProfile` and
+`haptic` are answered on the device and never reach the server, so they cannot
+appear. The app reads it as a per-session log (Test Lab) and per-key usage plus
+"keys your game used that aren't configured" (SDK setup).
+
+**Dev backends and the WebView scheme.** Against an `http://` LAN backend, an
+`https://localhost` app origin makes every request mixed content, and the
+WebView refused plain-HTTP *images* in the editor preview outright — no
+request, no log line. The Hub's `scripts/cap-config.mjs` (run by `npm run
+sync`) derives `server.androidScheme` from `VITE_API_BASE_NATIVE`: http backend
+→ http origin, https backend → https, so a release cannot inherit the dev
+setting. The preview route's `frame-ancestors` already allows both.
+
+**Test:** `node scripts/test-devapi.js` (server + DB running) walks login →
+project → test session → build download → real XP award → cloud save, asserts
+the containment rule, and cleans up after itself.
+
+---
+
 ## 6. Mobile app (`gaming_app`)
 
 ### 6.1 Stack
@@ -224,6 +321,7 @@ React 18 + Vite, **no router library and no state library** — navigation is pl
 |---|---|
 | `WebGLPlayerPlugin` | manages downloaded game files; starts a **local HTTP server on :8765** serving an extracted game build |
 | `GameViewerPlugin` (+ `GameViewerActivity`) | opens a fullscreen native WebView pointed at the local server, with orientation lock |
+| `PremiumGamePlugin` (+ `PremiumGameActivity`) | launches a downloaded **Unity Addressables** premium build in the embedded Unity runtime (§6.5) |
 | `GamesSignInPlugin` | Google Play Games sign-in → server auth code for §4.1; also `submitScore`/`showLeaderboard` for the global XP leaderboard (native PGS overlay, opened from Profile & Settings → Compete; lifetime XP auto-submitted whenever `xp` changes in AppContext — with a brief auth-settle poll, since PGS v2 auto-auth finishes *after* boot; opening the board re-submits current XP as a self-heal; needs `VITE_GPGS_LEADERBOARD_ID`) |
 
 ### 6.2 Screen & state model
@@ -275,6 +373,24 @@ tap Play → confirm modal (skippable after first success)
 
 Key invariant: **there is no offline entitlement** — a launch always requires a live server-side deduction.
 
+### 6.5 Premium Unity games (Addressables)
+
+Premium titles can ship as Unity content instead of WebGL, to use native GPU/CPU. `games.build_format` (`webgl` default | `unity_addressables`) is set **from the zip's contents at upload** — a premium zip with a `catalog*.json` + `.bundle` files and no `index.html` goes to R2 as `games/unity/<slug>/game.zip` only (no extraction, no `play_url`). The API exposes it as `buildformat`.
+
+```
+unity_runtime (Unity 6000.3, Addressables + PlayMaker 2 + DOTween Pro)
+  Playmist → Premium → 2. Build Premium Game Zip   → zip → /sitehandler upload
+  Playmist → Premium → 3. Export Android Runtime   → gaming_app/scripts/sync-unity-runtime.sh
+                                                     → android/unityLibrary (gitignored, ~1.7 GB)
+app: LaunchModal → same download/extract into filesDir/<id> (On Device list + delete still apply)
+  → PremiumGame.launch → PremiumGameActivity (own `:unity` process)
+  → PremiumGameLauncher.cs loads catalog from that folder, rewrites
+    https://playmist-premium.invalid/content/* to it, activates the scene addressed "boot"
+  → back finishes the activity; the process dies with it, so every launch is a fresh Unity boot
+```
+
+Constraints: premium content can only use code compiled into the runtime (games are built from PlayMaker FSMs); content must be built with the same Unity/package versions and project settings (tags, layers, URP assets) as the shipped runtime; the runtime is arm64-only and needs API 25 (the app keeps minSdk 22 and refuses the launch below it). The runtime keeps all managed/engine code (no stripping), since stripping only sees the launcher scene. Playmist SDK services are not bridged into Unity yet.
+
 ---
 
 ## 7. Operations (how this stays alive)
@@ -315,6 +431,7 @@ ssh cgpixels-vps 'bash /var/www/play_mist/scripts/deploy.sh'
 - **Server:** `PORT`, `NODE_ENV`, `APP_NAME`, `BASE_URL` (prod: `https://playmist.app`; used by the smoke test)
 - **DB:** `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
 - **Auth:** `JWT_SECRET`, `JWT_REFRESH_SECRET`, `SESSION_SECRET`
+- **Studio app auth:** `DEV_JWT_SECRET`, `DEV_JWT_REFRESH_SECRET` (must differ from the player secrets — see §5.8)
 - **R2:** `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`
 - **Email:** `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
 - **Ops:** `ALERT_EMAIL`, `DB_BACKUP_ENABLED`, `DB_BACKUP_RETENTION_DAYS`, `MYSQLDUMP_PATH`
@@ -335,6 +452,7 @@ ssh cgpixels-vps 'bash /var/www/play_mist/scripts/deploy.sh'
 | change the app's screens/flow | `src/App.jsx` (render precedence) + `src/context/AppContext.jsx` (state) |
 | touch the developer portal or admin panel | `routes/developer.js` / `routes/sitehandler.js` + matching controllers + `views/` |
 | change public developer profiles, handles, follows, game comments or project sharing | §5.6 — `routes/profiles.js`, `controllers/profilesController.js`, `controllers/developer/socialController.js`, `utils/handles.js`, `views/profile/` |
+| change the Developer Hub app, its API, or how a test session runs a build | §5.8 — `routes/devapi.js`, `controllers/devapi/sandboxApi.js`, `middleware/devApiAuth.js`, and in the app `src/services/testlab.js` + `scripts/sync-runtime.sh` |
 | add builder templates, or change the in-browser IDE / its sandboxed preview | §5.7 — `controllers/sitehandler/builderTemplatesController.js`, `controllers/developer/builderController.js`, `utils/builderFs.js` (path trust boundary), `utils/builderZip.js`, `public/js/developer-builder.js` |
 | change the DB schema | add an idempotent step in `utils/migrate.js`; restart applies it (never edit `db/playmist.sql` and expect effect) |
 | change deploys / monitoring / backups | `scripts/deploy.sh`, `scripts/smoke-test.js`, `scripts/smoke-monitor.js`, `scripts/backup-db.js` — see §7 gotchas first |

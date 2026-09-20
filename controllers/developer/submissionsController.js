@@ -11,16 +11,11 @@ const { parseVideo, watchUrl }    = require('../../utils/portfolio');
 const { REFERENCE_IMAGE_MAX_BYTES } = require('../../config/upload');
 const { matchClause } = require('../../utils/slugs');
 
-const ALLOWED_EXTENSIONS = new Set([
-  'html','htm','css','js','mjs','json','wasm',
-  'png','jpg','jpeg','gif','webp','svg','ico',
-  'mp3','ogg','wav','mp4','webm',
-  'ttf','woff','woff2','otf',
-  'data','unityweb','bin','mem','symbols',
-  'gz','br',
-]);
-
-const MAX_UNCOMPRESSED_BYTES = 1 * 1024 * 1024 * 1024; // 1 GB zip-bomb guard
+// The rules a build must satisfy live in utils/gameBuild.js — the website's
+// upload form, the Studio app's zip upload and the Test Lab's packer all read
+// the same allowlist, the same size ceilings and the same "index.html at the
+// root" rule from there.
+const { validateZip, MAX_UNCOMPRESSED_BYTES, ALLOWED_EXTENSIONS } = require('../../utils/gameBuild');
 
 function slugify(str) {
   return str.toLowerCase().trim()
@@ -37,46 +32,6 @@ async function uniqueSlug(base) {
     if (!rows.length) return slug;
     slug = `${base}-${++n}`;
   }
-}
-
-function validateZip(zipPath) {
-  const zip = new AdmZip(zipPath);
-  const entries = zip.getEntries();
-
-  let totalUncompressed = 0;
-  let hasRootIndex = false;
-
-  for (const entry of entries) {
-    const name = entry.entryName.replace(/\\/g, '/');
-
-    // Skip macOS metadata
-    if (name.startsWith('__MACOSX/') || name.split('/').some(p => p.startsWith('._'))) continue;
-
-    // Path traversal guard
-    const normalized = path.normalize(name);
-    if (normalized.startsWith('..')) throw new Error('ZIP contains invalid path traversal entries.');
-
-    if (!entry.isDirectory) {
-      totalUncompressed += entry.header.size;
-      if (totalUncompressed > MAX_UNCOMPRESSED_BYTES) {
-        throw new Error('ZIP uncompressed content exceeds 1 GB. Suspected zip bomb.');
-      }
-
-      // File extension allowlist (handle .gz/.br double extensions)
-      let base = name;
-      const lower = name.toLowerCase();
-      if (lower.endsWith('.gz') || lower.endsWith('.br')) base = name.slice(0, -3);
-      const ext = path.extname(base).toLowerCase().replace('.', '');
-      if (!ALLOWED_EXTENSIONS.has(ext)) {
-        throw new Error(`Disallowed file type in ZIP: .${ext}. Only web-safe files are permitted.`);
-      }
-    }
-
-    // index.html must be at root (not in a subdirectory)
-    if (name === 'index.html') hasRootIndex = true;
-  }
-
-  if (!hasRootIndex) throw new Error('ZIP must contain index.html at the root level.');
 }
 
 function walkFiles(dir) {
@@ -192,25 +147,55 @@ exports.postSubmit = async (req, res) => {
     return renderError([err.message]);
   }
 
-  const uuid = crypto.randomBytes(16).toString('hex');
+  try {
+    const created = await storeSubmission({
+      developer,
+      zipPath: zipFile.path,
+      zipSize: zipFile.size,
+      referenceImageBuffer: imageFile ? await fse.readFile(imageFile.path) : null,
+      referenceVideoUrl,
+      fields: { title, short_description, description, controls, genre, orientation, version, content_rating, ...form },
+    });
+    req.flash('success_msg', `"${title.trim()}" uploaded! Test your game below, then submit for review when you're ready.`);
+    res.redirect(`/developer/submissions/${created.slug}`);
+  } catch (err) {
+    console.error('❌ submission upload:', err.stack || err);
+    return renderError(['Upload failed. Please try again.']);
+  } finally {
+    await fse.remove(zipFile.path).catch(() => {});
+    if (imageFile) await fse.remove(imageFile.path).catch(() => {});
+  }
+};
+
+/**
+ * Uploads a validated build and writes the draft submission row.
+ *
+ * Shared by the portal's form post above and the Studio app, which submits a
+ * build it packs out of the Game Builder workspace rather than a file the
+ * developer picked. Both produce the same row, the same R2 layout and the
+ * same reviewable preview — the review team should not be able to tell which
+ * surface a submission came from.
+ *
+ * Caller owns `zipPath` (this only reads it) and has already validated the
+ * zip; everything written to R2 here is rolled back if any step fails.
+ */
+async function storeSubmission({ developer, zipPath, zipSize, referenceImageBuffer = null, referenceVideoUrl = null, fields }) {
+  const uuid  = crypto.randomBytes(16).toString('hex');
   const r2Key = `developer-submissions/${developer.id}/${uuid}/game.zip`;
-  const base = slugify(title.trim());
-  const slug = await uniqueSlug(base);
+  const slug  = await uniqueSlug(slugify(fields.title.trim()));
   const previewPrefix = `developer-previews/${developer.id}/${slug}`;
   let extractDir = null;
-  let insertId = null;
   let referenceImageKey = null;
 
   try {
-    // Upload ZIP to R2
-    await r2.uploadFile(r2Key, zipFile.path, 'application/zip');
+    await r2.uploadFile(r2Key, zipPath, 'application/zip');
 
     // Art-direction image, if one came with the form. Normalised to WebP like
     // every other upload, and keyed under the submission so it is cleaned up
     // with it. Stored for the review team only — never published.
     let referenceImageUrl = null;
-    if (imageFile) {
-      const { buffer, hash } = await toWebp(await fse.readFile(imageFile.path));
+    if (referenceImageBuffer) {
+      const { buffer, hash } = await toWebp(referenceImageBuffer);
       referenceImageKey = `developer-submissions/${developer.id}/${uuid}/reference-${hash}.webp`;
       referenceImageUrl = await r2.uploadBuffer(referenceImageKey, buffer, 'image/webp', IMMUTABLE_CACHE);
     }
@@ -218,8 +203,7 @@ exports.postSubmit = async (req, res) => {
     // Extract to temp dir and upload preview files to R2
     extractDir = path.join(PATHS.TEMP_DIR, `devpreview_${Date.now()}_${uuid}`);
     await fse.ensureDir(extractDir);
-    const zip = new AdmZip(zipFile.path);
-    zip.extractAllTo(extractDir, true);
+    new AdmZip(zipPath).extractAllTo(extractDir, true);
 
     await r2.deletePrefix(`${previewPrefix}/`);
 
@@ -228,8 +212,7 @@ exports.postSubmit = async (req, res) => {
     for (let i = 0; i < files.length; i += CONCURRENCY) {
       await Promise.all(files.slice(i, i + CONCURRENCY).map(filePath => {
         const rel = path.relative(extractDir, filePath).replace(/\\/g, '/');
-        const key = `${previewPrefix}/${rel}`;
-        return r2.uploadFile(key, filePath, r2.getContentType(rel), r2.getContentEncoding(rel));
+        return r2.uploadFile(`${previewPrefix}/${rel}`, filePath, r2.getContentType(rel), r2.getContentEncoding(rel));
       }));
     }
 
@@ -246,41 +229,42 @@ exports.postSubmit = async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), ?, ?, ?, ?, ?, 'draft')`,
       [
         developer.id,
-        title.trim(),
+        fields.title.trim(),
         slug,
-        short_description.trim(),
-        description.trim(),
-        controls.trim(),
-        genre,
-        orientation || 'landscape',
-        version?.trim() || '1.0',
-        content_rating,
-        form.has_ads,
-        form.has_iap,
-        form.has_external_links,
-        form.requires_internet,
+        fields.short_description.trim(),
+        fields.description.trim(),
+        fields.controls.trim(),
+        fields.genre,
+        fields.orientation || 'landscape',
+        fields.version?.trim() || '1.0',
+        fields.content_rating,
+        fields.has_ads,
+        fields.has_iap,
+        fields.has_external_links,
+        fields.requires_internet,
         referenceImageUrl,
         referenceVideoUrl,
         r2Key,
-        zipFile.size,
+        zipSize,
         previewPlayUrl,
       ]
     );
-    insertId = result.insertId;
 
-    req.flash('success_msg', `"${title.trim()}" uploaded! Test your game below, then submit for review when you're ready.`);
-    res.redirect(`/developer/submissions/${slug}`);
+    return { id: result.insertId, slug, previewPlayUrl };
   } catch (err) {
     await r2.deleteObject(r2Key).catch(() => {});
     if (referenceImageKey) await r2.deleteObject(referenceImageKey).catch(() => {});
     await r2.deletePrefix(`${previewPrefix}/`).catch(() => {});
-    return renderError(['Upload failed. Please try again.']);
+    throw err;
   } finally {
     if (extractDir) await fse.remove(extractDir).catch(() => {});
-    await fse.remove(zipFile.path).catch(() => {});
-    if (imageFile) await fse.remove(imageFile.path).catch(() => {});
   }
-};
+}
+
+// Shared with the Studio app's JSON surface (controllers/devapi/submissionsApi.js).
+exports.storeSubmission = storeSubmission;
+exports.validateZip     = validateZip;   // re-exported from utils/gameBuild
+exports.CONTENT_RATINGS = CONTENT_RATINGS;
 
 exports.postSubmitReview = async (req, res) => {
   const ref = req.params.slug;

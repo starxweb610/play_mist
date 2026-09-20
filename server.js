@@ -63,6 +63,14 @@ app.use('/games/premium', express.static(path.join(__dirname, 'uploads', 'games'
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+// ─── Playmist Studio app API ─────────────────────────────────────────────────
+// Mounted here, deliberately ahead of the session middleware. This surface
+// authenticates with a bearer token (middleware/devApiAuth.js), and its shim
+// hands the portal's own controllers a plain `req.session.developer` object —
+// which only works, and only stays free of session-store writes, while
+// req.session is nobody else's. Body parsers above it are required.
+app.use('/api/dev/v1', require('./routes/devapi'));
+
 // ─── Sessions ────────────────────────────────────────────────────────────────
 const SESSION_TTL_MS = 1000 * 60 * 60 * 8;
 app.use(session({

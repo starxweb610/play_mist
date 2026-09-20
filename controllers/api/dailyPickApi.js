@@ -16,7 +16,7 @@ exports.getDailyPick = async (req, res) => {
     const [rows] = await db.query(
       `SELECT g.id, g.title, g.short_description, g.long_description,
               g.play_url, g.thumbnail_url, g.promotional_thumbnail,
-              g.orientation, g.version, g.type, g.zip_url,
+              g.orientation, g.version, g.type, g.build_format, g.zip_url,
               g.genre, g.studio, g.size, g.size_bytes, g.credits_cost, g.flag,
               (SELECT COUNT(*)        FROM analytics_games ag WHERE ag.game_id = g.id) AS play_count,
               (SELECT AVG(gr.rating)  FROM game_ratings    gr WHERE gr.game_id = g.id) AS avg_rating
@@ -43,6 +43,7 @@ exports.getDailyPick = async (req, res) => {
         gameorientation:      g.orientation || 'landscape',
         gameversion:          g.version    || '1.0.0',
         gametype:             g.type,
+        buildformat:          g.build_format || 'webgl',
         genre:                g.genre  || '',
         studio:               g.studio || '',
         // Measured from the uploaded build only. The legacy manual `size` column

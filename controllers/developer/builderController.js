@@ -72,12 +72,17 @@ function revokeTokensFor(projectId) {
 
 const devId = (req) => req.session.developer.id;
 
-/** Resolves a :project param (slug, or a legacy numeric id) this developer owns. */
-async function ownedProject(param, developerId) {
+/**
+ * Resolves a :project param (slug, or a legacy numeric id) this developer owns.
+ * `columns` is a caller-supplied column list — never anything from a request —
+ * so the Studio app's build endpoints can read build_source and the upload
+ * metadata without a second query.
+ */
+async function ownedProject(param, developerId, columns = 'id, slug, name, status') {
   const match = matchClause(param);
   if (!match) return null;
   const [rows] = await db.query(
-    `SELECT id, slug, name, status FROM developer_projects WHERE ${match.sql} AND developer_id = ?`,
+    `SELECT ${columns} FROM developer_projects WHERE ${match.sql} AND developer_id = ?`,
     [...match.params, developerId]
   );
   return rows[0] || null;
@@ -257,36 +262,32 @@ async function renderTemplatePicker(req, res, project) {
 }
 
 /**
- * POST /developer/builder/:project/template
- * Extracts the chosen template into this project's workspace.
+ * Extracts a template into a project's workspace.
+ *
+ * Shared by the portal's form post below and the Studio app's JSON endpoint
+ * (controllers/devapi/builderApi.js): both surfaces edit the same workspaces,
+ * so the setup that creates one has to be the same code, not a second copy
+ * that drifts. Throws a BuilderError carrying the message either surface
+ * shows; the caller decides whether that becomes a flash or a JSON body.
  */
-exports.postSelectTemplate = async (req, res) => {
-  const developerId = devId(req);
-  const templateId = Number.parseInt(req.body.template_id, 10);
-
-  const back = (message) => {
-    req.flash('error_msg', message);
-    return res.redirect(`/developer/builder/${req.params.project}`);
-  };
+async function applyTemplate(developerId, project, templateIdRaw) {
+  const templateId = Number.parseInt(templateIdRaw, 10);
 
   let tempZip = null;
   let root = null;
   let createdRoot = false;
 
   try {
-    const project = await ownedProject(req.params.project, developerId);
-    if (!project) return back('Project not found.');
-
     // One template per project: re-choosing would silently delete a workspace
     // the developer has been working in. Changing it is its own explicit,
-    // confirmed action (postResetWorkspace).
+    // confirmed action (clearWorkspace).
     const existing = await loadWorkspace(project.id);
     if (existing && dirExists(workspacePath(developerId, project.id))) {
-      return back('This project already has a template. Open it from the builder.');
+      throw new BuilderError('This project already has a template. Open it from the builder.', 409);
     }
     if (existing) await db.query('DELETE FROM developer_builder_workspaces WHERE id = ?', [existing.id]);
 
-    if (!Number.isInteger(templateId)) return back('Choose a template to continue.');
+    if (!Number.isInteger(templateId)) throw new BuilderError('Choose a template to continue.', 400);
 
     const [rows] = await db.query(
       `SELECT t.id, t.name, t.r2_key
@@ -295,7 +296,7 @@ exports.postSelectTemplate = async (req, res) => {
         WHERE t.id = ? AND t.is_active = 1 AND c.is_active = 1`,
       [templateId]
     );
-    if (!rows.length) return back('That template is no longer available.');
+    if (!rows.length) throw new BuilderError('That template is no longer available.', 404);
     const template = rows[0];
 
     // Pull the archive down to a temp file. adm-zip needs random access to the
@@ -328,16 +329,46 @@ exports.postSelectTemplate = async (req, res) => {
     );
     await db.query('UPDATE builder_templates SET use_count = use_count + 1 WHERE id = ?', [template.id]);
 
-    req.flash('success_msg', `"${template.name}" is ready — start building.`);
-    res.redirect(`/developer/builder/${project.slug}`);
+    return template;
   } catch (err) {
     // The files and the row go together: a half-extracted workspace with no
     // row is invisible to the developer and never cleaned up otherwise.
     if (createdRoot && root) await fse.remove(root).catch(() => {});
+    if (err instanceof BuilderError) throw err;
     console.error('❌ builder template:', err.stack || err);
-    return back(err instanceof BuilderError ? err.message : 'Failed to set up that template. Please try again.');
+    throw new BuilderError('Failed to set up that template. Please try again.', 500);
   } finally {
     if (tempZip) await fse.remove(tempZip).catch(() => {});
+  }
+}
+
+/** Deletes a project's workspace and every preview token pointing into it. */
+async function clearWorkspace(developerId, projectId) {
+  revokeTokensFor(projectId);
+  await fse.remove(workspacePath(developerId, projectId)).catch(() => {});
+  await db.query('DELETE FROM developer_builder_workspaces WHERE project_id = ?', [projectId]);
+}
+
+/**
+ * POST /developer/builder/:project/template
+ * Extracts the chosen template into this project's workspace.
+ */
+exports.postSelectTemplate = async (req, res) => {
+  const developerId = devId(req);
+  const back = (message) => {
+    req.flash('error_msg', message);
+    return res.redirect(`/developer/builder/${req.params.project}`);
+  };
+
+  try {
+    const project = await ownedProject(req.params.project, developerId);
+    if (!project) return back('Project not found.');
+
+    const template = await applyTemplate(developerId, project, req.body.template_id);
+    req.flash('success_msg', `"${template.name}" is ready — start building.`);
+    res.redirect(`/developer/builder/${project.slug}`);
+  } catch (err) {
+    return back(err instanceof BuilderError ? err.message : 'Failed to set up that template. Please try again.');
   }
 };
 
@@ -361,9 +392,7 @@ exports.postResetWorkspace = async (req, res) => {
       return res.redirect(`/developer/builder/${project.slug}`);
     }
 
-    revokeTokensFor(project.id);
-    await fse.remove(workspacePath(developerId, project.id)).catch(() => {});
-    await db.query('DELETE FROM developer_builder_workspaces WHERE project_id = ?', [project.id]);
+    await clearWorkspace(developerId, project.id);
 
     req.flash('success_msg', 'Workspace cleared. Choose a new template to start again.');
     res.redirect(`/developer/builder/${project.slug}`);
@@ -372,6 +401,14 @@ exports.postResetWorkspace = async (req, res) => {
     res.redirect('/developer/builder');
   }
 };
+
+// Shared with the Studio app's JSON surface.
+exports.applyTemplate    = applyTemplate;
+exports.clearWorkspace   = clearWorkspace;
+exports.ownedProject     = ownedProject;
+exports.loadWorkspace    = loadWorkspace;
+exports.workspacePath    = workspacePath;
+exports.dirExists        = dirExists;
 
 // ── File JSON API ────────────────────────────────────────────────────────────
 
@@ -621,6 +658,26 @@ function injectBridge(html) {
  * workspace directory.
  */
 exports.servePreview = async (req, res) => {
+  // ⚠ Set before anything can return: helmet sets X-Frame-Options: SAMEORIGIN
+  // app-wide. The website's IDE is same-origin with this route so it never
+  // noticed, but the Studio app embeds the preview from https://localhost
+  // while the backend is somewhere else entirely — a different origin, so the
+  // frame was refused and the developer got a blank box while the server
+  // logged a cheerful 200.
+  //
+  // X-Frame-Options has no syntax for "these origins", so it is replaced
+  // rather than extended, with a frame-ancestors list naming the portal and
+  // the app's WebView origins. Safe on this route alone: the token is the
+  // authorisation, the frame is sandboxed without allow-same-origin, and the
+  // bytes are the developer's own files with no session behind them. It covers
+  // the error responses too — an "expired link" message nobody is allowed to
+  // render is just a blank box with extra steps.
+  res.removeHeader('X-Frame-Options');
+  res.setHeader(
+    'Content-Security-Policy',
+    "frame-ancestors 'self' https://localhost http://localhost capacitor://localhost"
+  );
+
   const grant = readPreviewToken(req.params.token);
   if (!grant) {
     return res.status(403)

@@ -128,6 +128,14 @@ exports.runMigrations = async () => {
     await migrateColumn('games', 'demo_enabled', 'TINYINT(1) DEFAULT 0 AFTER demo_version');
     await migrateColumn('games', 'demo_size_bytes', 'BIGINT DEFAULT NULL AFTER demo_enabled');
 
+    // ── Build format ──────────────────────────────────────────────────────────
+    // How the app runs the uploaded zip. 'webgl' (every pre-existing row) is
+    // served locally into a WebView; 'unity_addressables' is a premium build —
+    // Addressables catalog + Android bundles — loaded by the Unity runtime
+    // embedded in the app. Set from the zip's contents at upload, never by hand.
+    await migrateColumn('games', 'build_format',
+      "ENUM('webgl','unity_addressables') NOT NULL DEFAULT 'webgl' AFTER type");
+
     // How to play — supplied by the developer on the submit form and synced
     // over when their store listing is submitted. Rendered on the game page.
     await migrateColumn('games', 'controls', 'TEXT DEFAULT NULL AFTER long_description');
@@ -1105,6 +1113,83 @@ exports.runMigrations = async () => {
       await db.query(`ALTER TABLE games MODIFY \`${column}\` ${col.type} DEFAULT NULL`);
       console.log(`  ✅ games.${column} default '${col.def}' removed (was fabricating data)`);
     }
+
+    // ── Studio app: sandbox test sessions (§5.8) ─────────────────────────────
+    // A developer testing a build in the Studio app runs it through the *real*
+    // player path — the same zip download, the same local server, the same
+    // PlaymistBridge hitting the same /api/v1 endpoints. Fidelity comes from
+    // there being no sandbox branch in that path at all: the test session is
+    // backed by a real `games` row and a real `users` row, both flagged so
+    // every catalogue, analytics and leaderboard query can exclude them.
+    //
+    // Containment (mirrors the coming-soon rule in §5.5): a sandbox game is
+    // `is_active = 0`, which already keeps it out of every catalogue query,
+    // the public site, the sitemap and the daily pick. is_sandbox is the
+    // second lock, and what the admin panel filters on.
+    await migrateColumn('games', 'is_sandbox', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER is_active');
+    await migrateIndex('games', 'idx_games_sandbox', 'ADD KEY idx_games_sandbox (is_sandbox)');
+
+    // A test player is a real account owned by a developer. It never signs in
+    // from the player app (no device registers it), it is excluded from the
+    // global XP leaderboard and DAU, and its credits are topped up on demand
+    // from the Studio app rather than earned.
+    await migrateColumn('users', 'is_test_account',    'TINYINT(1) NOT NULL DEFAULT 0');
+    await migrateColumn('users', 'owner_developer_id', 'INT DEFAULT NULL');
+    await migrateIndex('users', 'idx_users_test_owner',
+      'ADD KEY idx_users_test_owner (owner_developer_id, is_test_account)');
+
+    // One sandbox game per project — created lazily on the first test launch,
+    // reused forever after, so saves/XP/purchases persist between test runs
+    // exactly as they would for a player between sessions.
+    await migrateColumn('developer_projects', 'sandbox_game_id', 'INT DEFAULT NULL');
+
+    // Where a project's playable build comes from. 'editor' is the Game
+    // Builder workspace (§5.7); 'upload' is a zip the developer exported from
+    // a real engine — Godot, Unity, Construct — and uploaded from the Studio
+    // app. Both end up as an extracted directory that the Test Lab serves and
+    // a submission packs, so everything downstream is identical.
+    await migrateColumn('developer_projects', 'build_source',
+      "ENUM('editor','upload') NOT NULL DEFAULT 'editor' AFTER sandbox_game_id");
+    await migrateColumn('developer_projects', 'upload_filename', 'VARCHAR(255) DEFAULT NULL AFTER build_source');
+    await migrateColumn('developer_projects', 'upload_size',     'BIGINT DEFAULT NULL AFTER upload_filename');
+    await migrateColumn('developer_projects', 'upload_files',    'INT DEFAULT NULL AFTER upload_size');
+    await migrateColumn('developer_projects', 'uploaded_at',     'DATETIME DEFAULT NULL AFTER upload_files');
+
+    // ── Test Lab: what the game's Playmist SDK calls actually did ─────────────
+    // A test session runs the real SDK against the real endpoints, which is
+    // what makes it faithful — and what made it opaque: a purchase leaves a
+    // credit_transactions row, an XP event bumps a total, and a call with a
+    // mistyped key is a 404 that leaves no trace anywhere. This is the trace.
+    //
+    // Written ONLY for sandbox games and test players (the check is an
+    // in-memory set lookup, utils/sandboxRegistry.js), so real players' calls
+    // never touch this table. `detail` is a small curated summary, never a
+    // request body — a save blob can be megabytes and is the game's business.
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS sandbox_sdk_calls (
+        id         BIGINT PRIMARY KEY AUTO_INCREMENT,
+        game_id    INT          NOT NULL,
+        user_id    INT          NOT NULL,
+        method     VARCHAR(40)  NOT NULL,
+        sdk_key    VARCHAR(120) DEFAULT NULL,
+        ok         TINYINT(1)   NOT NULL,
+        status     SMALLINT     NOT NULL,
+        detail     VARCHAR(500) DEFAULT NULL,
+        created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
+        KEY idx_sdk_calls_game (game_id, id),
+        KEY idx_sdk_calls_key  (game_id, method, sdk_key),
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // getCredits() and getMultiplayerToken() carry no game id — they are
+    // account calls. A test player belongs to one developer, so they are
+    // attributed to whichever of that developer's sandbox games was launched
+    // last, which is the game that made them.
+    await migrateColumn('users', 'last_sandbox_game_id', 'INT DEFAULT NULL');
+    await migrateIndex('developer_projects', 'idx_project_sandbox_game',
+      'ADD KEY idx_project_sandbox_game (sandbox_game_id)');
 
     console.log('✅ DB migrations complete');
   } catch (err) {

@@ -81,7 +81,7 @@ async function collectAdFiles(filePath, type) {
 const GAME_LIST_COLUMNS = `
        g.id, g.title, g.slug, g.short_description, g.long_description, g.controls,
        g.play_url, g.thumbnail_url, g.secondary_thumbnail, g.promotional_thumbnail, g.trailer_url,
-       g.orientation, g.version, g.type, g.is_active, g.is_featured, g.created_at,
+       g.orientation, g.version, g.type, g.build_format, g.is_active, g.is_featured, g.created_at,
        g.file_path, g.zip_url,
        g.genre, g.studio, g.size, g.size_bytes, g.credits_cost, g.flag,
        (SELECT COUNT(*)       FROM analytics_games ag WHERE ag.game_id = g.id) AS play_count,
@@ -130,6 +130,8 @@ async function mapGameRow(g, tagsMap, screenshotsMap) {
     gameorientation:      g.orientation || 'landscape',
     gameversion:          g.version    || '1.0.0',
     gametype:             g.type,
+    // 'webgl' | 'unity_addressables' — which player the app launches the zip in
+    buildformat:          g.build_format || 'webgl',
     gamestatus:           g.is_active ? 'active' : 'inactive',
     isFeatured:           g.is_featured === 1,
     zipurl:               g.zip_url    || '',
@@ -266,12 +268,17 @@ const COMING_SOON_COLUMNS = `
  * The LIMIT is authoritative here — the client caps again defensively, but the
  * server decides which five exist.
  */
+// ⚠ is_sandbox = 0 is load-bearing, not belt-and-braces. A Studio test game is
+// release_stage 'in_development' AND is_active 0 — precisely the shape this
+// endpoint selects, and the one catalogue query that does NOT filter on
+// is_active. Without it, the first developer to open the Test Lab would put a
+// "[TEST]" card on every player's Coming Soon rail.
 exports.getComingSoonGames = async (req, res) => {
   try {
     const [rows] = await db.query(
       `SELECT ${COMING_SOON_COLUMNS}
        FROM games g
-       WHERE g.release_stage = 'in_development'
+       WHERE g.release_stage = 'in_development' AND g.is_sandbox = 0
        ORDER BY g.coming_soon_rank ASC, g.created_at DESC
        LIMIT ${COMING_SOON_LIMIT}`
     );
@@ -304,7 +311,7 @@ exports.getComingSoonGameDetail = async (req, res) => {
     const [rows] = await db.query(
       `SELECT ${COMING_SOON_COLUMNS}
        FROM games g
-       WHERE g.id = ? AND g.release_stage = 'in_development'`,
+       WHERE g.id = ? AND g.release_stage = 'in_development' AND g.is_sandbox = 0`,
       [gameId]
     );
     if (!rows.length) return res.status(404).json({ error: 'Game not found' });

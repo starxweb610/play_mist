@@ -16,6 +16,7 @@
           <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
             <span class="badge badge--<%= game.type %>"><%= game.type.toUpperCase() %></span>
             <span class="badge badge--orient"><%= game.orientation %></span>
+            <% if (game.build_format === 'unity_addressables') { %><span class="badge badge--orient">Unity Addressables</span><% } %>
             <span class="badge <%= game.is_active ? 'badge--active' : 'badge--inactive' %>"><%= game.is_active ? 'Active' : 'Draft' %></span>
             <span class="text-dim text-sm">/<%= game.slug %></span>
           </div>
@@ -284,7 +285,7 @@
         <!-- Upload Zone -->
         <div class="form-card">
           <h3 class="form-card-title">
-            Upload WebGL Build (.zip)
+            Upload <%= game.type === 'premium' ? 'Game' : 'WebGL' %> Build (.zip)
           </h3>
           <div class="upload-hint">
             <strong>WebGL Requirements:</strong>
@@ -293,6 +294,14 @@
               <li>Max file size: 600 MB</li>
               <li>Original zip is preserved as <code>game.zip</code> inside the extracted folder</li>
             </ul>
+            <% if (game.type === 'premium') { %>
+            <strong>Or a Unity Addressables build (premium):</strong>
+            <ul>
+              <li>Made with <em>Playmist → Premium → Build Premium Game Zip</em> in unity_runtime</li>
+              <li>Contains <code>catalog_*.json</code> and the Android <code>.bundle</code> files</li>
+              <li>Plays only in the Android app; bump the version on re-upload</li>
+            </ul>
+            <% } %>
           </div>
 
           <form action="/sitehandler/games/<%= game.id %>/upload" method="POST"

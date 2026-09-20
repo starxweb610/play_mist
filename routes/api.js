@@ -30,6 +30,9 @@ const multiplayerApi    = require('../controllers/api/multiplayerApi');
 const demoFeedbackApi   = require('../controllers/api/demoFeedbackApi');
 const appConfigApi      = require('../controllers/api/appConfigApi');
 const { verifyJwt }     = require('../middleware/auth');
+// Records what a Test Lab game's SDK calls did (§5.8). A no-op Set lookup for
+// every real player — only sandbox games and test players are ever logged.
+const sdkLog = require('../middleware/sandboxSdkLog');
 const { avatarUpload }  = require('../config/upload');
 
 // Multer errors (size cap, wrong type) must surface as clean 400s, not 500s.
@@ -76,16 +79,16 @@ v1Router.post('/games/:id/rate', verifyJwt, gamesApi.rateGame);
 
 // Cloud save: opaque per-user per-game JSON blob, called by the game itself
 // via the native Playmist SDK bridge (not the app UI directly)
-v1Router.post('/games/:gameId/save', verifyJwt, gameSaveApi.saveGameData);
-v1Router.get ('/games/:gameId/save', verifyJwt, gameSaveApi.loadGameData);
-v1Router.post('/games/:gameId/xp-event',   verifyJwt, gameXpApi.reportEvent);
+v1Router.post('/games/:gameId/save', verifyJwt, sdkLog('saveData'), gameSaveApi.saveGameData);
+v1Router.get ('/games/:gameId/save', verifyJwt, sdkLog('loadData'), gameSaveApi.loadGameData);
+v1Router.post('/games/:gameId/xp-event',   verifyJwt, sdkLog('reportEvent', { keyField: 'eventKey' }), gameXpApi.reportEvent);
 v1Router.get ('/games/:gameId/leaderboard', verifyJwt, gameXpApi.getLeaderboard);
 v1Router.get ('/games/:gameId/xp-tasks',    verifyJwt, gameXpApi.getXpTasks);
-v1Router.post('/games/:gameId/track-event', verifyJwt, gameFunnelApi.trackEvent);
-v1Router.post('/games/:gameId/purchase',    verifyJwt, gameShopApi.purchase);
+v1Router.post('/games/:gameId/track-event', verifyJwt, sdkLog('trackEvent', { keyField: 'eventKey' }), gameFunnelApi.trackEvent);
+v1Router.post('/games/:gameId/purchase',    verifyJwt, sdkLog('spendCredits', { keyField: 'itemKey' }), gameShopApi.purchase);
 
 // User profile and credits
-v1Router.get('/user/profile',       verifyJwt, authApi.getProfile);
+v1Router.get('/user/profile',       verifyJwt, sdkLog('getCredits', { scope: 'account' }), authApi.getProfile);
 v1Router.get('/user/transactions',  verifyJwt, authApi.getTransactions);
 v1Router.post('/user/deduct-credits', verifyJwt, authApi.deductCredits);
 v1Router.get('/user/tickets',       verifyJwt, ticketsApi.getUserTickets);
@@ -118,7 +121,7 @@ v1Router.get ('/notifications',             verifyJwt, notificationsApi.getNotif
 v1Router.post('/notifications/mark-read',  verifyJwt, notificationsApi.markAllRead);
 
 // Multiplayer signaling — mints a short-lived token for the WebRTC signaling server
-v1Router.get('/multiplayer/token', verifyJwt, multiplayerApi.getSignalingToken);
+v1Router.get('/multiplayer/token', verifyJwt, sdkLog('getMultiplayerToken', { scope: 'account' }), multiplayerApi.getSignalingToken);
 
 // Mount versioned router
 router.use('/v1', v1Router);

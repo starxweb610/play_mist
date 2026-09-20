@@ -26,6 +26,19 @@ function walkFiles(dir) {
   return results;
 }
 
+/**
+ * Where a Unity Addressables premium build sits inside an uploaded zip: '' at
+ * the root, 'Folder/' one folder deep, or null when the zip isn't one. These
+ * zips come from Playmist → Premium → Build Premium Game Zip in unity_runtime:
+ * a JSON catalog plus the Android bundles it references.
+ */
+function findAddressablesRoot(entries) {
+  const catalog = entries.find(e => /^([^/]+\/)?catalog[^/]*\.json$/.test(e));
+  if (!catalog) return null;
+  const root = catalog.slice(0, catalog.lastIndexOf('/') + 1);
+  return entries.some(e => e.startsWith(root) && e.endsWith('.bundle')) ? root : null;
+}
+
 function slugify(str) {
   return str.toLowerCase().trim()
     .replace(/[^a-z0-9\s-]/g, '')
@@ -56,7 +69,8 @@ exports.getIndex = async (req, res) => {
   // play_count uses the same all-time analytics_games count the app API shows as `plays`
   let sql = `SELECT g.*, a.name AS creator,
                (SELECT COUNT(*) FROM analytics_games ag WHERE ag.game_id = g.id) AS play_count
-             FROM games g LEFT JOIN admins a ON g.created_by = a.id WHERE 1=1`;
+             FROM games g LEFT JOIN admins a ON g.created_by = a.id
+             WHERE g.is_sandbox = 0`;
   const params = [];
   if (type)   { sql += ' AND g.type = ?';  params.push(type); }
   if (genre)  { sql += ' AND g.genre = ?'; params.push(genre); }
@@ -84,7 +98,7 @@ exports.getIndex = async (req, res) => {
     genres = genresRows;
 
     const [visibleRows] = await db.query(
-      `SELECT id FROM games WHERE release_stage = 'in_development'
+      `SELECT id FROM games WHERE release_stage = 'in_development' AND is_sandbox = 0
        ORDER BY coming_soon_rank ASC, created_at DESC LIMIT 5`
     );
     comingSoonVisibleIds = visibleRows.map(r => r.id);
@@ -294,10 +308,34 @@ exports.postUpload = async (req, res) => {
     const zip     = new AdmZip(zipFile.path);
     const entries = zip.getEntries().map(e => e.entryName.replace(/\\/g, '/'));
 
-    if (game.type === 'webgl' || game.type === 'premium') {
+    const hasIndexHtml = entries.some(e => e === 'index.html' || e.match(/^[^/]+\/index\.html$/));
+
+    if (game.type === 'premium' && !hasIndexHtml && findAddressablesRoot(entries) !== null) {
+      // Unity Addressables build. Nothing to extract or test in a browser: the
+      // app downloads the zip, extracts it on device and the embedded Unity
+      // runtime loads the catalog from there. Only the zip goes to R2.
+      const r2Prefix = `games/unity/${game.slug}`;
+      await r2.deletePrefix(`${r2Prefix}/`);
+      // Switching from a WebGL build: don't leave its extracted files behind.
+      await r2.deletePrefix(`games/webgl/${game.slug}/`);
+
+      await r2.uploadFile(`${r2Prefix}/game.zip`, zipFile.path, 'application/zip');
+      const zipUrl    = r2.getPublicUrl(`${r2Prefix}/game.zip`);
+      const sizeBytes = fs.statSync(zipFile.path).size;
+
+      await db.query(
+        `UPDATE games SET file_path=?, play_url=NULL, zip_url=?, size_bytes=?, size=?,
+                build_format='unity_addressables' WHERE id=?`,
+        [r2Prefix, zipUrl, sizeBytes, formatBytes(sizeBytes), id]
+      );
+      req.flash('success_msg', '✅ Premium Unity (Addressables) build uploaded to R2. Bump the version so installed copies re-download.');
+    } else if (game.type === 'webgl' || game.type === 'premium') {
       // Require index.html at root
-      const hasRoot = entries.some(e => e === 'index.html' || e.match(/^[^/]+\/index\.html$/));
-      if (!hasRoot) throw new Error('ZIP must contain index.html at root (or one folder deep).');
+      if (!hasIndexHtml) {
+        throw new Error(game.type === 'premium'
+          ? 'ZIP must be a WebGL build (index.html at root or one folder deep) or a Unity Addressables build (catalog .json + .bundle files).'
+          : 'ZIP must contain index.html at root (or one folder deep).');
+      }
 
       extractDir = path.join(PATHS.TEMP_DIR, `extract_${Date.now()}_${id}`);
       await fse.ensureDir(extractDir);
@@ -343,9 +381,11 @@ exports.postUpload = async (req, res) => {
       const sizeBytes = fs.statSync(zipFile.path).size;
 
       await db.query(
-        'UPDATE games SET file_path=?, play_url=?, zip_url=?, size_bytes=?, size=? WHERE id=?',
+        "UPDATE games SET file_path=?, play_url=?, zip_url=?, size_bytes=?, size=?, build_format='webgl' WHERE id=?",
         [r2Prefix, playUrl, zipUrl, sizeBytes, formatBytes(sizeBytes), id]
       );
+      // Switching from a Unity build: drop its zip.
+      await r2.deletePrefix(`games/unity/${game.slug}/`);
       req.flash('success_msg', `✅ ${game.type === 'premium' ? 'Premium' : 'WebGL'} game uploaded to R2! Test it at: ${playUrl}`);
     }
 
