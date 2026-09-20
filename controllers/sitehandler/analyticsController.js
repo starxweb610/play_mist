@@ -350,59 +350,157 @@ exports.getReturningSeries = rangeSeriesHandler(buildReturningSeries, 'returning
 exports.getGamePlaysSeries = rangeSeriesHandler(buildGamePlaysSeries, 'game plays');
 
 /**
- * GET /sitehandler/analytics/returning-users
+ * The date-window presets the Returning Users page offers, keyed by what the
+ * `?window=` param sends. Each resolves to a concrete [from, to] pair at
+ * request time; `all` means no bounds at all (the page's original behaviour).
  *
- * A "returning user" is a registered user who came back on at least one day
- * AFTER their first-seen (install) day — i.e. 2+ distinct active days — and
- * who has actually played at least one game. Users who installed, played once
- * and never came back are excluded by design.
+ * A preset is resolved through this map or ignored, and an explicit
+ * `?from=`/`?to=` is accepted only after matching YYYY-MM-DD and parsing as a
+ * real date — so what reaches the query is always a server-built date string,
+ * never request-shaped SQL.
+ */
+const RU_WINDOWS = {
+  all:  { label: 'All time',      days: null },
+  '7d': { label: 'Last 7 days',   days: 7   },
+  '30d':{ label: 'Last 30 days',  days: 30  },
+  '90d':{ label: 'Last 90 days',  days: 90  },
+};
+const RU_DEFAULT_WINDOW = 'all';
+
+const isYMD = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s)
+  && !isNaN(new Date(s + 'T00:00:00Z').getTime());
+
+const shiftDays = (n) => {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return toYMD(d);
+};
+
+/**
+ * Turns `?from=`/`?to=`/`?window=` into `{ from, to, key, label }`.
+ *
+ * An explicit from/to wins over a preset, because that is what the two date
+ * inputs send when someone picks their own dates. A backwards pair is swapped
+ * rather than rejected: it is an obvious slip, and an empty page would just
+ * look like "no returning users that week".
+ */
+function resolveRuWindow(query) {
+  let from = isYMD(query.from) ? query.from : null;
+  let to   = isYMD(query.to)   ? query.to   : null;
+
+  if (from && to && from > to) [from, to] = [to, from];
+
+  if (from || to) {
+    const label = from && to ? `${from} → ${to}` : (from ? `since ${from}` : `up to ${to}`);
+    return { from, to, key: 'custom', label };
+  }
+
+  const key = Object.prototype.hasOwnProperty.call(RU_WINDOWS, query.window)
+    ? query.window : RU_DEFAULT_WINDOW;
+  const preset = RU_WINDOWS[key];
+  if (!preset.days) return { from: null, to: null, key, label: preset.label };
+
+  // Inclusive of today and of the day `days - 1` back, so "Last 7 days" is
+  // seven dates, not eight.
+  return { from: shiftDays(preset.days - 1), to: toYMD(new Date()), key, label: preset.label };
+}
+
+/**
+ * A `WHERE`-fragment + params pair bounding `col` to the window. Returns
+ * `{ sql: '', params: [] }` for the all-time window, so the same query text
+ * serves both cases.
+ */
+function windowClause(col, win) {
+  const parts = [], params = [];
+  if (win.from) { parts.push(`${col} >= ?`); params.push(win.from); }
+  if (win.to)   { parts.push(`${col} <= ?`); params.push(win.to); }
+  return { sql: parts.length ? ' AND ' + parts.join(' AND ') : '', params };
+}
+
+/**
+ * GET /sitehandler/analytics/returning-users?window=30d | ?from=&to=
+ *
+ * A "returning user" is a registered user who was active on at least one day
+ * AFTER their first-seen (install) day, and who has actually played a game.
+ * Users who installed, played once and never came back are excluded by design.
+ *
+ * With a date window, the same definition is applied *inside* the window: a
+ * user is listed if one of their active days in the window falls after their
+ * first-ever day, and they played a game in the window. Every per-user number
+ * (active days, plays, games, first/last seen) is then the window's, so the
+ * rows say what happened in that period rather than all-time totals filtered
+ * down to it.
+ *
+ * ⚠ The first-seen baseline is deliberately NOT bounded by the window. Bound
+ * it, and a player whose real first day sits just before the window looks like
+ * a brand-new arrival inside it and drops out of the very list meant to count
+ * them. It is also `MIN(event_date)` rather than `DATE(users.created_at)` —
+ * see buildReturningSeries for why mixing those two clocks invents retention.
  *
  * Activity days are the union of analytics_app (app opens) and analytics_games
  * (game plays); both tables store at most one row per user per day, so a
  * distinct event_date count is a clean "days active" measure.
  */
 exports.getReturningUsers = async (req, res) => {
+  const win = resolveRuWindow(req.query);
+
   let users = [];
-  let summary = { returningUsers: 0, totalActiveUsers: 0, returningPct: 0, avgActiveDays: 0, repeatGamePlayers: 0 };
+  let byDate = [];
+  let summary = {
+    returningUsers: 0, totalActiveUsers: 0, returningPct: 0,
+    avgActiveDays: 0, repeatGamePlayers: 0, daysCovered: 0,
+  };
 
   try {
+    const wAct  = windowClause('a.event_date',  win);
+    const wPlay = windowClause('ag.event_date', win);
+
     const activityCte = `
       WITH activity AS (
         SELECT user_id, event_date FROM analytics_app   WHERE user_id IS NOT NULL
         UNION
         SELECT user_id, event_date FROM analytics_games WHERE user_id IS NOT NULL
       ),
+      first_seen AS (
+        SELECT user_id, MIN(event_date) AS ever_first_day
+        FROM activity GROUP BY user_id
+      ),
       user_days AS (
-        SELECT user_id,
-               MIN(event_date)            AS first_day,
-               MAX(event_date)            AS last_day,
-               COUNT(DISTINCT event_date) AS active_days
-        FROM activity
-        GROUP BY user_id
+        SELECT a.user_id,
+               f.ever_first_day,
+               MIN(a.event_date)            AS first_day,
+               MAX(a.event_date)            AS last_day,
+               COUNT(DISTINCT a.event_date) AS active_days,
+               COUNT(DISTINCT CASE WHEN a.event_date > f.ever_first_day
+                                   THEN a.event_date END) AS return_days
+        FROM activity a
+        JOIN first_seen f ON f.user_id = a.user_id
+        WHERE 1 = 1${wAct.sql}
+        GROUP BY a.user_id, f.ever_first_day
       ),
       user_plays AS (
-        SELECT user_id,
-               COUNT(*)                   AS total_plays,
-               COUNT(DISTINCT game_id)    AS games_played,
-               COUNT(DISTINCT event_date) AS play_days,
-               MAX(event_date)            AS last_play_date
-        FROM analytics_games
-        WHERE user_id IS NOT NULL
-        GROUP BY user_id
+        SELECT ag.user_id,
+               COUNT(*)                      AS total_plays,
+               COUNT(DISTINCT ag.game_id)    AS games_played,
+               COUNT(DISTINCT ag.event_date) AS play_days,
+               MAX(ag.event_date)            AS last_play_date
+        FROM analytics_games ag
+        WHERE ag.user_id IS NOT NULL${wPlay.sql}
+        GROUP BY ag.user_id
       )`;
 
     const [rows] = await db.query(`${activityCte}
       SELECT u.id, u.username, u.email, u.is_active, u.created_at,
-             d.first_day, d.last_day, d.active_days,
+             d.ever_first_day, d.first_day, d.last_day, d.active_days, d.return_days,
              p.total_plays, p.games_played, p.play_days, p.last_play_date,
              DATEDIFF(d.last_day, d.first_day)  AS span_days,
              DATEDIFF(CURDATE(), d.last_day)    AS days_since_last_seen
       FROM user_days d
       JOIN users u       ON u.id = d.user_id
       JOIN user_plays p  ON p.user_id = d.user_id
-      WHERE d.active_days >= 2
-        AND d.last_day > d.first_day
-      ORDER BY d.active_days DESC, p.total_plays DESC`);
+      WHERE d.return_days >= 1
+      ORDER BY d.active_days DESC, p.total_plays DESC`,
+      [...wAct.params, ...wPlay.params]);
 
     users = rows;
 
@@ -412,13 +510,14 @@ exports.getReturningUsers = async (req, res) => {
         `SELECT ag.user_id, ag.game_id, g.title, g.thumbnail_url,
                 COUNT(DISTINCT ag.event_date) AS play_days,
                 MIN(ag.event_date)            AS first_played,
-                MAX(ag.event_date)            AS last_played
+                MAX(ag.event_date)            AS last_played,
+                GROUP_CONCAT(DISTINCT ag.event_date ORDER BY ag.event_date) AS play_dates
          FROM analytics_games ag
          LEFT JOIN games g ON g.id = ag.game_id
-         WHERE ag.user_id IN (?)
+         WHERE ag.user_id IN (?)${wPlay.sql}
          GROUP BY ag.user_id, ag.game_id, g.title, g.thumbnail_url
          ORDER BY play_days DESC, last_played DESC`,
-        [ids]
+        [ids, ...wPlay.params]
       );
 
       const byUser = new Map();
@@ -431,6 +530,9 @@ exports.getReturningUsers = async (req, res) => {
           playDays:    Number(r.play_days) || 0,
           firstPlayed: toYMD(r.first_played),
           lastPlayed:  toYMD(r.last_played),
+          // GROUP_CONCAT of DATE columns comes back as 'YYYY-MM-DD' strings
+          // already; the split is just to hand the view an array.
+          dates:       (r.play_dates || '').split(',').filter(Boolean),
         });
       });
 
@@ -444,13 +546,81 @@ exports.getReturningUsers = async (req, res) => {
           topGame:      games[0] || null,
           firstDay:     toYMD(u.first_day),
           lastDay:      toYMD(u.last_day),
+          everFirstDay: toYMD(u.ever_first_day),
           lastPlayDate: toYMD(u.last_play_date),
         };
       });
     }
 
-    const [[activeTotal]] = await db.query(`${activityCte}
-      SELECT COUNT(*) AS c FROM user_days d JOIN users u ON u.id = d.user_id`);
+    // Day-by-day: for each date in the window, which returning players played
+    // and what they played. A "return play" is a play on a day later than the
+    // player's first-ever day — the same measure the dashboard's Returning
+    // Players line draws, so the two never disagree.
+    const [dayRows] = await db.query(`
+      WITH activity AS (
+        SELECT user_id, event_date FROM analytics_app   WHERE user_id IS NOT NULL
+        UNION ALL
+        SELECT user_id, event_date FROM analytics_games WHERE user_id IS NOT NULL
+      ),
+      first_seen AS (
+        SELECT user_id, MIN(event_date) AS ever_first_day
+        FROM activity GROUP BY user_id
+      )
+      SELECT ag.event_date, ag.game_id, ag.user_id,
+             g.title, g.thumbnail_url, u.username
+      FROM analytics_games ag
+      JOIN first_seen f ON f.user_id = ag.user_id
+      JOIN users      u ON u.id      = ag.user_id
+      LEFT JOIN games g ON g.id      = ag.game_id
+      WHERE ag.user_id IS NOT NULL
+        AND ag.event_date > f.ever_first_day${wPlay.sql}
+      ORDER BY ag.event_date DESC, g.title`,
+      wPlay.params);
+
+    const dayMap = new Map();
+    dayRows.forEach(r => {
+      const date = toYMD(r.event_date);
+      if (!dayMap.has(date)) dayMap.set(date, { date, users: new Set(), games: new Map() });
+      const day = dayMap.get(date);
+      day.users.add(r.user_id);
+
+      if (!day.games.has(r.game_id)) {
+        day.games.set(r.game_id, {
+          gameId:    r.game_id,
+          title:     r.title || `Game #${r.game_id}`,
+          thumbnail: r.thumbnail_url || null,
+          players:   [],
+        });
+      }
+      day.games.get(r.game_id).players.push({ id: r.user_id, username: r.username });
+    });
+
+    byDate = Array.from(dayMap.values())
+      .map(d => {
+        const games = Array.from(d.games.values())
+          .sort((a, b) => b.players.length - a.players.length || a.title.localeCompare(b.title));
+        return {
+          date:           d.date,
+          returningUsers: d.users.size,
+          gameCount:      games.length,
+          plays:          games.reduce((s, g) => s + g.players.length, 0),
+          topGame:        games[0] || null,
+          games,
+        };
+      })
+      .sort((a, b) => b.date.localeCompare(a.date));
+
+    const [[activeTotal]] = await db.query(`
+      WITH activity AS (
+        SELECT user_id, event_date FROM analytics_app   WHERE user_id IS NOT NULL
+        UNION
+        SELECT user_id, event_date FROM analytics_games WHERE user_id IS NOT NULL
+      )
+      SELECT COUNT(DISTINCT a.user_id) AS c
+      FROM activity a
+      JOIN users u ON u.id = a.user_id
+      WHERE 1 = 1${wAct.sql}`,
+      wAct.params);
 
     summary.returningUsers    = users.length;
     summary.totalActiveUsers  = activeTotal.c || 0;
@@ -459,6 +629,7 @@ exports.getReturningUsers = async (req, res) => {
     summary.avgActiveDays     = users.length
       ? Math.round((users.reduce((s, u) => s + Number(u.active_days), 0) / users.length) * 10) / 10 : 0;
     summary.repeatGamePlayers = users.filter(u => u.repeatGames && u.repeatGames.length > 0).length;
+    summary.daysCovered       = byDate.length;
   } catch (err) {
     console.error('Failed to load returning users:', err.message);
     req.flash('error_msg', 'Could not load returning users: ' + err.message);
@@ -468,6 +639,9 @@ exports.getReturningUsers = async (req, res) => {
     title: 'Returning Users',
     activePage: 'analytics',
     users,
+    byDate,
     summary,
+    windows: RU_WINDOWS,
+    win,
   });
 };

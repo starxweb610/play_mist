@@ -62,6 +62,56 @@
       .ru-game { grid-template-columns: 34px 1fr auto; }
       .ru-game .ru-bar { display: none; }
     }
+
+    /* Date window controls */
+    .ru-window {
+      display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px;
+      margin: 0 0 16px; padding: 14px 16px;
+      background: var(--a-card); border: 1px solid var(--a-border);
+      border-radius: var(--a-radius);
+    }
+    .ru-window-field { display: flex; flex-direction: column; gap: 5px; }
+    .ru-window-field label {
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--a-text-dim);
+    }
+    .ru-date {
+      padding: 8px 10px; background: var(--a-card-2, rgba(255,255,255,0.03));
+      border: 1px solid var(--a-border); border-radius: 8px;
+      color: var(--a-text); font-size: 0.85rem; color-scheme: dark;
+    }
+    .ru-date:focus { outline: none; border-color: rgba(124,58,237,0.4); }
+    .ru-window-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+    .ru-window-presets a { text-decoration: none; }
+    .ru-window-label {
+      font-size: 0.78rem; color: var(--a-text-dim);
+      width: 100%; margin: 2px 0 0;
+    }
+    .ru-window-label strong { color: var(--a-text); }
+
+    /* Day-by-day breakdown */
+    .ru-section-head { margin: 26px 0 12px; }
+    .ru-section-head h3 { margin: 0 0 4px; font-size: 1.02rem; }
+    .ru-section-head p  { margin: 0; font-size: 0.8rem; color: var(--a-text-dim); }
+    .ru-day-games { display: grid; gap: 8px; }
+    .ru-day-game {
+      display: grid; grid-template-columns: 34px minmax(140px, 1fr) auto;
+      align-items: center; gap: 12px;
+      padding: 9px 12px; border-radius: 9px;
+      background: var(--a-card-bg, rgba(255,255,255,0.02));
+      border: 1px solid var(--a-border);
+    }
+    .ru-players { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+    .ru-player {
+      font-size: 0.71rem; padding: 2px 7px; border-radius: 99px;
+      background: rgba(124,58,237,0.12); border: 1px solid rgba(124,58,237,0.22);
+      color: #a78bfa; white-space: nowrap;
+    }
+    .ru-dates { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .ru-date-chip {
+      font-size: 0.68rem; padding: 1px 6px; border-radius: 5px;
+      background: rgba(255,255,255,0.05); color: var(--a-text-dim);
+    }
   </style>
 </head>
 <body class="admin-body">
@@ -84,12 +134,40 @@
       </div>
     </div>
 
+    <form class="ru-window" method="get" action="/sitehandler/analytics/returning-users" id="ruWindowForm">
+      <div class="ru-window-field">
+        <label for="ruFrom">From</label>
+        <input type="date" id="ruFrom" name="from" class="ru-date" value="<%= win.from || '' %>" />
+      </div>
+      <div class="ru-window-field">
+        <label for="ruTo">To</label>
+        <input type="date" id="ruTo" name="to" class="ru-date" value="<%= win.to || '' %>" />
+      </div>
+      <button type="submit" class="filter-chip filter-chip--active">Apply dates</button>
+
+      <div class="ru-window-presets">
+        <% Object.keys(windows).forEach(k => { %>
+          <a class="filter-chip <%= win.key === k ? 'filter-chip--active' : '' %>"
+             href="/sitehandler/analytics/returning-users<%= k === 'all' ? '' : '?window=' + k %>"><%= windows[k].label %></a>
+        <% }) %>
+      </div>
+
+      <p class="ru-window-label">
+        Showing <strong><%= win.label %></strong><% if (win.key !== 'all') { %> — every count on this page is for that
+        window only; the “first seen” baseline that decides who counts as returning still spans all history.<% } %>
+      </p>
+    </form>
+
     <p class="ru-note">
       <strong>How this list is built:</strong> a user appears here only if they were active on
       <strong>2 or more different days</strong> — i.e. they opened the app or played a game on at least one day
       <em>after</em> their first (install) day — <strong>and</strong> they have played at least one game.
       One-time installs who played once and never came back are excluded.
       Activity is counted once per user per day, so “days played” is the number of distinct days a game was opened.
+      <br />
+      <strong>With a date filter on,</strong> a user is listed when one of their active days <em>inside the window</em>
+      falls after their first-ever day, and they played a game inside it — so the numbers describe that period,
+      not all-time totals trimmed to it.
     </p>
 
     <!-- Summary tiles -->
@@ -101,6 +179,9 @@
         <div class="stat-card-body">
           <span class="stat-card-label">Returning Users</span>
           <span class="stat-card-value"><%= summary.returningUsers.toLocaleString() %></span>
+          <span class="stat-card-label">
+            <% if (summary.daysCovered) { %>returning play on <%= summary.daysCovered %> day<%= summary.daysCovered === 1 ? '' : 's' %> in this window<% } else { %>no returning play in this window<% } %>
+          </span>
         </div>
       </div>
       <div class="stat-card">
@@ -132,6 +213,88 @@
           <span class="stat-card-label">played the same game on 2+ days</span>
         </div>
       </div>
+    </div>
+
+    <div class="ru-section-head">
+      <h3>Day by day</h3>
+      <p>Each date in this window, how many returning players played that day, and exactly what they played.
+         A play counts here when it happened on a day later than that player’s first-ever day.</p>
+    </div>
+
+    <% if (byDate.length > 0) { %>
+      <div class="data-table-wrapper">
+        <table class="data-table" id="ruDayTable">
+          <thead>
+            <tr>
+              <th style="width:40px;"></th>
+              <th>Date</th>
+              <th>Returning Players</th>
+              <th>Games Played</th>
+              <th>Plays</th>
+              <th>Most Played That Day</th>
+            </tr>
+          </thead>
+          <tbody id="ruDayTbody">
+            <% byDate.forEach(d => { %>
+              <tr class="ru-row ru-day-row" data-date="<%= d.date %>">
+                <td>
+                  <button type="button" class="ru-toggle" aria-label="Show games played on <%= d.date %>">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+                </td>
+                <td class="fw-600"><%= d.date %></td>
+                <td><span class="badge badge--active"><%= d.returningUsers %></span></td>
+                <td><%= d.gameCount %></td>
+                <td><strong style="color: var(--accent-color);"><%= d.plays %></strong></td>
+                <td class="text-sm">
+                  <% if (d.topGame) { %>
+                    <%= d.topGame.title %>
+                    <span class="text-dim">· <%= d.topGame.players.length %> player<%= d.topGame.players.length === 1 ? '' : 's' %></span>
+                  <% } else { %><span class="text-dim">—</span><% } %>
+                </td>
+              </tr>
+              <tr class="ru-detail-row ru-hidden" data-day-detail-for="<%= d.date %>">
+                <td colspan="6">
+                  <div class="ru-detail-inner">
+                    <p class="ru-detail-title">Games played by returning players on <%= d.date %></p>
+                    <div class="ru-day-games">
+                      <% d.games.forEach(g => { %>
+                        <div class="ru-day-game">
+                          <% if (g.thumbnail) { %>
+                            <img class="ru-game-thumb" src="<%= g.thumbnail %>" alt="" />
+                          <% } else { %>
+                            <div class="ru-game-thumb"><%= g.title.charAt(0).toUpperCase() %></div>
+                          <% } %>
+                          <div>
+                            <div class="ru-game-name"><%= g.title %></div>
+                            <div class="ru-players">
+                              <% g.players.forEach(pl => { %>
+                                <span class="ru-player">@<%= pl.username %></span>
+                              <% }) %>
+                            </div>
+                          </div>
+                          <div class="ru-game-count">
+                            <strong><%= g.players.length %></strong> player<%= g.players.length === 1 ? '' : 's' %>
+                          </div>
+                        </div>
+                      <% }) %>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <div class="widget-placeholder" style="min-height:140px">
+        <p>No returning play was recorded on any date in this window.</p>
+      </div>
+    <% } %>
+
+    <div class="ru-section-head">
+      <h3>Players</h3>
+      <p>One row per returning player, with every game they played in this window.</p>
     </div>
 
     <% if (users.length > 0) { %>
@@ -247,6 +410,9 @@
                           <div>
                             <div class="ru-game-name"><%= g.title %></div>
                             <div class="ru-game-dates"><%= g.firstPlayed %> → <%= g.lastPlayed %></div>
+                            <div class="ru-dates">
+                              <% g.dates.forEach(dt => { %><span class="ru-date-chip"><%= dt %></span><% }) %>
+                            </div>
                           </div>
                           <div class="ru-bar">
                             <div class="ru-bar-fill" style="width: <%= Math.max(6, Math.round((g.playDays / maxDays) * 100)) %>%"></div>
@@ -268,12 +434,54 @@
       <div class="widget-placeholder ru-hidden" id="ruEmpty" style="min-height:120px"><p>No players match these filters.</p></div>
     <% } else { %>
       <div class="widget-placeholder" style="min-height:200px;margin-top:18px">
-        <p>No returning users yet — nobody has come back on a day after their first day (and played a game).</p>
+        <p>
+          <% if (win.key === 'all') { %>
+            No returning users yet — nobody has come back on a day after their first day (and played a game).
+          <% } else { %>
+            No returning users in <%= win.label %> — nobody who had been seen before played a game in this window.
+            Try a wider range, or <a href="/sitehandler/analytics/returning-users">view all time</a>.
+          <% } %>
+        </p>
       </div>
     <% } %>
 
   </main>
 </div>
+
+<script>
+// Day-by-day table: its own opener, so it still works on a window where no
+// player rows rendered below it.
+(function initReturningDays() {
+  const tbody = document.getElementById('ruDayTbody');
+  if (!tbody) return;
+
+  const details = new Map();
+  tbody.querySelectorAll('.ru-detail-row').forEach(d => details.set(d.dataset.dayDetailFor, d));
+
+  tbody.addEventListener('click', (e) => {
+    const btn = e.target.closest('.ru-toggle');
+    if (!btn) return;
+    const row    = btn.closest('.ru-day-row');
+    const detail = details.get(row.dataset.date);
+    const open   = !row.classList.contains('is-open');
+    row.classList.toggle('is-open', open);
+    if (detail) detail.classList.toggle('ru-hidden', !open);
+  });
+})();
+
+// Picking a date submits the window form, so the page reloads with data for
+// that range instead of filtering only what the current range already sent.
+(function initWindowForm() {
+  const form = document.getElementById('ruWindowForm');
+  if (!form) return;
+  form.querySelectorAll('.ru-date').forEach(input => {
+    input.addEventListener('change', () => {
+      const from = form.from.value, to = form.to.value;
+      if (from && to) form.submit();   // both ends set — go
+    });
+  });
+})();
+</script>
 
 <script>
 (function initReturningUsers() {
