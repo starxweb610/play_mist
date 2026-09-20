@@ -84,6 +84,27 @@ async function buildDauSeries(days) {
 }
 
 /**
+ * Game play events per day over the last `days` days.
+ *
+ * Deliberately COUNT(*), not distinct users: this is the volume line — how
+ * much play happened — and it keeps the measure the fixed 14-day version
+ * showed, so adding the range control changed the window and nothing else.
+ * Anonymous plays count here, as they always did.
+ *
+ * `days` must already have come from DAU_RANGES.
+ */
+async function buildGamePlaysSeries(days) {
+  const [rows] = await db.query(
+    `SELECT event_date AS date, COUNT(*) AS count
+     FROM analytics_games
+     WHERE event_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+     GROUP BY event_date ORDER BY event_date`,
+    [days]
+  );
+  return fillSeries(days, rows);
+}
+
+/**
  * Returning players per day: registered users who played a game on a day
  * LATER than the first day they were ever seen. Day one — install, sign-up,
  * the first session — is excluded by construction, so this line answers
@@ -133,12 +154,12 @@ exports.getIndex = async (req, res) => {
   let totals = { appOpens: 0, gamePlayEvents: 0, todayOpens: 0, todayPlays: 0 };
   let deviceData  = { android: 0, ios: 0, other: 0 };
   let dailyOpens  = [];  // [{ date, count }]  last 14 days
-  let dailyPlays  = [];  // [{ date, count }]  last 14 days
   let topGames    = [];  // [{ title, plays }]
   // Filled by buildDauSeries below; the zero-filled default is what renders if
   // the analytics tables are missing or the query fails.
   let dauSeries       = emptySeries(DAU_RANGES[DAU_DEFAULT_RANGE].days);
   let returningSeries = emptySeries(DAU_RANGES[DAU_DEFAULT_RANGE].days);
+  let gamePlaysSeries = emptySeries(DAU_RANGES[DAU_DEFAULT_RANGE].days);
   let engagement  = {
     totalUsers: 0,
     playedUsers: 0, playedPct: 0,
@@ -154,10 +175,10 @@ exports.getIndex = async (req, res) => {
       [todayOp],  [todayPl],
       [devRows],
       [dailyOpRows],
-      [dailyPlRows],
       [topGamesRows],
       dauSeriesResult,
       returningSeriesResult,
+      gamePlaysSeriesResult,
       [totalUsersRows],
       [playedUsersRows],
       [returningUsersRows],
@@ -171,9 +192,6 @@ exports.getIndex = async (req, res) => {
       db.query(`SELECT event_date AS date, COUNT(*) AS count FROM analytics_app
                 WHERE event_date >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
                 GROUP BY event_date ORDER BY event_date`),
-      db.query(`SELECT event_date AS date, COUNT(*) AS count FROM analytics_games
-                WHERE event_date >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
-                GROUP BY event_date ORDER BY event_date`),
       db.query(`SELECT g.title, COUNT(ag.id) AS plays
                 FROM analytics_games ag
                 JOIN games g ON ag.game_id = g.id
@@ -184,6 +202,8 @@ exports.getIndex = async (req, res) => {
       buildDauSeries(DAU_RANGES[DAU_DEFAULT_RANGE].days),
       // Returning players, same default range but its own dropdown.
       buildReturningSeries(DAU_RANGES[DAU_DEFAULT_RANGE].days),
+      // Game plays, same default range but its own dropdown.
+      buildGamePlaysSeries(DAU_RANGES[DAU_DEFAULT_RANGE].days),
       // User Engagement modal — total registered users
       db.query('SELECT COUNT(*) AS c FROM users'),
       // Users who have played at least one game (any logged play event)
@@ -204,10 +224,10 @@ exports.getIndex = async (req, res) => {
 
     devRows.forEach(r => { if (r.device in deviceData) deviceData[r.device] = r.c; });
     dailyOpens  = dailyOpRows;
-    dailyPlays  = dailyPlRows;
     topGames    = topGamesRows;
     dauSeries       = dauSeriesResult;
     returningSeries = returningSeriesResult;
+    gamePlaysSeries = gamePlaysSeriesResult;
 
     const totalUsers = totalUsersRows[0].c;
     const pct = (count) => totalUsers > 0 ? Math.round((count / totalUsers) * 1000) / 10 : 0;
@@ -233,10 +253,10 @@ exports.getIndex = async (req, res) => {
     return `${year}-${month}-${day}`;
   };
 
-  // Build 14-day date labels for charts (fill missing days with 0)
+  // Build 14-day date labels for the App Opens chart (fill missing days with 0).
+  // Game plays no longer ride along here — it has its own range now.
   const labels  = [];
   const openCounts = [];
-  const playCounts = [];
   for (let i = 13; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
@@ -248,9 +268,7 @@ exports.getIndex = async (req, res) => {
     
     labels.push(dateStr.slice(5)); // MM-DD
     const op = dailyOpens.find(r => getYYYYMMDD(r.date) === dateStr);
-    const pl = dailyPlays.find(r => getYYYYMMDD(r.date) === dateStr);
     openCounts.push(op ? op.count : 0);
-    playCounts.push(pl ? pl.count : 0);
   }
 
   res.render('sitehandler/analytics/index', {
@@ -263,12 +281,15 @@ exports.getIndex = async (req, res) => {
     returningDelta:     returningSeries.dauDelta,
     dauRanges: DAU_RANGES,
     dauRangeKey: DAU_DEFAULT_RANGE,
-    chartData: JSON.stringify({ labels, openCounts, playCounts }),
+    chartData: JSON.stringify({ labels, openCounts }),
     dauData: JSON.stringify({
       labels: dauSeries.labels, dates: dauSeries.dates, counts: dauSeries.counts,
     }),
     returningData: JSON.stringify({
       labels: returningSeries.labels, dates: returningSeries.dates, counts: returningSeries.counts,
+    }),
+    gamePlaysData: JSON.stringify({
+      labels: gamePlaysSeries.labels, dates: gamePlaysSeries.dates, counts: gamePlaysSeries.counts,
     }),
     topGamesData: JSON.stringify({
       labels: topGames.map(g => g.title),
@@ -321,6 +342,12 @@ exports.getDauSeries = rangeSeriesHandler(buildDauSeries, 'DAU');
  * The returning-players chart's own range dropdown.
  */
 exports.getReturningSeries = rangeSeriesHandler(buildReturningSeries, 'returning players');
+
+/**
+ * GET /sitehandler/analytics/game-plays?range=30d
+ * The game plays chart's own range dropdown.
+ */
+exports.getGamePlaysSeries = rangeSeriesHandler(buildGamePlaysSeries, 'game plays');
 
 /**
  * GET /sitehandler/analytics/returning-users

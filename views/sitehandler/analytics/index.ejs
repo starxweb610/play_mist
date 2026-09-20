@@ -185,7 +185,17 @@
     <!-- Charts Row 2 -->
     <div class="analytics-grid">
       <div class="chart-card chart-card--wide">
-        <div class="chart-header"><h3>Game Plays — Last 14 Days</h3></div>
+        <div class="chart-header chart-header--row">
+          <div class="chart-title-group">
+            <h3>Game Plays</h3>
+            <select id="gamePlaysRange" class="filter-select filter-select--sm" aria-label="Date range for the Game Plays chart">
+              <% Object.keys(dauRanges).forEach(function (key) { %>
+                <option value="<%= key %>" <%= key === dauRangeKey ? 'selected' : '' %>><%= dauRanges[key].label %></option>
+              <% }); %>
+            </select>
+            <span id="gamePlaysRangeError" class="dau-range-error" hidden>Couldn't load that range.</span>
+          </div>
+        </div>
         <div class="chart-body"><canvas id="gamePlaysChart"></canvas></div>
       </div>
       <div class="chart-card">
@@ -229,6 +239,7 @@ const chartData    = <%- chartData %>;
 const topGamesData = <%- topGamesData %>;
 const dauData      = <%- dauData %>;
 const returningData = <%- returningData %>;
+const gamePlaysData = <%- gamePlaysData %>;
 
 const gridColor  = 'rgba(255,255,255,0.05)';
 const tickColor  = '#64748b';
@@ -289,8 +300,10 @@ function buildRangeChart({ canvasId, label, color, fill, data }) {
 function wireRangeDropdown({ chart, endpoint, selectId, errorId, todayId, deltaId }) {
   const select  = document.getElementById(selectId);
   const errorEl = document.getElementById(errorId);
-  const todayEl = document.getElementById(todayId);
-  const deltaEl = document.getElementById(deltaId);
+  // todayId/deltaId are optional — the Game Plays card carries the dropdown
+  // without the today/delta readout the two hero charts have.
+  const todayEl = todayId ? document.getElementById(todayId) : null;
+  const deltaEl = deltaId ? document.getElementById(deltaId) : null;
   if (!select) return;
 
   // Every change supersedes the one before it: a slow 1-year response must not
@@ -318,12 +331,14 @@ function wireRangeDropdown({ chart, endpoint, selectId, errorId, todayId, deltaI
       chart.$dates = data.dates || [];
       chart.update();
 
-      todayEl.textContent = Number(data.todayDau).toLocaleString();
-      const delta = Number(data.dauDelta);
-      deltaEl.className = 'dau-delta' + (delta > 0 ? ' dau-delta--up' : (delta < 0 ? ' dau-delta--down' : ''));
-      deltaEl.textContent = delta === 0
-        ? '— same as yesterday'
-        : (delta > 0 ? '▲ ' : '▼ ') + Math.abs(delta).toLocaleString() + ' vs yesterday';
+      if (todayEl) todayEl.textContent = Number(data.todayDau).toLocaleString();
+      if (deltaEl) {
+        const delta = Number(data.dauDelta);
+        deltaEl.className = 'dau-delta' + (delta > 0 ? ' dau-delta--up' : (delta < 0 ? ' dau-delta--down' : ''));
+        deltaEl.textContent = delta === 0
+          ? '— same as yesterday'
+          : (delta > 0 ? '▲ ' : '▼ ') + Math.abs(delta).toLocaleString() + ' vs yesterday';
+      }
     } catch (err) {
       if (token !== latest) return;
       // Leave the previous range on screen. A chart redrawn flat on a failed
@@ -384,31 +399,15 @@ new Chart(document.getElementById('appOpensChart'), {
   }
 });
 
-// Game Plays Line Chart
-new Chart(document.getElementById('gamePlaysChart'), {
-  type: 'line',
-  data: {
-    labels: chartData.labels,
-    datasets: [{
-      label: 'Game Plays',
-      data:  chartData.playCounts,
-      borderColor: '#06b6d4',
-      backgroundColor: 'rgba(6,182,212,0.1)',
-      borderWidth: 2,
-      fill: true,
-      tension: 0.4,
-      pointBackgroundColor: '#06b6d4',
-      pointRadius: 4,
-    }]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: {
-      x: { grid: { color: gridColor }, ticks: { color: tickColor } },
-      y: { grid: { color: gridColor }, ticks: { color: tickColor, stepSize: 1, precision: 0 }, beginAtZero: true }
-    }
-  }
+// Game Plays — same range factory as the two charts above, so it gains the
+// dropdown, the full-date tooltip and the supersede/failure handling with it.
+const gamePlaysChart = buildRangeChart({
+  canvasId: 'gamePlaysChart', label: 'Game Plays',
+  color: '#06b6d4', fill: 'rgba(6,182,212,0.1)', data: gamePlaysData,
+});
+wireRangeDropdown({
+  chart: gamePlaysChart, endpoint: '/sitehandler/analytics/game-plays',
+  selectId: 'gamePlaysRange', errorId: 'gamePlaysRangeError',
 });
 
 // Device Doughnut
